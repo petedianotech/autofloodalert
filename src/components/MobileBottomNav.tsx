@@ -78,7 +78,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   return (
     <nav
       id="mobile-bottom-navigation-bar"
-      className="shrink-0 sticky bottom-0 z-40 w-full bg-[#FEF7FF]/95 backdrop-blur-md border-t border-slate-100 select-none pb-safe shadow-xs"
+      className="md:hidden shrink-0 sticky bottom-0 z-40 w-full bg-[#FEF7FF]/95 backdrop-blur-md border-t border-slate-100 select-none pb-safe shadow-xs"
     >
       <div className="max-w-md mx-auto px-2 py-1.5 flex items-center justify-around">
         {tabs.map((tab) => {

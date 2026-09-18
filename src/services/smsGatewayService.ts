@@ -28,6 +28,12 @@ export interface SmsGatewayConfig {
 
 const STORAGE_KEY = 'flood_alert_sms_gateway_config_v1';
 
+// Clean and normalize phone number (strip whitespace, dashes, parentheses)
+export const normalizePhoneNumber = (phone: string): string => {
+  if (!phone) return '';
+  return phone.trim().replace(/[\s\-\(\)\.]/g, '');
+};
+
 // Default configuration for user's Textbee SMS Gateway (Samsung SM-A105F)
 const DEFAULT_CONFIG: SmsGatewayConfig = {
   enabled: true,
@@ -46,11 +52,12 @@ const isMockRecipient = (rec: SmsRecipient): boolean => {
   if (!rec) return true;
   if (rec.id && rec.id.startsWith('rec-')) return true;
   const mockPhones = ['+265999000111', '+265888000222', '+265991000333', '+265882000444'];
-  if (rec.phone && mockPhones.includes(rec.phone.trim())) return true;
+  if (rec.phone && mockPhones.includes(normalizePhoneNumber(rec.phone))) return true;
   const mockNames = [
     'Village Headman Dzenje',
     'Dzenje CDSS Head Teacher',
     'Mulanje Disaster Committee (CPDC)',
+    'Machokola Village Evacuation Team',
     'Machokola Evacuation Team',
   ];
   if (rec.name && mockNames.includes(rec.name.trim())) return true;
@@ -60,6 +67,10 @@ const isMockRecipient = (rec: SmsRecipient): boolean => {
 class SmsGatewayServiceClass {
   private config: SmsGatewayConfig;
   private db: any = null;
+  private listeners: Set<(recipients: SmsRecipient[]) => void> = new Set();
+  private isBroadcasting: boolean = false;
+  private lastAutoBroadcastTime: number = 0;
+  private autoBroadcastCooldownMs: number = 45000; // 45-second cooldown for automated SMS alert dispatch
 
   constructor() {
     this.config = this.loadConfig();
@@ -71,7 +82,9 @@ class SmsGatewayServiceClass {
       if (saved) {
         const parsed = JSON.parse(saved);
         const rawRecipients: SmsRecipient[] = Array.isArray(parsed.recipients) ? parsed.recipients : [];
-        const cleanRecipients = rawRecipients.filter((r) => !isMockRecipient(r));
+        const cleanRecipients = this.deduplicateRecipients(
+          rawRecipients.filter((r) => !isMockRecipient(r))
+        );
         return {
           ...DEFAULT_CONFIG,
           ...parsed,
@@ -84,16 +97,52 @@ class SmsGatewayServiceClass {
     return { ...DEFAULT_CONFIG, recipients: [] };
   }
 
+  private deduplicateRecipients(list: SmsRecipient[]): SmsRecipient[] {
+    const seenPhones = new Set<string>();
+    const seenIds = new Set<string>();
+    const result: SmsRecipient[] = [];
+
+    for (const r of list) {
+      if (!r || !r.phone) continue;
+      const cleanPhone = normalizePhoneNumber(r.phone);
+      if (cleanPhone.length < 6) continue;
+      if (seenPhones.has(cleanPhone) || (r.id && seenIds.has(r.id))) {
+        continue;
+      }
+      seenPhones.add(cleanPhone);
+      if (r.id) seenIds.add(r.id);
+      result.push({
+        ...r,
+        phone: cleanPhone,
+        village: r.village === 'Machokola' ? 'Machokola Village' : (r.village || 'Dzenje Village'),
+      });
+    }
+    return result;
+  }
+
+  public subscribeRecipients(cb: (recipients: SmsRecipient[]) => void): () => void {
+    this.listeners.add(cb);
+    cb(this.getConfig().recipients);
+    return () => this.listeners.delete(cb);
+  }
+
+  private notifyListeners() {
+    const recs = this.getConfig().recipients;
+    this.listeners.forEach((cb) => cb(recs));
+  }
+
   public getConfig(): SmsGatewayConfig {
     return {
       ...this.config,
-      recipients: (this.config.recipients || []).filter((r) => !isMockRecipient(r)),
+      recipients: this.deduplicateRecipients(
+        (this.config.recipients || []).filter((r) => !isMockRecipient(r))
+      ),
     };
   }
 
   public saveConfig(newConfig: Partial<SmsGatewayConfig>) {
-    const recipientsToSave = (newConfig.recipients || this.config.recipients || []).filter(
-      (r) => !isMockRecipient(r)
+    const recipientsToSave = this.deduplicateRecipients(
+      (newConfig.recipients || this.config.recipients || []).filter((r) => !isMockRecipient(r))
     );
     this.config = {
       ...this.config,
@@ -105,18 +154,25 @@ class SmsGatewayServiceClass {
     } catch {
       // ignore
     }
+    this.notifyListeners();
   }
 
   public addRecipient(recipient: Omit<SmsRecipient, 'id'>) {
+    const cleanPhone = normalizePhoneNumber(recipient.phone);
+    if (cleanPhone.length < 6) return;
+
     const newId = `custom-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const newRec: SmsRecipient = {
       ...recipient,
       id: newId,
-      phone: recipient.phone.trim(),
+      phone: cleanPhone,
+      village: recipient.village === 'Machokola' ? 'Machokola Village' : (recipient.village || 'Dzenje Village'),
       language: recipient.language || 'ny',
-      enabled: recipient.enabled !== undefined ? recipient.enabled : false, // Default FALSE: must be marked by admin
+      enabled: recipient.enabled !== undefined ? recipient.enabled : true,
     };
-    const updatedList = [...(this.config.recipients || []).filter((r) => !isMockRecipient(r)), newRec];
+
+    const cleanList = (this.config.recipients || []).filter((r) => !isMockRecipient(r));
+    const updatedList = this.deduplicateRecipients([...cleanList, newRec]);
     this.config.recipients = updatedList;
     this.saveConfig({ recipients: updatedList });
 
@@ -143,40 +199,66 @@ class SmsGatewayServiceClass {
   }) {
     if (!user.phone || user.phone.trim().length < 6) return;
 
-    const cleanPhone = user.phone.trim();
+    const cleanPhone = normalizePhoneNumber(user.phone);
+    if (cleanPhone.length < 6) return;
+
     const cleanList = (this.config.recipients || []).filter((r) => !isMockRecipient(r));
     const existingIndex = cleanList.findIndex(
-      (r) => r.phone.trim() === cleanPhone || (user.uid && r.id === user.uid)
+      (r) => normalizePhoneNumber(r.phone) === cleanPhone || (user.uid && r.id === user.uid)
     );
 
     const updatedList = [...cleanList];
+    const userVillage = user.village === 'Machokola' ? 'Machokola Village' : (user.village || 'Dzenje Village');
 
     if (existingIndex >= 0) {
-      // Preserve existing enabled preference if admin marked/unmarked it
       const currentEnabled = cleanList[existingIndex].enabled;
       updatedList[existingIndex] = {
         ...updatedList[existingIndex],
+        id: user.uid || updatedList[existingIndex].id,
         name: user.name || updatedList[existingIndex].name,
         phone: cleanPhone,
-        village: user.village || updatedList[existingIndex].village,
+        village: userVillage,
         role: user.role || updatedList[existingIndex].role || 'Signed-In Resident',
         language: user.language || updatedList[existingIndex].language || 'ny',
-        enabled: user.enabled !== undefined ? user.enabled : (currentEnabled ?? false),
+        enabled: user.enabled !== undefined ? user.enabled : (currentEnabled ?? true),
       };
     } else {
       updatedList.push({
         id: user.uid || `user-${Date.now()}`,
         name: user.name || 'Village Member',
         phone: cleanPhone,
-        village: user.village || 'Dzenje Village',
+        village: userVillage,
         role: user.role || 'Signed-In Resident',
         language: user.language || 'ny',
-        enabled: user.enabled !== undefined ? user.enabled : false, // Default FALSE: no number receives SMS until admin marks it
+        enabled: user.enabled !== undefined ? user.enabled : true, // Immediately enabled for real users who sign up
       });
     }
 
-    this.config.recipients = updatedList;
-    this.saveConfig({ recipients: updatedList });
+    const deduplicated = this.deduplicateRecipients(updatedList);
+    this.config.recipients = deduplicated;
+    this.saveConfig({ recipients: deduplicated });
+
+    // Sync to Firestore database
+    if (this.db && user.uid) {
+      import('firebase/firestore')
+        .then(({ doc, setDoc }) => {
+          setDoc(
+            doc(this.db, 'sms_recipients', user.uid!),
+            {
+              id: user.uid,
+              name: user.name,
+              phone: cleanPhone,
+              village: userVillage,
+              role: user.role || 'Resident',
+              language: user.language || 'ny',
+              enabled: user.enabled !== undefined ? user.enabled : true,
+              updatedAt: new Date().toISOString(),
+            },
+            { merge: true }
+          ).catch(() => {});
+        })
+        .catch(() => {});
+    }
   }
 
   public async syncUsersFromFirestore(db: any) {
@@ -197,7 +279,7 @@ class SmsGatewayServiceClass {
             village: data.village || 'Dzenje Village',
             role: data.role === 'admin' ? 'Village Admin' : 'Registered Resident',
             language: data.alertLanguage || 'ny',
-            enabled: data.smsAlertsEnabled ?? false,
+            enabled: data.smsAlertsEnabled ?? true,
           });
         }
       });
@@ -215,7 +297,7 @@ class SmsGatewayServiceClass {
               village: data.village || 'Dzenje Village',
               role: data.role || 'Community Contact',
               language: data.language || 'ny',
-              enabled: data.enabled ?? false,
+              enabled: data.enabled ?? true,
             });
           }
         });
@@ -223,13 +305,9 @@ class SmsGatewayServiceClass {
         // collection might not exist yet
       }
 
-      // Purge any residual mock items
-      this.config.recipients = (this.config.recipients || []).filter((r) => !isMockRecipient(r));
-      this.saveConfig({ recipients: this.config.recipients });
-
-      console.log(`[SMS Gateway] Synced real contacts from Firestore database. Total recipients: ${this.config.recipients.length}`);
+      console.log(`[SMS Gateway] Synced contacts from Firestore database. Total recipients: ${this.config.recipients.length}`);
     } catch (err) {
-      console.warn('[SMS Gateway] Firestore contacts sync error:', err);
+      console.warn('[SMS Gateway] Firestore contacts sync note:', err);
     }
   }
 
@@ -237,12 +315,11 @@ class SmsGatewayServiceClass {
     this.config.recipients = (this.config.recipients || []).filter((r) => r.id !== id && !isMockRecipient(r));
     this.saveConfig({ recipients: this.config.recipients });
 
-    // Also remove from Firestore database (from both custom sms_recipients and users collection to prevent syncing back)
+    // Also remove from Firestore database
     if (this.db) {
       import('firebase/firestore')
         .then(({ doc, deleteDoc }) => {
           deleteDoc(doc(this.db, 'sms_recipients', id)).catch(() => {});
-          deleteDoc(doc(this.db, 'users', id)).catch(() => {});
         })
         .catch(() => {});
     }
@@ -294,24 +371,26 @@ class SmsGatewayServiceClass {
   }
 
   public getActiveRecipients(): SmsRecipient[] {
-    return this.config.recipients.filter((r) => r.enabled && r.phone.trim().length >= 6);
+    return this.getConfig().recipients.filter((r) => r.enabled && normalizePhoneNumber(r.phone).length >= 6);
   }
 
   public getRecipientsByLanguage(lang: 'en' | 'ny', markedOnly: boolean = false): SmsRecipient[] {
-    return this.config.recipients.filter((r) => {
+    return this.getConfig().recipients.filter((r) => {
       const recipientLang = r.language || 'ny';
       if (recipientLang !== lang) return false;
       if (markedOnly && !r.enabled) return false;
-      return r.phone.trim().length >= 6;
+      return normalizePhoneNumber(r.phone).length >= 6;
     });
   }
 
   /**
    * Dispatches language-specific SMS messages:
-   * - Chichewa recipients (marked only) get CHICHEWA_SMS_ALERT
-   * - English recipients (marked only) get SIMPLE_ENGLISH_SMS_ALERT
+   * - Chichewa recipients get CHICHEWA_SMS_ALERT
+   * - English recipients get SIMPLE_ENGLISH_SMS_ALERT
+   * 
+   * Includes strict deduplication & throttling so flood detections only send once.
    */
-  public async sendLanguageAwareBroadcastSms(): Promise<{
+  public async sendLanguageAwareBroadcastSms(isAutomated: boolean = false): Promise<{
     success: boolean;
     sentCount: number;
     failedCount: number;
@@ -319,57 +398,113 @@ class SmsGatewayServiceClass {
     englishCount: number;
     error?: string;
     recipientsCount: number;
+    throttled?: boolean;
   }> {
-    const active = this.getActiveRecipients();
-    if (active.length === 0) {
+    const now = Date.now();
+
+    // 1. Check Automated Cooldown Throttling
+    if (isAutomated) {
+      if (now - this.lastAutoBroadcastTime < this.autoBroadcastCooldownMs) {
+        console.log(`[SMS Gateway] Throttled automated SMS alert (in cooldown: ${(now - this.lastAutoBroadcastTime) / 1000}s ago). Prevents repeat messages.`);
+        return {
+          success: true,
+          sentCount: 0,
+          failedCount: 0,
+          chichewaCount: 0,
+          englishCount: 0,
+          recipientsCount: 0,
+          throttled: true,
+        };
+      }
+    }
+
+    // 2. Prevent concurrent broadcast overlap
+    if (this.isBroadcasting) {
+      console.log('[SMS Gateway] Broadcast currently in flight. Skipping overlapping call.');
       return {
-        success: false,
+        success: true,
         sentCount: 0,
         failedCount: 0,
         chichewaCount: 0,
         englishCount: 0,
         recipientsCount: 0,
-        error: 'No phone numbers are marked to receive SMS. Please mark recipient numbers first.',
+        throttled: true,
       };
     }
 
-    const chichewaRecipients = active.filter((r) => (r.language || 'ny') === 'ny').map((r) => r.phone);
-    const englishRecipients = active.filter((r) => r.language === 'en').map((r) => r.phone);
+    this.isBroadcasting = true;
+    this.lastAutoBroadcastTime = now;
 
-    let totalSent = 0;
-    const errors: string[] = [];
-
-    if (chichewaRecipients.length > 0) {
-      const resNy = await this.sendBroadcastSms(CHICHEWA_SMS_ALERT, chichewaRecipients);
-      if (resNy.success) {
-        totalSent += chichewaRecipients.length;
-      } else if (resNy.error) {
-        errors.push(`Chichewa: ${resNy.error}`);
+    try {
+      const active = this.getActiveRecipients();
+      if (active.length === 0) {
+        return {
+          success: false,
+          sentCount: 0,
+          failedCount: 0,
+          chichewaCount: 0,
+          englishCount: 0,
+          recipientsCount: 0,
+          error: 'No phone numbers are enabled in the emergency SMS list.',
+        };
       }
-    }
 
-    if (englishRecipients.length > 0) {
-      const resEn = await this.sendBroadcastSms(SIMPLE_ENGLISH_SMS_ALERT, englishRecipients);
-      if (resEn.success) {
-        totalSent += englishRecipients.length;
-      } else if (resEn.error) {
-        errors.push(`English: ${resEn.error}`);
+      // Deduplicate unique phone numbers
+      const chichewaPhones = Array.from(
+        new Set(
+          active
+            .filter((r) => (r.language || 'ny') === 'ny')
+            .map((r) => normalizePhoneNumber(r.phone))
+            .filter((p) => p.length >= 6)
+        )
+      );
+
+      const englishPhones = Array.from(
+        new Set(
+          active
+            .filter((r) => r.language === 'en')
+            .map((r) => normalizePhoneNumber(r.phone))
+            .filter((p) => p.length >= 6)
+        )
+      );
+
+      let totalSent = 0;
+      const errors: string[] = [];
+
+      if (chichewaPhones.length > 0) {
+        const resNy = await this.sendBroadcastSms(CHICHEWA_SMS_ALERT, chichewaPhones);
+        if (resNy.success) {
+          totalSent += chichewaPhones.length;
+        } else if (resNy.error) {
+          errors.push(`Chichewa: ${resNy.error}`);
+        }
       }
-    }
 
-    return {
-      success: totalSent > 0 || errors.length === 0,
-      sentCount: totalSent,
-      failedCount: active.length - totalSent,
-      chichewaCount: chichewaRecipients.length,
-      englishCount: englishRecipients.length,
-      recipientsCount: active.length,
-      error: errors.length > 0 ? errors.join('; ') : undefined,
-    };
+      if (englishPhones.length > 0) {
+        const resEn = await this.sendBroadcastSms(SIMPLE_ENGLISH_SMS_ALERT, englishPhones);
+        if (resEn.success) {
+          totalSent += englishPhones.length;
+        } else if (resEn.error) {
+          errors.push(`English: ${resEn.error}`);
+        }
+      }
+
+      return {
+        success: totalSent > 0 || errors.length === 0,
+        sentCount: totalSent,
+        failedCount: (chichewaPhones.length + englishPhones.length) - totalSent,
+        chichewaCount: chichewaPhones.length,
+        englishCount: englishPhones.length,
+        recipientsCount: chichewaPhones.length + englishPhones.length,
+        error: errors.length > 0 ? errors.join('; ') : undefined,
+      };
+    } finally {
+      this.isBroadcasting = false;
+    }
   }
 
   /**
-   * Dispatches SMS message to all active recipients using Textbee API Gateway
+   * Dispatches SMS message using Textbee API Gateway via server proxy to prevent double-firing
    */
   public async sendBroadcastSms(
     message: string,
@@ -381,7 +516,10 @@ class SmsGatewayServiceClass {
     error?: string;
     recipientsCount: number;
   }> {
-    const targets = specificNumbers || this.getActiveRecipients().map((r) => r.phone);
+    const rawTargets = specificNumbers || this.getActiveRecipients().map((r) => r.phone);
+    const targets = Array.from(
+      new Set(rawTargets.map((p) => normalizePhoneNumber(p)).filter((p) => p.length >= 6))
+    );
 
     if (targets.length === 0) {
       return {
@@ -400,36 +538,6 @@ class SmsGatewayServiceClass {
     const apiKey = this.config.textbeeApiKey || DEFAULT_CONFIG.textbeeApiKey;
     const deviceId = this.config.textbeeDeviceId || DEFAULT_CONFIG.textbeeDeviceId;
 
-    // 1. Primary: Try Textbee Direct Client API
-    try {
-      const textbeeUrl = `https://api.textbee.dev/api/v1/gateway/devices/${deviceId}/send-sms`;
-      const res = await fetch(textbeeUrl, {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          recipients: targets,
-          message: safeMessage,
-        }),
-      });
-
-      if (res.ok) {
-        const resData = await res.json().catch(() => ({}));
-        return {
-          success: true,
-          sentCount: targets.length,
-          failedCount: 0,
-          recipientsCount: targets.length,
-          error: resData.message || undefined,
-        };
-      }
-    } catch (err: any) {
-      console.warn('[Textbee Direct] Client API call failed, trying server endpoint:', err);
-    }
-
-    // 2. Secondary: Call application API server proxy endpoint
     try {
       const response = await fetch('/api/sms/send', {
         method: 'POST',
@@ -454,17 +562,26 @@ class SmsGatewayServiceClass {
           recipientsCount: targets.length,
           error: data.error,
         };
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        return {
+          success: false,
+          sentCount: 0,
+          failedCount: targets.length,
+          recipientsCount: targets.length,
+          error: errData.error || `Server responded with ${response.status}`,
+        };
       }
-    } catch {
-      // Fallback response
+    } catch (err: any) {
+      console.error('[SMS Gateway] Network error connecting to SMS proxy:', err);
+      return {
+        success: false,
+        sentCount: 0,
+        failedCount: targets.length,
+        recipientsCount: targets.length,
+        error: err.message || 'Network connection failed',
+      };
     }
-
-    return {
-      success: true,
-      sentCount: targets.length,
-      failedCount: 0,
-      recipientsCount: targets.length,
-    };
   }
 
   public getNativeSmsUrl(message?: string, specificNumbers?: string[]): string {

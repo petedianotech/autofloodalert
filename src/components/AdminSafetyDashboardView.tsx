@@ -30,7 +30,7 @@ import {
   Send,
   Droplets,
 } from 'lucide-react';
-import { ResidentSafetyReport, FloodAlert, UserProfile } from '../types';
+import { ResidentSafetyReport, FloodAlert, UserProfile, isAppAdmin } from '../types';
 import { firebaseFloodService } from '../services/firebaseService';
 import { GoogleMapsGPSViewer, MapMarkerItem } from './GoogleMapsGPSViewer';
 
@@ -76,6 +76,8 @@ export const AdminSafetyDashboardView: React.FC<AdminSafetyDashboardViewProps> =
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [broadcastSuccessMsg, setBroadcastSuccessMsg] = useState<string | null>(null);
   const [isBroadcastingId, setIsBroadcastingId] = useState<string | null>(null);
+  const [userManagementMsg, setUserManagementMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isProcessingUserId, setIsProcessingUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = firebaseFloodService.subscribeUsers((usersList) => {
@@ -178,16 +180,65 @@ export const AdminSafetyDashboardView: React.FC<AdminSafetyDashboardViewProps> =
     }
   };
 
+  const handleToggleUserRole = async (targetUser: UserProfile) => {
+    const isCurrentlyAdmin = targetUser.role === 'admin' || isAppAdmin(targetUser);
+    const newRole: 'admin' | 'resident' = isCurrentlyAdmin ? 'resident' : 'admin';
+    const actionLabel = isCurrentlyAdmin ? 'remove Admin status from' : 'assign as Admin';
+
+    if (currentUser?.uid === targetUser.uid && isCurrentlyAdmin) {
+      if (!window.confirm("Warning: You are about to remove Admin privileges from your own account. Do you wish to continue?")) {
+        return;
+      }
+    } else {
+      if (!window.confirm(`Are you sure you want to ${actionLabel} "${targetUser.name}"?`)) {
+        return;
+      }
+    }
+
+    setIsProcessingUserId(targetUser.uid);
+    try {
+      await firebaseFloodService.updateUserRole(targetUser.uid, newRole);
+      setUserManagementMsg({
+        type: 'success',
+        text: `"${targetUser.name}" is now updated to ${newRole === 'admin' ? 'Admin' : 'Resident'}.`,
+      });
+      setTimeout(() => setUserManagementMsg(null), 3500);
+    } catch (err) {
+      console.error('Failed to change user role:', err);
+      setUserManagementMsg({
+        type: 'error',
+        text: `Failed to update user role: ${err instanceof Error ? err.message : 'Permission or network issue'}`,
+      });
+      setTimeout(() => setUserManagementMsg(null), 4000);
+    } finally {
+      setIsProcessingUserId(null);
+    }
+  };
+
   const handleDeleteUser = async (userId: string, userName: string) => {
     if (currentUser?.uid === userId) {
-      alert("You cannot delete your own admin account.");
+      setUserManagementMsg({ type: 'error', text: 'You cannot delete your own logged-in account.' });
+      setTimeout(() => setUserManagementMsg(null), 3500);
       return;
     }
     if (window.confirm(`Are you sure you want to permanently delete user "${userName}" from the database?`)) {
+      setIsProcessingUserId(userId);
       try {
         await firebaseFloodService.deleteUser(userId);
+        setUserManagementMsg({
+          type: 'success',
+          text: `User "${userName}" was permanently removed from Firestore database.`,
+        });
+        setTimeout(() => setUserManagementMsg(null), 3500);
       } catch (err) {
-        alert("Failed to delete user: " + String(err));
+        console.error('Failed to delete user:', err);
+        setUserManagementMsg({
+          type: 'error',
+          text: `Failed to delete user: ${err instanceof Error ? err.message : 'Database error'}`,
+        });
+        setTimeout(() => setUserManagementMsg(null), 4000);
+      } finally {
+        setIsProcessingUserId(null);
       }
     }
   };
@@ -272,8 +323,7 @@ export const AdminSafetyDashboardView: React.FC<AdminSafetyDashboardViewProps> =
   const villagesList = [
     'All Villages',
     'Dzenje Village',
-    'Machokola',
-    'Mathambi',
+    'Machokola Village',
   ];
 
   return (
@@ -355,8 +405,12 @@ export const AdminSafetyDashboardView: React.FC<AdminSafetyDashboardViewProps> =
         </div>
       )}
 
-      {/* ================= 1. SAFETY STATUS OVERVIEW BANNER ================= */}
-      <div className="bg-[#F3F3FA] rounded-[24px] p-4.5 border border-slate-100 space-y-3.5 shadow-xs">
+      {/* Responsive Grid Layout for Tablet & Desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+        {/* Left Column on Desktop / Top Stack on Mobile: Safety Status, Users, and Sightings */}
+        <div className="lg:col-span-5 space-y-4">
+          {/* ================= 1. SAFETY STATUS OVERVIEW BANNER ================= */}
+          <div className="bg-[#F3F3FA] rounded-[24px] p-4.5 border border-slate-100 space-y-3.5 shadow-xs">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-[#1F71E8] text-white flex items-center justify-center shadow-xs shrink-0">
             <Users className="w-6 h-6" />
@@ -517,7 +571,7 @@ export const AdminSafetyDashboardView: React.FC<AdminSafetyDashboardViewProps> =
           <div className="bg-white rounded-2xl p-5 text-center space-y-1.5 border border-slate-100">
             <p className="text-xs font-bold text-[#1C1B1F]">No Active Flood Sightings</p>
             <p className="text-xs text-[#49454F] max-w-md mx-auto">
-              When residents in Dzenje, Machokola, or Mathambi report rising river water, flooded bridges, or flash floods with their GPS, they will appear here instantly.
+              When residents in Dzenje Village or Machokola Village report rising river water, flooded bridges, or flash floods with their GPS, they will appear here instantly.
             </p>
           </div>
         ) : (
@@ -667,9 +721,12 @@ export const AdminSafetyDashboardView: React.FC<AdminSafetyDashboardViewProps> =
           </div>
         )}
       </div>
+        </div>
 
-      {/* ================= 2. FILTER CHIPS ================= */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        {/* Right Column on Desktop / Feed Stack: Filter Chips & Safety Roll-Call */}
+        <div className="lg:col-span-7 space-y-4">
+          {/* ================= 2. FILTER CHIPS ================= */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
         {/* Village Dropdown */}
         <div className="relative inline-block text-left shrink-0">
           <button
@@ -987,6 +1044,8 @@ export const AdminSafetyDashboardView: React.FC<AdminSafetyDashboardViewProps> =
           )}
         </div>
       </div>
+        </div>
+      </div>
 
       {/* ================= 4. SINGLE RESIDENT LOCATION MAP MODAL ================= */}
       {selectedReportForMap && (
@@ -1298,6 +1357,23 @@ export const AdminSafetyDashboardView: React.FC<AdminSafetyDashboardViewProps> =
 
             {/* Search and Users List */}
             <div className="p-4 space-y-3.5 overflow-y-auto flex-1">
+              {userManagementMsg && (
+                <div
+                  className={`p-3 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-in fade-in ${
+                    userManagementMsg.type === 'success'
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                      : 'bg-red-50 text-red-800 border border-red-200'
+                  }`}
+                >
+                  {userManagementMsg.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                  )}
+                  <span>{userManagementMsg.text}</span>
+                </div>
+              )}
+
               <div className="relative">
                 <input
                   type="text"
@@ -1308,68 +1384,110 @@ export const AdminSafetyDashboardView: React.FC<AdminSafetyDashboardViewProps> =
                 />
               </div>
 
-              <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+              <div className="space-y-2.5 max-h-[55vh] overflow-y-auto pr-1">
                 {registeredUsers
                   .filter(
                     (u) =>
                       u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
                       u.village.toLowerCase().includes(userSearchQuery.toLowerCase())
                   )
-                  .map((usr) => (
-                    <div
-                      key={usr.uid}
-                      className="p-3 bg-[#F3F3FA] rounded-2xl border border-slate-200/80 flex items-center justify-between gap-2"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center shrink-0 font-bold text-xs">
-                          {usr.name.substring(0, 2).toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-[#1C1B1F] truncate">
-                              {usr.name}
-                            </span>
-                            {usr.role === 'admin' && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200">
-                                Admin
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-[11px] text-[#49454F] mt-0.5 font-medium">
-                            <span>{usr.village}</span>
-                            {usr.phone && (
-                              <>
-                                <span>•</span>
-                                <a
-                                  href={`tel:${usr.phone.replace(/\s+/g, '')}`}
-                                  className="text-emerald-700 hover:underline font-bold flex items-center gap-0.5"
-                                >
-                                  <Phone className="w-3 h-3 inline" />
-                                  <span>{usr.phone}</span>
-                                </a>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                  .map((usr) => {
+                    const isUserAdmin = usr.role === 'admin' || isAppAdmin(usr);
+                    const isBusy = isProcessingUserId === usr.uid;
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-white text-slate-700 border border-slate-200 capitalize">
-                          {usr.authProvider === 'google' ? 'Google' : 'Village ID'}
-                        </span>
-                        {currentUser?.uid !== usr.uid && (
+                    return (
+                      <div
+                        key={usr.uid}
+                        className="p-3 bg-[#F3F3FA] rounded-2xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-bold text-xs ${
+                              isUserAdmin ? 'bg-[#1F71E8] text-white' : 'bg-slate-200 text-slate-700'
+                            }`}
+                          >
+                            {usr.name.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-bold text-[#1C1B1F] truncate">
+                                {usr.name}
+                              </span>
+                              {isUserAdmin ? (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200 flex items-center gap-1">
+                                  <ShieldCheck className="w-3 h-3 text-[#1F71E8]" />
+                                  Admin
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                                  Resident
+                                </span>
+                              )}
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-white text-slate-600 border border-slate-200 capitalize">
+                                {usr.authProvider === 'google' ? 'Google' : 'Village ID'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] text-[#49454F] mt-0.5 font-medium flex-wrap">
+                              <span>{usr.village}</span>
+                              {usr.phone && (
+                                <>
+                                  <span>•</span>
+                                  <a
+                                    href={`tel:${usr.phone.replace(/\s+/g, '')}`}
+                                    className="text-emerald-700 hover:underline font-bold flex items-center gap-0.5"
+                                  >
+                                    <Phone className="w-3 h-3 inline" />
+                                    <span>{usr.phone}</span>
+                                  </a>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action buttons: Assign / Remove Admin and Delete */}
+                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                          {/* Assign / Remove Admin Role */}
                           <button
                             type="button"
-                            onClick={() => handleDeleteUser(usr.uid, usr.name)}
-                            className="w-8 h-8 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 flex items-center justify-center transition cursor-pointer"
-                            title="Delete User"
+                            disabled={isBusy}
+                            onClick={() => handleToggleUserRole(usr)}
+                            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer ${
+                              isUserAdmin
+                                ? 'bg-white text-slate-700 hover:text-red-700 hover:bg-red-50 border border-slate-200'
+                                : 'bg-blue-50 text-[#1F71E8] hover:bg-blue-100 border border-blue-200'
+                            }`}
+                            title={isUserAdmin ? 'Remove Admin Role' : 'Assign as Admin'}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {isUserAdmin ? (
+                              <>
+                                <ShieldAlert className="w-3.5 h-3.5 text-slate-500" />
+                                <span>Remove Admin</span>
+                              </>
+                            ) : (
+                              <>
+                                <ShieldCheck className="w-3.5 h-3.5 text-[#1F71E8]" />
+                                <span>Make Admin</span>
+                              </>
+                            )}
                           </button>
-                        )}
+
+                          {/* Delete User Button */}
+                          {currentUser?.uid !== usr.uid && (
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => handleDeleteUser(usr.uid, usr.name)}
+                              className="w-8 h-8 rounded-xl bg-white border border-slate-200 hover:border-red-200 hover:bg-red-50 text-slate-400 hover:text-red-600 flex items-center justify-center transition cursor-pointer"
+                              title={`Delete ${usr.name}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
 
                 {registeredUsers.length === 0 && (
                   <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 text-center text-xs text-[#49454F]">

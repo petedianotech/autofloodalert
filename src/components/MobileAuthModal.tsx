@@ -34,8 +34,7 @@ const EXAMPLE_NAMES = ['Peter Damiano', 'Hastings M Skinner'];
 
 const POPULAR_VILLAGES = [
   'Dzenje Village',
-  'Machokola',
-  'Mathambi',
+  'Machokola Village',
 ];
 
 export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
@@ -356,76 +355,47 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
             </div>
 
             {/* Language Selection / Chilankhulo Chotumizira Mauthenga */}
-            <div className="bg-[#F3F3FA] rounded-[24px] p-4 border border-slate-100 space-y-3">
+            <div className="bg-[#F3F3FA] rounded-[24px] p-4 border border-slate-100 space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-[#49454F] uppercase tracking-wider flex items-center gap-1.5">
                   <Languages className="w-3.5 h-3.5 text-[#1F71E8]" />
                   Alert Language / Chilankhulo
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                  {alertLanguage === 'ny' ? 'Chichewa (Malawi)' : 'Simple English'}
+                  {alertLanguage === 'ny' ? 'Chichewa' : 'English'}
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 gap-2">
-                {/* Chichewa Option */}
+              {/* Horizontal line language selector */}
+              <div className="flex items-center p-1 bg-white rounded-2xl border border-slate-200 gap-1">
                 <button
                   id="btn-profile-lang-chichewa"
                   type="button"
                   onClick={() => handleUpdateLanguageOnly('ny')}
-                  className={`p-3 rounded-2xl text-left border transition cursor-pointer flex flex-col gap-1 ${
+                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                     alertLanguage === 'ny'
-                      ? 'bg-blue-50 border-[#1F71E8] shadow-xs'
-                      : 'bg-white border-slate-200 hover:border-slate-300'
+                      ? 'bg-[#1F71E8] text-white shadow-xs'
+                      : 'text-[#49454F] hover:text-[#1C1B1F]'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#1C1B1F] flex items-center gap-1.5">
-                      <span>🇲🇼</span>
-                      <span>Chichewa</span>
-                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full">
-                        Yovomerezeka
-                      </span>
-                    </span>
-                    {alertLanguage === 'ny' && (
-                      <span className="w-4 h-4 rounded-full bg-[#1F71E8] text-white flex items-center justify-center text-[10px]">
-                        ✓
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-[#49454F] font-mono leading-tight bg-slate-50 p-1.5 rounded-xl border border-slate-100">
-                    &quot;KUSEFUKIRA KWA MADZI: Nsinje wa Ruo  madzi akusefukira  pitani Kumalo okwera&quot;
-                  </p>
+                  <span>🇲🇼</span>
+                  <span>Chichewa</span>
+                  {alertLanguage === 'ny' && <Check className="w-3.5 h-3.5 ml-0.5 text-white" />}
                 </button>
 
-                {/* Simple English Option */}
                 <button
                   id="btn-profile-lang-english"
                   type="button"
                   onClick={() => handleUpdateLanguageOnly('en')}
-                  className={`p-3 rounded-2xl text-left border transition cursor-pointer flex flex-col gap-1 ${
+                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                     alertLanguage === 'en'
-                      ? 'bg-blue-50 border-[#1F71E8] shadow-xs'
-                      : 'bg-white border-slate-200 hover:border-slate-300'
+                      ? 'bg-[#1F71E8] text-white shadow-xs'
+                      : 'text-[#49454F] hover:text-[#1C1B1F]'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#1C1B1F] flex items-center gap-1.5">
-                      <span>🇬🇧</span>
-                      <span>Simple English</span>
-                      <span className="text-[10px] font-medium text-[#49454F]">
-                        Easy words
-                      </span>
-                    </span>
-                    {alertLanguage === 'en' && (
-                      <span className="w-4 h-4 rounded-full bg-[#1F71E8] text-white flex items-center justify-center text-[10px]">
-                        ✓
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-[#49454F] font-mono leading-tight bg-slate-50 p-1.5 rounded-xl border border-slate-100">
-                    &quot;FLOOD ALERT: Ruo River rising fast at Dzenje! Go to high ground now!&quot;
-                  </p>
+                  <span>🇬🇧</span>
+                  <span>English</span>
+                  {alertLanguage === 'en' && <Check className="w-3.5 h-3.5 ml-0.5 text-white" />}
                 </button>
               </div>
             </div>
@@ -643,60 +613,43 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
                   </div>
                 </div>
 
-                {/* Language Preference Field */}
+                {/* Language Preference Field - Clean Horizontal Line */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-[#1C1B1F] flex items-center gap-1.5">
                       <Languages className="w-3.5 h-3.5 text-[#1F71E8]" />
                       <span>Alert Language / Chilankhulo</span>
                     </label>
-                    <span className="text-[11px] text-[#49454F] font-medium">Choose one</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center p-1 bg-[#F3F3FA] rounded-2xl border border-slate-200 gap-1">
                     <button
                       id="btn-auth-lang-ny"
                       type="button"
                       onClick={() => setAlertLanguage('ny')}
-                      className={`p-2.5 rounded-2xl text-left border transition cursor-pointer flex flex-col justify-between ${
+                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                         alertLanguage === 'ny'
-                          ? 'bg-blue-50 border-[#1F71E8] shadow-xs'
-                          : 'bg-white border-slate-200 hover:border-slate-300'
+                          ? 'bg-white text-[#1F71E8] shadow-xs border border-slate-200/80'
+                          : 'text-[#49454F] hover:text-[#1C1B1F]'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-[#1C1B1F]">🇲🇼 Chichewa</span>
-                        {alertLanguage === 'ny' && (
-                          <span className="w-3.5 h-3.5 rounded-full bg-[#1F71E8] text-white flex items-center justify-center text-[9px]">
-                            ✓
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-[#49454F] pt-1 leading-tight">
-                        Mauthenga a Chichewa
-                      </span>
+                      <span>🇲🇼</span>
+                      <span>Chichewa</span>
+                      {alertLanguage === 'ny' && <Check className="w-3.5 h-3.5 ml-0.5 text-[#1F71E8]" />}
                     </button>
 
                     <button
                       id="btn-auth-lang-en"
                       type="button"
                       onClick={() => setAlertLanguage('en')}
-                      className={`p-2.5 rounded-2xl text-left border transition cursor-pointer flex flex-col justify-between ${
+                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                         alertLanguage === 'en'
-                          ? 'bg-blue-50 border-[#1F71E8] shadow-xs'
-                          : 'bg-white border-slate-200 hover:border-slate-300'
+                          ? 'bg-white text-[#1F71E8] shadow-xs border border-slate-200/80'
+                          : 'text-[#49454F] hover:text-[#1C1B1F]'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-[#1C1B1F]">🇬🇧 English</span>
-                        {alertLanguage === 'en' && (
-                          <span className="w-3.5 h-3.5 rounded-full bg-[#1F71E8] text-white flex items-center justify-center text-[9px]">
-                            ✓
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-[#49454F] pt-1 leading-tight">
-                        Simple English SMS
-                      </span>
+                      <span>🇬🇧</span>
+                      <span>English</span>
+                      {alertLanguage === 'en' && <Check className="w-3.5 h-3.5 ml-0.5 text-[#1F71E8]" />}
                     </button>
                   </div>
                 </div>
@@ -776,60 +729,43 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
                   </div>
                 </div>
 
-                {/* Language Preference for Google Sign In */}
+                {/* Language Preference for Google Sign In - Clean Horizontal Line */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-[#1C1B1F] flex items-center gap-1.5">
                       <Languages className="w-3.5 h-3.5 text-[#1F71E8]" />
                       <span>Alert Language / Chilankhulo</span>
                     </label>
-                    <span className="text-[11px] text-[#49454F] font-medium">Choose one</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center p-1 bg-[#F3F3FA] rounded-2xl border border-slate-200 gap-1">
                     <button
                       id="btn-google-lang-ny"
                       type="button"
                       onClick={() => setAlertLanguage('ny')}
-                      className={`p-2.5 rounded-2xl text-left border transition cursor-pointer flex flex-col justify-between ${
+                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                         alertLanguage === 'ny'
-                          ? 'bg-blue-50 border-[#1F71E8] shadow-xs'
-                          : 'bg-white border-slate-200 hover:border-slate-300'
+                          ? 'bg-white text-[#1F71E8] shadow-xs border border-slate-200/80'
+                          : 'text-[#49454F] hover:text-[#1C1B1F]'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-[#1C1B1F]">🇲🇼 Chichewa</span>
-                        {alertLanguage === 'ny' && (
-                          <span className="w-3.5 h-3.5 rounded-full bg-[#1F71E8] text-white flex items-center justify-center text-[9px]">
-                            ✓
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-[#49454F] pt-1 leading-tight">
-                        Mauthenga a Chichewa
-                      </span>
+                      <span>🇲🇼</span>
+                      <span>Chichewa</span>
+                      {alertLanguage === 'ny' && <Check className="w-3.5 h-3.5 ml-0.5 text-[#1F71E8]" />}
                     </button>
 
                     <button
                       id="btn-google-lang-en"
                       type="button"
                       onClick={() => setAlertLanguage('en')}
-                      className={`p-2.5 rounded-2xl text-left border transition cursor-pointer flex flex-col justify-between ${
+                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                         alertLanguage === 'en'
-                          ? 'bg-blue-50 border-[#1F71E8] shadow-xs'
-                          : 'bg-white border-slate-200 hover:border-slate-300'
+                          ? 'bg-white text-[#1F71E8] shadow-xs border border-slate-200/80'
+                          : 'text-[#49454F] hover:text-[#1C1B1F]'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-[#1C1B1F]">🇬🇧 English</span>
-                        {alertLanguage === 'en' && (
-                          <span className="w-3.5 h-3.5 rounded-full bg-[#1F71E8] text-white flex items-center justify-center text-[9px]">
-                            ✓
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-[#49454F] pt-1 leading-tight">
-                        Simple English SMS
-                      </span>
+                      <span>🇬🇧</span>
+                      <span>English</span>
+                      {alertLanguage === 'en' && <Check className="w-3.5 h-3.5 ml-0.5 text-[#1F71E8]" />}
                     </button>
                   </div>
                 </div>

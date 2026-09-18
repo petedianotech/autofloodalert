@@ -45,6 +45,7 @@ const STORAGE_KEY_USER_PROFILE = 'flood_alert_user_profile';
 const STORAGE_KEY_ALERTS = 'flood_alert_history_local';
 const STORAGE_KEY_HIDDEN_ALERTS = 'flood_alert_hidden_records_local';
 const STORAGE_KEY_SAFETY_REPORTS = 'flood_alert_safety_reports_local';
+const STORAGE_KEY_CACHED_USERS = 'fldt_cached_users_v2';
 const BROADCAST_CHANNEL_NAME = 'flood_alert_system_sync';
 
 /**
@@ -113,8 +114,43 @@ class FirebaseFloodService {
   };
 
   constructor() {
+    this.cachedUsers = this.loadCachedUsers();
     this.initBroadcastChannel();
     this.initFirebase();
+  }
+
+  private loadCachedUsers(): UserProfile[] {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_CACHED_USERS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  }
+
+  private saveCachedUsers(users: UserProfile[]) {
+    try {
+      this.cachedUsers = users;
+      localStorage.setItem(STORAGE_KEY_CACHED_USERS, JSON.stringify(users));
+    } catch {
+      // ignore
+    }
+  }
+
+  private upsertCachedUser(profile: UserProfile) {
+    const existing = [...this.cachedUsers];
+    const index = existing.findIndex((u) => u.uid === profile.uid || (profile.email && u.email === profile.email));
+    if (index >= 0) {
+      existing[index] = { ...existing[index], ...profile };
+    } else {
+      existing.unshift(profile);
+    }
+    this.saveCachedUsers(existing);
+    this.notifyUsers(existing);
   }
 
   private handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
@@ -325,6 +361,7 @@ class FirebaseFloodService {
       });
     }
 
+    this.upsertCachedUser(profile);
     this.saveCachedProfile(profile);
     this.updateAuthState({
       user: profile,
@@ -459,6 +496,7 @@ class FirebaseFloodService {
         }
       }
 
+      this.upsertCachedUser(profile);
       this.saveCachedProfile(profile);
       this.updateAuthState({
         user: profile,
@@ -557,6 +595,7 @@ class FirebaseFloodService {
         }
       }
 
+      this.upsertCachedUser(profile);
       this.saveCachedProfile(profile);
       this.updateAuthState({
         user: profile,
@@ -635,6 +674,7 @@ class FirebaseFloodService {
       }
     }
 
+    this.upsertCachedUser(updatedProfile);
     this.saveCachedProfile(updatedProfile);
     this.updateAuthState({
       ...this.currentAuthState,
@@ -792,7 +832,7 @@ class FirebaseFloodService {
 
     // 4. Trigger Textbee SMS Gateway to send emergency text messages to marked village phone numbers
     if (smsGatewayService.getConfig().autoSendOnCriticalAlert) {
-      smsGatewayService.sendLanguageAwareBroadcastSms().then((smsRes) => {
+      smsGatewayService.sendLanguageAwareBroadcastSms(true).then((smsRes) => {
         console.log('[SMS Gateway] Automatic SMS flood warning dispatched:', smsRes);
       }).catch((smsErr) => {
         console.warn('[SMS Gateway] Automatic SMS broadcast note:', smsErr);
@@ -1111,8 +1151,11 @@ class FirebaseFloodService {
               updatedAt: data.updatedAt,
             });
           });
-          this.cachedUsers = users;
+          this.saveCachedUsers(users);
           this.notifyUsers(users);
+          if (this.db) {
+            smsGatewayService.syncUsersFromFirestore(this.db);
+          }
         },
         (error) => {
           console.warn('Firestore users snapshot listener error:', error);
@@ -1210,17 +1253,79 @@ class FirebaseFloodService {
     }
   }
 
+  public async updateUserRole(userId: string, newRole: 'admin' | 'resident'): Promise<void> {
+    const updatedAt = new Date().toISOString();
+    if (this.db) {
+      try {
+        const docRef = doc(this.db, 'users', userId);
+        await setDoc(docRef, { role: newRole, updatedAt }, { merge: true });
+        console.log(`[Firestore] User ${userId} role successfully updated to ${newRole}`);
+      } catch (err) {
+        console.warn('Firestore updateUserRole failed:', err);
+        this.handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
+      }
+    }
+
+    // Update local cached users list
+    this.cachedUsers = this.cachedUsers.map((u) => {
+      if (u.uid === userId) {
+        return { ...u, role: newRole, updatedAt };
+      }
+      return u;
+    });
+    this.notifyUsers(this.cachedUsers);
+
+    // If this is the currently logged in user, update auth state
+    if (this.currentAuthState.user && this.currentAuthState.user.uid === userId) {
+      const updatedUser: UserProfile = {
+        ...this.currentAuthState.user,
+        role: newRole,
+        updatedAt,
+      };
+      this.saveCachedProfile(updatedUser);
+      this.updateAuthState({
+        ...this.currentAuthState,
+        user: updatedUser,
+      });
+    }
+
+    // Update SMS gateway recipient role if exists
+    const user = this.cachedUsers.find((u) => u.uid === userId);
+    if (user && user.phone) {
+      smsGatewayService.addOrUpdateUserRecipient({
+        uid: user.uid,
+        name: user.name,
+        phone: user.phone,
+        village: user.village,
+        role: newRole === 'admin' ? 'Village Admin' : 'Resident',
+        language: user.alertLanguage || 'ny',
+        enabled: user.smsAlertsEnabled !== false,
+      });
+    }
+  }
+
   public async deleteUser(userId: string): Promise<void> {
     if (this.db) {
       try {
         const docRef = doc(this.db, 'users', userId);
         await deleteDoc(docRef);
+        // Also remove from sms_recipients if exists
+        try {
+          await deleteDoc(doc(this.db, 'sms_recipients', userId));
+        } catch {
+          // ignore
+        }
         console.log(`User ${userId} successfully deleted from Firestore.`);
       } catch (err) {
         console.warn('Firestore delete user failed:', err);
         this.handleFirestoreError(err, OperationType.DELETE, `users/${userId}`);
       }
     }
+
+    // Clean up local cache and SMS gateway recipients
+    this.cachedUsers = this.cachedUsers.filter((u) => u.uid !== userId);
+    this.notifyUsers(this.cachedUsers);
+    smsGatewayService.removeRecipient(userId);
   }
 
   public async clearSafetyReports(): Promise<void> {

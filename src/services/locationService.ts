@@ -51,23 +51,13 @@ export const MALAWI_RIVER_STATION_PRESETS: Array<{
   },
   {
     id: 'station_machokola_upper',
-    name: 'Sensor #2: Machokola Upper River Watch Post',
+    name: 'Sensor #2: Machokola Village Upper River Watch Post',
     riverName: 'Upper River Basin',
-    village: 'Machokola',
+    village: 'Machokola Village',
     traditionalAuthority: 'T/A Mabuka',
     district: 'Mulanje',
     region: 'Southern Region, Malawi',
     defaultCoords: { lat: -16.0122, lng: 35.5140 },
-  },
-  {
-    id: 'station_mathambi_lower',
-    name: 'Sensor #3: Mathambi Lower Basin Station',
-    riverName: 'Mathambi River Basin',
-    village: 'Mathambi',
-    traditionalAuthority: 'T/A Mabuka',
-    district: 'Mulanje',
-    region: 'Southern Region, Malawi',
-    defaultCoords: { lat: -16.0420, lng: 35.5280 },
   },
 ];
 

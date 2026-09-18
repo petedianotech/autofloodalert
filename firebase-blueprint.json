@@ -8,10 +8,14 @@
         "uid": { "type": "string", "description": "User ID", "maxLength": 128 },
         "name": { "type": "string", "description": "User full name", "maxLength": 100 },
         "village": { "type": "string", "description": "Village or community name", "maxLength": 100 },
+        "phone": { "type": "string", "description": "Optional phone number", "maxLength": 50 },
+        "smsAlertsEnabled": { "type": "boolean", "description": "Whether SMS alerts are enabled" },
+        "alertLanguage": { "type": "string", "description": "Preferred alert language", "enum": ["en", "ny"] },
         "email": { "type": "string", "description": "Optional email address", "maxLength": 200 },
         "photoURL": { "type": "string", "description": "Optional profile photo URL", "maxLength": 500 },
         "authProvider": { "type": "string", "description": "Authentication method", "enum": ["name_village", "google"] },
         "hasPassword": { "type": "boolean", "description": "Whether an optional password was set" },
+        "role": { "type": "string", "description": "User role (admin or resident)", "enum": ["admin", "resident", "warden", "operator"] },
         "createdAt": { "type": "string", "description": "ISO timestamp of account creation" },
         "updatedAt": { "type": "string", "description": "ISO timestamp of last update" }
       },
@@ -100,6 +104,10 @@
     "/fcm_tokens/{tokenId}": {
       "schema": "FcmToken",
       "description": "Device push tokens for background and closed-tab notifications."
+    },
+    "/sms_recipients/{recipientId}": {
+      "schema": "UserProfile",
+      "description": "SMS gateway recipient subscriber directory."
     }
   }
 }

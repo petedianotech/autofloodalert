@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   MessageSquare,
@@ -27,6 +27,14 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
   const [config, setConfig] = useState<SmsGatewayConfig>(() =>
     smsGatewayService.getConfig()
   );
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const unsub = smsGatewayService.subscribeRecipients(() => {
+      setConfig(smsGatewayService.getConfig());
+    });
+    return unsub;
+  }, [isOpen]);
 
   const [activeTab, setActiveTab] = useState<'all' | 'chichewa' | 'english' | 'marked'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -66,7 +74,7 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
     setIsSending(true);
     setSendResult(null);
 
-    const result = await smsGatewayService.sendLanguageAwareBroadcastSms();
+    const result = await smsGatewayService.sendLanguageAwareBroadcastSms(false); // manual trigger
     setIsSending(false);
     setSendResult(result);
   };

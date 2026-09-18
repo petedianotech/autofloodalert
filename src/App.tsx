@@ -149,20 +149,20 @@ export default function App() {
     const diffY = e.changedTouches[0].clientY - touchStartY;
     
     // Horizontal swipe must be significantly wider than vertical drag
-    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 60) {
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 45) {
       const allowedModes: NodeMode[] = isAdmin 
-        ? ['village', 'receiver', 'sensor', 'admin'] 
+        ? ['admin', 'sensor', 'receiver', 'village'] 
         : ['village', 'receiver'];
         
       const currentIndex = allowedModes.indexOf(currentMode);
       
       if (diffX < 0) {
-        // Swipe Left -> Next Page
-        if (currentIndex < allowedModes.length - 1) {
+        // Swipe Left (Right to Left gesture) -> Advance to next page (e.g. Dashboard -> Sensor -> Alerts -> Village)
+        if (currentIndex < allowedModes.length - 1 && currentIndex >= 0) {
           handleSelectMode(allowedModes[currentIndex + 1]);
         }
       } else {
-        // Swipe Right -> Previous Page
+        // Swipe Right (Left to Right gesture) -> Return to previous page
         if (currentIndex > 0) {
           handleSelectMode(allowedModes[currentIndex - 1]);
         }
@@ -668,48 +668,40 @@ export default function App() {
   return (
     <div
       id="app-root-container"
-      className={`min-h-screen h-screen h-[100vh] h-[100dvh] w-full overflow-hidden flex justify-center transition-colors duration-200 font-sans ${
+      className={`min-h-screen h-screen h-[100vh] h-[100dvh] w-full overflow-hidden flex flex-col transition-colors duration-200 font-sans ${
         isDarkMode ? 'bg-[#141218] text-[#E6E1E5]' : 'bg-[#FEF7FF] text-[#1C1B1F]'
       }`}
     >
-      {/* Mobile Device & Tablet Frame Container */}
-      <div
-        id="mobile-phone-frame"
-        className={`w-full max-w-lg md:max-w-xl h-full sm:h-[98vh] sm:my-auto sm:rounded-[28px] sm:shadow-lg sm:border flex flex-col relative overflow-hidden transition-all ${
-          isDarkMode
-            ? 'bg-[#1E1F20] sm:border-[#303134] text-[#E6E1E5]'
-            : 'bg-[#FEF7FF] sm:border-slate-200 text-[#1C1B1F]'
-        }`}
-      >
-        {/* 1. Top App Bar */}
-        <TopBar
-          currentMode={currentMode}
-          onSelectMode={handleSelectMode}
-          isDarkMode={isDarkMode}
-          isArmed={isArmed}
-          isPaused={isPaused}
-          sensorState={sensorState}
-          wakeLockState={wakeLockState}
-          isFirebaseConnected={firebaseFloodService.getIsFirebaseConnected()}
-          onOpenFirebaseModal={() => setIsFirebaseModalOpen(true)}
-          currentUser={authState.user}
-          isAdmin={isAdmin}
-          onOpenAuthModal={() => setIsAuthModalOpen(true)}
-          onOpenAboutModal={() => setIsAboutModalOpen(true)}
-          onOpenVoiceSOS={handleOpenDirectVoiceSOS}
-          activeAlertCount={activeAlertCount}
-          selectedVillage={selectedVillage}
-          onRefresh={handleManualRefresh}
-          isRefreshing={isRefreshing}
-        />
+      {/* 1. Top App Bar */}
+      <TopBar
+        currentMode={currentMode}
+        onSelectMode={handleSelectMode}
+        isDarkMode={isDarkMode}
+        isArmed={isArmed}
+        isPaused={isPaused}
+        sensorState={sensorState}
+        wakeLockState={wakeLockState}
+        isFirebaseConnected={firebaseFloodService.getIsFirebaseConnected()}
+        onOpenFirebaseModal={() => setIsFirebaseModalOpen(true)}
+        currentUser={authState.user}
+        isAdmin={isAdmin}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onOpenAboutModal={() => setIsAboutModalOpen(true)}
+        onOpenVoiceSOS={handleOpenDirectVoiceSOS}
+        activeAlertCount={activeAlertCount}
+        selectedVillage={selectedVillage}
+        onRefresh={handleManualRefresh}
+        isRefreshing={isRefreshing}
+      />
 
-        {/* 2. Fixed Mobile Content Screen (Smoothly scrollable, Bottom Nav stays fixed) */}
-        <main
-          id="mobile-main-scroll-area"
-          className="flex-1 w-full overflow-y-auto min-h-0 px-3.5 sm:px-4 py-3.5 overscroll-contain select-none"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
+      {/* 2. Fluid Responsive Content Screen */}
+      <main
+        id="mobile-main-scroll-area"
+        className="flex-1 w-full overflow-y-auto min-h-0 overscroll-contain select-none"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-3.5 sm:py-5">
           {currentMode === 'admin' && (
             <AdminSafetyDashboardView
               safetyReports={safetyReports}
@@ -790,25 +782,19 @@ export default function App() {
               onOpenAboutModal={() => setIsAboutModalOpen(true)}
             />
           )}
-        </main>
-
-        {/* 3. Native Mobile Bottom Navigation Dock */}
-        <MobileBottomNav
-          currentMode={currentMode}
-          onSelectMode={handleSelectMode}
-          activeAlertCount={activeAlertCount}
-          isArmed={isArmed}
-          isPaused={isPaused}
-          isDarkMode={isDarkMode}
-          isAdmin={isAdmin}
-        />
-
-
-        {/* 4. Mobile Home Indicator Pill */}
-        <div className="hidden sm:flex justify-center pb-2 select-none pointer-events-none">
-          <div className="w-28 h-1 rounded-full bg-black/20 dark:bg-white/20" />
         </div>
-      </div>
+      </main>
+
+      {/* 3. Native Mobile Bottom Navigation Dock */}
+      <MobileBottomNav
+        currentMode={currentMode}
+        onSelectMode={handleSelectMode}
+        activeAlertCount={activeAlertCount}
+        isArmed={isArmed}
+        isPaused={isPaused}
+        isDarkMode={isDarkMode}
+        isAdmin={isAdmin}
+      />
 
       {/* 5. Critical Alarm Full-Screen Modal Overlay */}
       <CriticalAlarmModal

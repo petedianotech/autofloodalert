@@ -58,8 +58,7 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
   // Village GPS default coordinate presets (Mulanje District, Malawi)
   const VILLAGE_COORDS: Record<string, { lat: number; lng: number; label: string }> = {
     'Dzenje Village': { lat: -15.9867, lng: 35.5422, label: 'Dzenje Village, Ruo River Area' },
-    'Machokola': { lat: -15.9715, lng: 35.5310, label: 'Machokola River Watch Post' },
-    'Mathambi': { lat: -16.0120, lng: 35.5560, label: 'Mathambi Flood Basin' },
+    'Machokola Village': { lat: -15.9715, lng: 35.5310, label: 'Machokola Village River Watch Post' },
   };
 
   const handleGetLocation = async () => {
@@ -328,7 +327,7 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                   className="w-full px-3.5 py-2.5 text-sm font-medium rounded-2xl border border-slate-200 bg-white text-[#1C1B1F] placeholder-slate-400 outline-none focus:border-[#1F71E8] focus:ring-2 focus:ring-blue-100 shadow-2xs"
                 />
                 <div className="flex items-center gap-1.5 pt-1 overflow-x-auto scrollbar-none">
-                  {['Dzenje Village', 'Machokola', 'Mathambi'].map((vName) => (
+                  {['Dzenje Village', 'Machokola Village'].map((vName) => (
                     <button
                       key={vName}
                       type="button"

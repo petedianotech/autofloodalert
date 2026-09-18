@@ -16,10 +16,10 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      return data.uid is string && data.uid.size() <= 128 &&
-        data.name is string && data.name.size() > 0 && data.name.size() <= 128 &&
-        data.village is string && data.village.size() > 0 && data.village.size() <= 128 &&
-        (data.authProvider in ['name_village', 'google']);
+      return (!('uid' in data) || (data.uid is string && data.uid.size() <= 128)) &&
+        (!('name' in data) || (data.name is string && data.name.size() > 0 && data.name.size() <= 128)) &&
+        (!('village' in data) || (data.village is string && data.village.size() > 0 && data.village.size() <= 128)) &&
+        (!('role' in data) || (data.role in ['admin', 'resident', 'warden', 'operator']));
     }
 
     function isValidFloodAlert(data) {
@@ -44,7 +44,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if true;
       allow create, update: if isValidUser(request.resource.data);
-      allow delete: if isSignedIn();
+      allow delete: if true;
+    }
+
+    // SMS Gateway Recipients
+    match /sms_recipients/{recipientId} {
+      allow read, write: if true;
     }
 
     // Flood Alerts (Community & Sensor Telemetry Alerts)
