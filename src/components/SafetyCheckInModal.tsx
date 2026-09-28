@@ -43,7 +43,9 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
   const [latitude, setLatitude] = useState<number | undefined>();
   const [longitude, setLongitude] = useState<number | undefined>();
   const [accuracyMeters, setAccuracyMeters] = useState<number | undefined>();
+  const [isGpsLive, setIsGpsLive] = useState<boolean>(false);
   const [locationStatusText, setLocationStatusText] = useState<string>('');
+  const [locationErrorType, setLocationErrorType] = useState<'permission' | 'signal' | 'timeout' | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
@@ -63,38 +65,36 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
 
   const handleGetLocation = async () => {
     setIsLocating(true);
-    setLocationStatusText('Getting GPS satellite location...');
+    setLocationErrorType(null);
+    setLocationStatusText('Acquiring live satellite GPS from phone...');
 
     try {
       const coords = await locationService.getDeviceGpsCoordinates({
         enableHighAccuracy: true,
-        timeout: 10000,
+        timeout: 12000,
       });
       setLatitude(coords.latitude);
       setLongitude(coords.longitude);
       setAccuracyMeters(coords.accuracy);
-      setLocationStatusText(`GPS attached (±${coords.accuracy}m accuracy)`);
-      setIsLocating(false);
+      setIsGpsLive(true);
+      setLocationStatusText(`✓ Live Phone GPS (±${coords.accuracy}m accuracy)`);
     } catch (err: any) {
-      console.warn('High-accuracy GPS failed, trying standard accuracy...', err);
-      try {
-        const coords = await locationService.getDeviceGpsCoordinates({
-          enableHighAccuracy: false,
-          timeout: 10000,
-        });
-        setLatitude(coords.latitude);
-        setLongitude(coords.longitude);
-        setAccuracyMeters(coords.accuracy);
-        setLocationStatusText(`GPS attached (±${coords.accuracy}m)`);
-        setIsLocating(false);
-      } catch (finalErr: any) {
-        // If GPS permission blocked or unavailable, use village preset so the user can still attach location
-        const preset = VILLAGE_COORDS[village] || VILLAGE_COORDS['Dzenje Village'];
-        setLatitude(preset.lat);
-        setLongitude(preset.lng);
-        setLocationStatusText(`GPS access blocked. Set to ${village} center point.`);
-        setIsLocating(false);
+      console.warn('GPS error in check-in:', err);
+      setIsGpsLive(false);
+
+      const errStr = String(err.message || '').toLowerCase();
+      if (err.code === 1 || errStr.includes('denied') || errStr.includes('permission')) {
+        setLocationErrorType('permission');
+        setLocationStatusText('Location permission not granted. Follow tip below to allow.');
+      } else if (err.code === 2 || errStr.includes('signal') || errStr.includes('unavailable')) {
+        setLocationErrorType('signal');
+        setLocationStatusText('GPS signal unavailable. Ensure Location is ON.');
+      } else {
+        setLocationErrorType('timeout');
+        setLocationStatusText('GPS fix timed out. You can retry or choose a village preset.');
       }
+    } finally {
+      setIsLocating(false);
     }
   };
 
@@ -102,6 +102,8 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
     setLatitude(undefined);
     setLongitude(undefined);
     setAccuracyMeters(undefined);
+    setIsGpsLive(false);
+    setLocationErrorType(null);
     setLocationStatusText('');
   };
 
@@ -396,17 +398,17 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
             <div className="bg-[#F3F3FA] rounded-2xl p-3.5 border border-slate-200 space-y-2.5 shadow-2xs">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${latitude ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'}`}>
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${latitude && isGpsLive ? 'bg-emerald-100 text-emerald-700' : latitude && !isGpsLive ? 'bg-blue-100 text-[#1F71E8]' : 'bg-slate-200 text-slate-700'}`}>
                     <MapPin className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
                     <span className="text-xs font-bold text-[#1C1B1F] block truncate">
                       {latitude && longitude
-                        ? `GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+                        ? `${isGpsLive ? '✓ Live GPS' : '📍 Preset'}: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
                         : 'Attach GPS Location'}
                     </span>
-                    <span className="text-[11px] text-[#49454F] block">
-                      {locationStatusText || (latitude ? 'Location ready to send to admin' : 'Sends precise pin to rescue team')}
+                    <span className="text-[11px] text-[#49454F] block truncate">
+                      {locationStatusText || (latitude ? 'Location ready to send to rescue team' : 'Sends precise pin to rescue team')}
                     </span>
                   </div>
                 </div>
@@ -428,7 +430,7 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                     onClick={handleGetLocation}
                     disabled={isLocating}
                     className={`px-3.5 py-1.5 text-xs font-bold rounded-full flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs ${
-                      latitude
+                      latitude && isGpsLive
                         ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
                         : 'bg-[#1F71E8] hover:bg-blue-700 text-white'
                     }`}
@@ -443,11 +445,34 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                 </div>
               </div>
 
+              {/* Error & Helper Box */}
+              {locationErrorType && (
+                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 space-y-1.5 text-xs animate-in fade-in">
+                  <div className="flex items-start gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <p className="font-bold">
+                        {locationErrorType === 'permission'
+                          ? 'Location Permission Needed'
+                          : 'Location Signal Unavailable'}
+                      </p>
+                      <p className="text-[11px] text-amber-800 leading-snug">
+                        {locationErrorType === 'permission' ? (
+                          <>Close any <strong>floating screen recorders or bubbles</strong> on Android (they block permission prompts), or tap Chrome ⋮ Settings → Site settings → Location → Allow.</>
+                        ) : (
+                          <>Ensure Location (GPS) is turned ON in your phone settings.</>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Quick Village Presets if GPS not yet attached */}
               {!latitude && (
                 <div className="flex items-center gap-1.5 pt-1 border-t border-slate-200/60 overflow-x-auto scrollbar-none">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0">
-                    Or select area:
+                    Or preset:
                   </span>
                   {Object.entries(VILLAGE_COORDS).map(([name, coords]) => (
                     <button
@@ -456,9 +481,11 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                       onClick={() => {
                         setLatitude(coords.lat);
                         setLongitude(coords.lng);
+                        setIsGpsLive(false);
+                        setLocationErrorType(null);
                         setLocationStatusText(`Attached ${name} center point`);
                       }}
-                      className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white hover:bg-blue-50 text-[#1F71E8] border border-slate-200 hover:border-blue-300 transition cursor-pointer shrink-0"
+                      className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-white hover:bg-blue-50 text-[#1F71E8] border border-slate-200 hover:border-blue-300 transition cursor-pointer shrink-0"
                     >
                       {name}
                     </button>

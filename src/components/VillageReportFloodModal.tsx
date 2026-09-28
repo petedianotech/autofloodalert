@@ -56,7 +56,9 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
   const [latitude, setLatitude] = useState<number | undefined>();
   const [longitude, setLongitude] = useState<number | undefined>();
   const [accuracyMeters, setAccuracyMeters] = useState<number | undefined>();
+  const [isGpsLive, setIsGpsLive] = useState<boolean>(false);
   const [locationStatusText, setLocationStatusText] = useState<string>('');
+  const [locationErrorType, setLocationErrorType] = useState<'permission' | 'signal' | 'timeout' | null>(null);
   const [isLocating, setIsLocating] = useState(false);
 
   // Audio Voice Note recording state
@@ -94,55 +96,55 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
 
   const handleGetLocation = async () => {
     setIsLocating(true);
+    setLocationErrorType(null);
     setLocationStatusText('Acquiring live satellite GPS from phone...');
 
     try {
       const coords = await locationService.getDeviceGpsCoordinates({
         enableHighAccuracy: true,
-        timeout: 10000,
+        timeout: 12000,
       });
       setLatitude(coords.latitude);
       setLongitude(coords.longitude);
       setAccuracyMeters(coords.accuracy);
-      setLocationStatusText(`Live GPS Attached (±${coords.accuracy}m accuracy)`);
-      setIsLocating(false);
+      setIsGpsLive(true);
+      setLocationStatusText(`✓ Live Phone GPS Attached (±${coords.accuracy}m accuracy)`);
     } catch (err: any) {
-      console.warn('High accuracy GPS error, trying standard accuracy...', err);
-      try {
-        const coords = await locationService.getDeviceGpsCoordinates({
-          enableHighAccuracy: false,
-          timeout: 10000,
-        });
-        setLatitude(coords.latitude);
-        setLongitude(coords.longitude);
-        setAccuracyMeters(coords.accuracy);
-        setLocationStatusText(`Live GPS Attached (±${coords.accuracy}m)`);
-        setIsLocating(false);
-      } catch (finalErr: any) {
-        const preset = VILLAGE_COORDS[village] || VILLAGE_COORDS['Dzenje Village'];
-        setLatitude(preset.lat);
-        setLongitude(preset.lng);
-        
-        let reason = 'Phone GPS unavailable';
-        const errStr = String(err.message || '').toLowerCase();
-        if (errStr.includes('denied') || errStr.includes('permission')) {
-          reason = 'Location permission denied in phone browser or APK. (Allow Location in App/Chrome settings)';
-        } else if (errStr.includes('signal') || errStr.includes('unavailable')) {
-          reason = 'GPS signal lost or device Location toggle is OFF.';
-        } else if (errStr.includes('timeout') || errStr.includes('timed out')) {
-          reason = 'GPS satellite fix timed out.';
-        }
-        
-        setLocationStatusText(`${reason} Defaulting to ${village} center.`);
-        setIsLocating(false);
+      console.warn('GPS acquisition error:', err);
+      setIsGpsLive(false);
+
+      const errStr = String(err.message || '').toLowerCase();
+      if (err.code === 1 || errStr.includes('denied') || errStr.includes('permission')) {
+        setLocationErrorType('permission');
+        setLocationStatusText('Location permission not granted. Follow the quick tip below to allow access.');
+      } else if (err.code === 2 || errStr.includes('signal') || errStr.includes('unavailable')) {
+        setLocationErrorType('signal');
+        setLocationStatusText('GPS signal unavailable. Please ensure Location is turned ON in phone settings.');
+      } else {
+        setLocationErrorType('timeout');
+        setLocationStatusText('GPS satellite fix timed out. You can retry or use village center coordinates.');
       }
+    } finally {
+      setIsLocating(false);
     }
+  };
+
+  const handleUsePresetLocation = () => {
+    const preset = VILLAGE_COORDS[village] || VILLAGE_COORDS['Dzenje Village'];
+    setLatitude(preset.lat);
+    setLongitude(preset.lng);
+    setAccuracyMeters(undefined);
+    setIsGpsLive(false);
+    setLocationErrorType(null);
+    setLocationStatusText(`Attached ${village} Center coordinates (${preset.lat.toFixed(4)}, ${preset.lng.toFixed(4)})`);
   };
 
   const handleClearLocation = () => {
     setLatitude(undefined);
     setLongitude(undefined);
     setAccuracyMeters(undefined);
+    setIsGpsLive(false);
+    setLocationErrorType(null);
     setLocationStatusText('');
   };
 
@@ -521,26 +523,34 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
                   )}
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2.5">
+                  {/* Primary GPS Action Button */}
                   <button
                     type="button"
                     onClick={handleGetLocation}
                     disabled={isLocating}
                     className={`w-full py-2.5 px-3 rounded-xl border flex items-center justify-center gap-2 text-xs font-bold transition cursor-pointer ${
-                      latitude && longitude
-                        ? 'bg-emerald-600 text-white border-emerald-600'
+                      latitude && longitude && isGpsLive
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        : latitude && longitude && !isGpsLive
+                        ? 'bg-blue-50 text-[#1F71E8] border-blue-300 shadow-2xs'
                         : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50 shadow-2xs'
                     }`}
                   >
                     {isLocating ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                        <span>Getting satellite GPS...</span>
+                        <span>Connecting to phone GPS satellites...</span>
                       </>
-                    ) : latitude && longitude ? (
+                    ) : latitude && longitude && isGpsLive ? (
                       <>
                         <CheckCircle2 className="w-4 h-4 text-white" />
-                        <span>GPS Attached: {latitude.toFixed(4)}, {longitude.toFixed(4)}</span>
+                        <span>✓ Live Phone GPS: {latitude.toFixed(4)}, {longitude.toFixed(4)} {accuracyMeters ? `(±${accuracyMeters}m)` : ''}</span>
+                      </>
+                    ) : latitude && longitude && !isGpsLive ? (
+                      <>
+                        <MapPin className="w-4 h-4 text-[#1F71E8]" />
+                        <span>Preset Location: {latitude.toFixed(4)}, {longitude.toFixed(4)} ({village})</span>
                       </>
                     ) : (
                       <>
@@ -550,18 +560,57 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
                     )}
                   </button>
 
-                  {locationStatusText && (
-                    <div className="space-y-1">
-                      <p className="text-[11px] font-medium text-slate-700 text-center">
-                        {locationStatusText}
-                      </p>
-                      {locationStatusText.includes('permission denied') && (
-                        <p className="text-[10px] text-amber-700 bg-amber-50 p-1.5 rounded-lg border border-amber-200 text-center">
-                          💡 <strong>Android Tip:</strong> If Chrome says <em>"This site can't ask for your permission"</em>, drag down & close any <strong>floating bubbles</strong> or screen recorders on your screen, then try again. Or tap Chrome <strong>⋮ Settings → Site settings → Location → Allow</strong>.
-                        </p>
-                      )}
+                  {/* Status & Error Helper Card */}
+                  {locationErrorType ? (
+                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 space-y-2 animate-in fade-in">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div className="space-y-0.5 text-xs">
+                          <p className="font-bold">
+                            {locationErrorType === 'permission'
+                              ? 'Location Permission Blocked / Not Allowed'
+                              : locationErrorType === 'signal'
+                              ? 'Device Location is Turned OFF'
+                              : 'GPS Satellite Fix Timed Out'}
+                          </p>
+                          <p className="text-[11px] text-amber-800 leading-snug">
+                            {locationErrorType === 'permission' ? (
+                              <>
+                                <strong>Android Tip:</strong> Close any <strong>floating screen recorders or chat bubbles</strong> on your screen (Android blocks permission popups when overlays are active), then tap Retry or allow location in Chrome settings.
+                              </>
+                            ) : (
+                              <>Please ensure <strong>Location (GPS)</strong> is turned ON in your phone's top swipe-down menu.</>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={handleGetLocation}
+                          disabled={isLocating}
+                          className="flex-1 py-1.5 px-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer"
+                        >
+                          <Navigation className="w-3 h-3" />
+                          <span>Retry Phone GPS</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleUsePresetLocation}
+                          className="flex-1 py-1.5 px-2.5 rounded-lg bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 text-[11px] font-bold transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer"
+                        >
+                          <MapPin className="w-3 h-3 text-amber-700" />
+                          <span>Use Village Center</span>
+                        </button>
+                      </div>
                     </div>
-                  )}
+                  ) : locationStatusText ? (
+                    <p className="text-[11px] font-medium text-slate-700 text-center">
+                      {locationStatusText}
+                    </p>
+                  ) : null}
 
                   <div>
                     <input

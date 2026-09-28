@@ -153,23 +153,29 @@ export default function App() {
     }
   };
 
-  // Touch gestures for swipe navigation
+  // Touch gestures for swipe navigation (DISABLED by default; can be toggled ON in User Profile)
+  const isSwipeGesturesEnabled = Boolean(authState.user?.swipeGesturesEnabled ?? false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isSwipeGesturesEnabled) return;
     setTouchStartX(e.touches[0].clientX);
     setTouchStartY(e.touches[0].clientY);
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX === null || touchStartY === null) return;
+    if (!isSwipeGesturesEnabled || touchStartX === null || touchStartY === null) {
+      setTouchStartX(null);
+      setTouchStartY(null);
+      return;
+    }
     
     const diffX = e.changedTouches[0].clientX - touchStartX;
     const diffY = e.changedTouches[0].clientY - touchStartY;
     
     // Horizontal swipe must be significantly wider than vertical drag
-    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 45) {
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 60) {
       const allowedModes: NodeMode[] = isAdmin 
         ? ['admin', 'sensor', 'receiver', 'village'] 
         : ['village', 'receiver'];

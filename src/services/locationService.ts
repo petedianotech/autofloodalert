@@ -98,28 +98,30 @@ class LocationService {
 
   /**
    * Acquire real GPS hardware coordinates from the mobile device
-   * Supports native Capacitor Geolocation (APK) with fallback to standard web browser API.
+   * Supports native Capacitor Geolocation (APK) with multi-tier fallback to standard web browser API.
    */
   public async getDeviceGpsCoordinates(options?: { enableHighAccuracy?: boolean; timeout?: number }): Promise<GeoLocationCoordinates> {
     const enableHighAccuracy = options?.enableHighAccuracy ?? true;
-    const timeout = options?.timeout ?? 10000;
+    const timeout = options?.timeout ?? 12000;
 
-    // Check if we are running on a native Capacitor platform (Android APK)
+    // 1. Check if we are running on a native Capacitor platform (Android APK)
     if (Capacitor.isNativePlatform()) {
       try {
-        console.log('Detecting native Capacitor platform - initiating GPS permissions check...');
+        console.log('[GPS] Detecting native Capacitor platform - checking permissions...');
         const perm = await CapGeolocation.checkPermissions();
         if (perm.location !== 'granted' && perm.coarseLocation !== 'granted') {
           const req = await CapGeolocation.requestPermissions();
           if (req.location !== 'granted' && req.coarseLocation !== 'granted') {
-            throw new Error('Native location permission was denied by the user.');
+            const err: any = new Error('Location permission denied on device.');
+            err.code = 1;
+            throw err;
           }
         }
 
         const pos = await CapGeolocation.getCurrentPosition({
           enableHighAccuracy,
           timeout,
-          maximumAge: 10000
+          maximumAge: 5000,
         });
 
         return {
@@ -130,45 +132,81 @@ class LocationService {
           timestamp: pos.timestamp || Date.now(),
         };
       } catch (nativeErr: any) {
-        console.warn('Native Capacitor Geolocation failed, trying standard WebView/navigator fallback:', nativeErr);
+        if (nativeErr.code === 1 || String(nativeErr.message).toLowerCase().includes('denied')) {
+          const err: any = new Error('Location permission denied on device.');
+          err.code = 1;
+          throw err;
+        }
+        console.warn('[GPS] Native Geolocation attempt failed, falling back to Web API:', nativeErr);
         // Fall through to standard web geolocation below
       }
     }
 
-    if (!navigator.geolocation) {
-      throw new Error('Hardware GPS is not supported on this device/browser.');
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      const err: any = new Error('Hardware GPS is not supported on this browser/device.');
+      err.code = 2;
+      throw err;
     }
 
-    return new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const coords: GeoLocationCoordinates = {
-            latitude: Number(pos.coords.latitude.toFixed(6)),
-            longitude: Number(pos.coords.longitude.toFixed(6)),
-            accuracy: Math.round(pos.coords.accuracy),
-            altitude: pos.coords.altitude ? Number(pos.coords.altitude.toFixed(1)) : null,
-            timestamp: pos.timestamp || Date.now(),
-          };
-          resolve(coords);
-        },
-        (err) => {
-          let msg = 'Failed to acquire device GPS position.';
-          if (err.code === err.PERMISSION_DENIED) {
-            msg = 'GPS Location permission denied. Please allow location access in your browser.';
-          } else if (err.code === err.POSITION_UNAVAILABLE) {
-            msg = 'GPS satellite signal unavailable. Please ensure location is enabled.';
-          } else if (err.code === err.TIMEOUT) {
-            msg = 'GPS fix timed out. Trying with cached satellite network.';
+    // Helper promise wrapper for navigator.geolocation
+    const acquirePosition = (highAcc: boolean, tOut: number, maxAge: number): Promise<GeoLocationCoordinates> => {
+      return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            resolve({
+              latitude: Number(pos.coords.latitude.toFixed(6)),
+              longitude: Number(pos.coords.longitude.toFixed(6)),
+              accuracy: Math.round(pos.coords.accuracy),
+              altitude: pos.coords.altitude ? Number(pos.coords.altitude.toFixed(1)) : null,
+              timestamp: pos.timestamp || Date.now(),
+            });
+          },
+          (err) => {
+            const customErr: any = new Error(err.message || 'GPS position error');
+            customErr.code = err.code;
+            reject(customErr);
+          },
+          {
+            enableHighAccuracy: highAcc,
+            timeout: tOut,
+            maximumAge: maxAge,
           }
-          reject(new Error(msg));
-        },
-        {
-          enableHighAccuracy,
-          timeout,
-          maximumAge: 10000,
+        );
+      });
+    };
+
+    // 2. First attempt: High Accuracy GPS (Satellites + Wi-Fi)
+    try {
+      return await acquirePosition(enableHighAccuracy, timeout, 0);
+    } catch (primaryErr: any) {
+      // If user specifically denied permission (code 1), do not try fallback, report immediately
+      if (primaryErr.code === 1 || primaryErr.message?.toLowerCase().includes('denied')) {
+        const err: any = new Error('Location permission denied in browser. Please tap "Allow" when prompted.');
+        err.code = 1;
+        throw err;
+      }
+
+      console.warn('[GPS] High-accuracy lock timed out or unavailable. Trying network coarse fallback...', primaryErr);
+
+      // 3. Second attempt: Coarse Network Location (Cell Tower + Cached Wi-Fi, 60s maxAge)
+      try {
+        return await acquirePosition(false, 8000, 60000);
+      } catch (fallbackErr: any) {
+        if (fallbackErr.code === 1) {
+          const err: any = new Error('Location permission denied in browser.');
+          err.code = 1;
+          throw err;
         }
-      );
-    });
+
+        const msg =
+          fallbackErr.code === 2
+            ? 'GPS location signal unavailable. Please ensure Phone Location / GPS is turned ON.'
+            : 'GPS satellite fix timed out. Please check signal or try again outdoors.';
+        const finalErr: any = new Error(msg);
+        finalErr.code = fallbackErr.code || 3;
+        throw finalErr;
+      }
+    }
   }
 
   /**

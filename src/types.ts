@@ -28,6 +28,7 @@ export interface UserProfile {
   village: string;
   phone?: string;
   smsAlertsEnabled?: boolean;
+  swipeGesturesEnabled?: boolean; // Off by default (false). Can be turned on in user's profile
   alertLanguage?: 'en' | 'ny'; // 'en' = Simple English ("Go to high ground"), 'ny' = Chichewa ("Pitani kumalo okwera")
   email?: string;
   photoURL?: string;

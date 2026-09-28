@@ -13,6 +13,8 @@
 import firebaseConfigJson from '../../firebase-applet-config.json';
 import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported, Messaging } from 'firebase/messaging';
 import { getApp } from 'firebase/app';
+import { Capacitor } from '@capacitor/core';
+import { PushNotifications } from '@capacitor/push-notifications';
 import { firebaseFloodService } from './firebaseService';
 import { NativePowerHelperPlugin } from './batteryOptimizationService';
 
@@ -39,7 +41,44 @@ export class NotificationService {
   public static readonly VAPID_KEY = (firebaseConfigJson as any).vapidKey || 'BO3GBoftBPynx-UIn-wqYpMwm_8xazmQ-hYdddRcFWZ1lf1C5DMMf2HK2fcBcyKE7lF2cn6VlqWC3_0PBg2C8as';
 
   public static init() {
-    // 1. Register Service Worker
+    // 0. Native Capacitor Push Notifications for Android APK
+    if (Capacitor.isNativePlatform()) {
+      try {
+        PushNotifications.addListener('registration', (token) => {
+          console.log('[Native FCM] Android Device Token registered:', token.value);
+          this.fcmToken = token.value;
+          firebaseFloodService.registerFcmToken(token.value).catch(() => {});
+        });
+
+        PushNotifications.addListener('registrationError', (error) => {
+          console.warn('[Native FCM] Registration error:', error);
+        });
+
+        PushNotifications.addListener('pushNotificationReceived', (notification) => {
+          console.log('[Native FCM] Notification received in app:', notification);
+          this.sendFloodPushNotification(
+            notification.title || '🚨 FLOOD ALERT',
+            notification.body || 'Continuous vibration warning detected!',
+            {
+              village: notification.data?.village,
+              riverName: notification.data?.riverName,
+              mapsUrl: notification.data?.mapsUrl,
+              peakDelta: Number(notification.data?.peakDelta) || 0,
+            }
+          );
+        });
+
+        PushNotifications.checkPermissions().then((perm) => {
+          if (perm.receive === 'granted') {
+            PushNotifications.register();
+          }
+        });
+      } catch (err) {
+        console.warn('[Native FCM] Native push setup warning:', err);
+      }
+    }
+
+    // 1. Register Service Worker for PWA Web
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker
         .register('/firebase-messaging-sw.js')
@@ -194,6 +233,29 @@ export class NotificationService {
   }
 
   public static async requestPermission(sendTestNotification = true): Promise<NotificationPermission> {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const perm = await PushNotifications.requestPermissions();
+        if (perm.receive === 'granted') {
+          await PushNotifications.register();
+          this.notifyPermissionListeners('granted');
+
+          if (sendTestNotification) {
+            setTimeout(() => {
+              this.sendFloodPushNotification(
+                '🔔 Flood Alerts Active',
+                'Your phone is now connected to the Dzenje CDSS emergency alert system. You will receive loud siren warnings when flood water rises.',
+                { isTest: true }
+              );
+            }, 300);
+          }
+          return 'granted';
+        }
+      } catch (nativeErr) {
+        console.warn('[Native Push] requestPermissions error:', nativeErr);
+      }
+    }
+
     if (!this.isSupported()) return 'denied';
     try {
       const result = await Notification.requestPermission();
