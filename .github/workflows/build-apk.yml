@@ -16,11 +16,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Java JDK 21
+      - name: Set up Java JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version: '17'
           cache: 'gradle'
 
       - name: Configure Android SDK & Accept Licenses
@@ -55,14 +55,14 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.11.1'
+          gradle-version: '8.13'
           validate-wrappers: false
 
       - name: Compile and Package APK
         run: |
           cd android
           # Ensure gradle-wrapper.jar exists by generating it with the active gradle CLI
-          gradle wrapper --gradle-version 8.11.1 --distribution-type all
+          gradle wrapper --gradle-version 8.13 --distribution-type bin
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace || gradle assembleDebug --no-daemon --stacktrace
 
