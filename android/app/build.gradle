@@ -23,8 +23,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
     }
 }
 
@@ -47,15 +47,6 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
-
-// Re-apply Java 17 after capacitor.build.gradle (which sets Java 21) so the build
-// matches the CI JDK 17 and remains compatible with the configured toolchain.
-android {
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
-}
 
 try {
     def servicesJSON = file('google-services.json')
