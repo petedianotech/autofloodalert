@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    name: Build Flood Alert APK
+    name: Build Auto Flood Alert APK
     runs-on: ubuntu-latest
 
     steps:
@@ -31,8 +31,8 @@ jobs:
           echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > "$ANDROID_HOME/licenses/android-sdk-preview-license"
           if [ -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
             yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
-            # Ensure platform and build-tools for compileSdk 36 are available
-            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" || true
+            # Ensure platform and build-tools for compileSdk 35 are available
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" || true
           fi
 
       - name: Set up Node.js 22 (LTS)
@@ -45,7 +45,7 @@ jobs:
         run: |
           npm install --legacy-peer-deps --no-audit
 
-      - name: Build Web Application
+      - name: Build Web Application & Assets
         run: |
           npm run build
           node scripts/generate-android-assets.js
@@ -53,6 +53,48 @@ jobs:
       - name: Sync Native Android Assets
         run: |
           npx cap sync android
+
+      - name: Ensure Google Services & Resources Exist
+        run: |
+          if [ ! -f android/app/google-services.json ]; then
+            echo "Generating fallback google-services.json..."
+            cat << 'EOF' > android/app/google-services.json
+          {
+            "project_info": {
+              "project_number": "158763014091",
+              "project_id": "automatic-flood-alert",
+              "storage_bucket": "automatic-flood-alert.firebasestorage.app"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:158763014091:android:9d45e4517b620b7237084e",
+                  "android_client_info": {
+                    "package_name": "com.dzenjecdsstem.floodalert"
+                  }
+                },
+                "oauth_client": [
+                  {
+                    "client_id": "158763014091-74pp71vgs0q81v8u19m9u9f7rk4ha160.apps.googleusercontent.com",
+                    "client_type": 3
+                  }
+                ],
+                "api_key": [
+                  {
+                    "current_key": "AIzaSyDsh5VHm1rk4tiacIYVkkxZF3LK5lPmH0w"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": []
+                  }
+                }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOF
+          fi
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -72,14 +114,14 @@ jobs:
         run: |
           mkdir -p build-output
           if [ -f android/app/build/outputs/apk/debug/app-debug.apk ]; then
-            cp android/app/build/outputs/apk/debug/app-debug.apk build-output/Dzenje-Flood-Alert.apk
+            cp android/app/build/outputs/apk/debug/app-debug.apk build-output/Auto-Flood-Alert.apk
           else
-            find android/app/build/outputs/apk -name "*.apk" -exec cp {} build-output/Dzenje-Flood-Alert.apk \;
+            find android/app/build/outputs/apk -name "*.apk" -exec cp {} build-output/Auto-Flood-Alert.apk \;
           fi
 
       - name: Upload Installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: Dzenje-Flood-Alert-APK
-          path: build-output/Dzenje-Flood-Alert.apk
+          name: Auto-Flood-Alert-APK
+          path: build-output/Auto-Flood-Alert.apk
           retention-days: 30

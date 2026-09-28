@@ -13,13 +13,13 @@ export interface ApkConfig {
 
 const STORAGE_KEY_APK_CONFIG = 'flood_apk_download_config_v1';
 const DEFAULT_APK_CONFIG: ApkConfig = {
-  downloadUrl: 'https://github.com/dzenje-stem-club/flood-alert/releases/download/v1.2.0/AutomaticFloodAlert-Dzenje.apk',
-  version: 'v1.2.0 (Build 24)',
-  fileSize: '8.4 MB',
+  downloadUrl: 'https://github.com/dzenje-stem-club/flood-alert/releases/download/v1.2.1/AutoFloodAlert-Dzenje.apk',
+  version: 'v1.2.1 (Build 25)',
+  fileSize: '8.5 MB',
   releaseDate: 'September 2026',
   updatedAt: Date.now(),
   updatedBy: 'Dzenje CDSS ADDA STEM Club',
-  notes: 'Official Native Android APK with Background Siren, Offline SMS Gateway & River Acoustic Watchdog for Dzenje Village & Machokola Village',
+  notes: 'Official Native Android APK (Auto Flood Alert) with Background Siren, Offline SMS Gateway & River Acoustic Watchdog for Dzenje Village & Machokola Village',
 };
 
 type ApkConfigListener = (config: ApkConfig) => void;
