@@ -9,11 +9,13 @@ import {
   AlertTriangle,
   Check,
   Search,
+  RefreshCw,
 } from 'lucide-react';
 import {
   smsGatewayService,
   SmsGatewayConfig,
 } from '../services/smsGatewayService';
+import { firebaseFloodService } from '../services/firebaseService';
 
 interface SmsGatewayModalProps {
   isOpen: boolean;
@@ -39,6 +41,8 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
   const [activeTab, setActiveTab] = useState<'all' | 'chichewa' | 'english' | 'marked'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isRefreshingContacts, setIsRefreshingContacts] = useState(false);
+  const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
   const [sendResult, setSendResult] = useState<{
     success: boolean;
     sentCount: number;
@@ -49,6 +53,25 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
   } | null>(null);
 
   if (!isOpen) return null;
+
+  const handleRefreshContacts = async () => {
+    setIsRefreshingContacts(true);
+    setRefreshMsg(null);
+    try {
+      const res = await firebaseFloodService.manualRefreshAll();
+      setConfig(smsGatewayService.getConfig());
+      if (res && res.newUsersCount > 0) {
+        setRefreshMsg(`Found ${res.newUsersCount} new signed-in user(s)!`);
+      } else {
+        setRefreshMsg(`Synced: ${res ? res.usersCount : 0} users loaded`);
+      }
+    } catch {
+      setRefreshMsg('Sync error');
+    } finally {
+      setIsRefreshingContacts(false);
+      setTimeout(() => setRefreshMsg(null), 3500);
+    }
+  };
 
   const handleRemoveRecipient = (id: string) => {
     smsGatewayService.removeRecipient(id);
@@ -128,15 +151,37 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-9 h-9 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-[#49454F] transition active:scale-95 cursor-pointer shrink-0"
-            title="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              id="btn-sms-refresh-recipients"
+              onClick={handleRefreshContacts}
+              disabled={isRefreshingContacts}
+              className="px-3 py-1.5 rounded-xl bg-white border border-emerald-300 hover:bg-emerald-50 text-[#006A4E] text-xs font-bold flex items-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer disabled:opacity-50"
+              title="Refresh newly signed-up users and phone numbers from Firebase"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-[#006A4E] ${isRefreshingContacts ? 'animate-spin' : ''}`} />
+              <span>Refresh Contacts</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-9 h-9 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-[#49454F] transition active:scale-95 cursor-pointer shrink-0"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
+
+        {/* Refresh feedback toast if triggered */}
+        {refreshMsg && (
+          <div className="p-2.5 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{refreshMsg}</span>
+          </div>
+        )}
 
         {/* Gateway Phone Status Only */}
         <div className="bg-white rounded-2xl p-3.5 border border-slate-200 flex items-center justify-between shadow-2xs">

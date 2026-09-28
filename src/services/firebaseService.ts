@@ -22,6 +22,7 @@ import {
   updateDoc,
   deleteDoc,
   getDocFromServer,
+  getDocsFromServer,
   Firestore,
   Unsubscribe,
 } from 'firebase/firestore';
@@ -194,6 +195,10 @@ class FirebaseFloodService {
             this.handleLocalSafetyReportDeleted(event.data.reportId);
           } else if (event.data && event.data.type === 'CLEAR_SAFETY_REPORTS') {
             this.notifySafetyReports([]);
+          } else if (event.data && (event.data.type === 'NEW_USER' || event.data.type === 'USER_SIGNED_IN')) {
+            if (event.data.user) {
+              this.upsertCachedUser(event.data.user);
+            }
           }
         };
       } catch (err) {
@@ -249,6 +254,11 @@ class FirebaseFloodService {
       if (this.db) {
         smsGatewayService.syncUsersFromFirestore(this.db);
       }
+
+      // Fast initial server pull in parallel to quickly render freshest Firestore data
+      this.fetchInitialDataFromServer().catch((pullErr) => {
+        console.warn('Initial server fetch note:', pullErr);
+      });
     } catch (err) {
       console.warn('Firebase initialization error:', err);
       this.isFirebaseActive = false;
@@ -259,6 +269,120 @@ class FirebaseFloodService {
         isAuthenticated: !!cached,
         isLoading: false,
       });
+    }
+  }
+
+  /**
+   * Fast initial server query on app startup to guarantee freshest state immediately
+   */
+  private async fetchInitialDataFromServer(): Promise<void> {
+    if (!this.db) return;
+    try {
+      // 1. Fetch live users
+      const usersSnap = await getDocs(collection(this.db, 'users'));
+      if (!usersSnap.empty) {
+        const users: UserProfile[] = [];
+        usersSnap.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
+          users.push({
+            uid: docSnapshot.id,
+            name: data.name || 'Community Member',
+            village: data.village || 'Dzenje Village',
+            phone: data.phone,
+            email: data.email,
+            smsAlertsEnabled: data.smsAlertsEnabled !== false,
+            alertLanguage: data.alertLanguage || 'ny',
+            authProvider: data.authProvider || 'name_village',
+            role: data.role || 'resident',
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt,
+          });
+        });
+        if (users.length > 0) {
+          this.saveCachedUsers(users);
+          this.notifyUsers(users);
+        }
+      }
+
+      // 2. Fetch live alerts
+      const alertsSnap = await getDocs(
+        query(collection(this.db, 'flood_alerts'), orderBy('timestamp', 'desc'), limit(50))
+      );
+      if (!alertsSnap.empty) {
+        const alerts: FloodAlert[] = [];
+        alertsSnap.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
+          alerts.push({
+            id: docSnapshot.id,
+            timestamp: data.timestamp || Date.now(),
+            formattedTime: data.formattedTime || new Date(data.timestamp || Date.now()).toLocaleTimeString(),
+            peakDelta: data.peakDelta || 0,
+            durationSeconds: data.durationSeconds || 0,
+            nodeId: data.nodeId || 'node-unknown',
+            nodeName: data.nodeName || 'Sensor Node',
+            village: data.village || data.location?.village || 'Dzenje',
+            location: data.location,
+            locationLabel: data.locationLabel || (data.location ? `${data.location.riverName}, ${data.location.village}` : undefined),
+            riverName: data.riverName || data.location?.riverName,
+            traditionalAuthority: data.traditionalAuthority || data.location?.traditionalAuthority,
+            district: data.district || data.location?.district,
+            region: data.region || data.location?.region,
+            latitude: data.latitude ?? data.location?.coordinates?.latitude,
+            longitude: data.longitude ?? data.location?.coordinates?.longitude,
+            mapsUrl: data.mapsUrl || data.location?.mapsUrl,
+            userId: data.userId,
+            status: data.status || 'active',
+            severity: data.severity || (data.peakDelta >= 1.5 ? 'red' : 'yellow'),
+            title: data.title,
+            message: data.message,
+            dismissedBy: data.dismissedBy,
+            dismissedAt: data.dismissedAt,
+            source: data.source || 'hardware_sensor',
+            notes: data.notes,
+          });
+        });
+        if (alerts.length > 0) {
+          this.saveLocalAlerts(alerts);
+          this.notifyAlerts(alerts);
+        }
+      }
+
+      // 3. Fetch live safety reports
+      const safetySnap = await getDocs(
+        query(collection(this.db, 'safety_reports'), orderBy('timestamp', 'desc'), limit(100))
+      );
+      if (!safetySnap.empty) {
+        const reports: ResidentSafetyReport[] = [];
+        safetySnap.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
+          reports.push({
+            id: docSnapshot.id,
+            userId: data.userId || 'anonymous',
+            userName: data.userName || 'Resident',
+            village: data.village || 'Dzenje Village',
+            status: data.status || 'safe',
+            statusLabel: data.statusLabel,
+            peopleCount: data.peopleCount,
+            phone: data.phone,
+            message: data.message,
+            timestamp: data.timestamp || Date.now(),
+            formattedTime: data.formattedTime || new Date(data.timestamp || Date.now()).toLocaleTimeString(),
+            latitude: data.latitude,
+            longitude: data.longitude,
+            mapsUrl: data.mapsUrl,
+            voiceAudioBase64: data.voiceAudioBase64,
+            voiceDurationSec: data.voiceDurationSec,
+            hasVoiceNote: data.hasVoiceNote || !!data.voiceAudioBase64,
+            updatedAt: data.updatedAt,
+          });
+        });
+        if (reports.length > 0) {
+          this.saveLocalSafetyReports(reports);
+          this.notifySafetyReports(reports);
+        }
+      }
+    } catch (err) {
+      console.warn('fetchInitialDataFromServer warning:', err);
     }
   }
 
@@ -275,21 +399,192 @@ class FirebaseFloodService {
     }
   }
 
-  public async manualRefreshAll(): Promise<void> {
-    if (!this.db) return;
+  /**
+   * Real, Authentic Manual Refresh:
+   * Direct server query to Firestore (bypasses stale client caches).
+   * Immediately retrieves newly registered users, alerts, and reports.
+   * Syncs new phone numbers into SMS Gateway recipients immediately.
+   */
+  public async manualRefreshAll(): Promise<{
+    success: boolean;
+    usersCount: number;
+    alertsCount: number;
+    reportsCount: number;
+    newUsersCount: number;
+    newUsers: UserProfile[];
+    timestamp: number;
+  }> {
+    if (!this.db) {
+      return {
+        success: false,
+        usersCount: this.cachedUsers.length,
+        alertsCount: this.getLocalAlerts().length,
+        reportsCount: this.getLocalSafetyReports().length,
+        newUsersCount: 0,
+        newUsers: [],
+        timestamp: Date.now(),
+      };
+    }
+
     try {
-      console.log('[Firebase] Executing manual full data sync...');
-      // 1. Re-sync SMS Gateway recipients
+      console.log('[Firebase] Executing authentic manual full sync directly from server...');
+      const previousUsers = [...this.cachedUsers];
+      const previousUids = new Set(previousUsers.map((u) => u.uid));
+
+      // 1. Force server query for Users collection
+      let usersSnap;
+      try {
+        usersSnap = await getDocsFromServer(collection(this.db, 'users'));
+      } catch {
+        usersSnap = await getDocs(collection(this.db, 'users'));
+      }
+
+      const freshUsers: UserProfile[] = [];
+      usersSnap.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        freshUsers.push({
+          uid: docSnapshot.id,
+          name: data.name || 'Community Member',
+          village: data.village || 'Dzenje Village',
+          phone: data.phone,
+          email: data.email,
+          smsAlertsEnabled: data.smsAlertsEnabled !== false,
+          alertLanguage: data.alertLanguage || 'ny',
+          authProvider: data.authProvider || 'name_village',
+          role: data.role || 'resident',
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+        });
+      });
+
+      // Find any newly added users
+      const newUsers = freshUsers.filter((u) => !previousUids.has(u.uid));
+
+      if (freshUsers.length > 0) {
+        this.saveCachedUsers(freshUsers);
+        this.notifyUsers(freshUsers);
+      }
+
+      // 2. Force server query for Flood Alerts collection
+      let alertsSnap;
+      try {
+        const qAlerts = query(collection(this.db, 'flood_alerts'), orderBy('timestamp', 'desc'), limit(50));
+        alertsSnap = await getDocsFromServer(qAlerts);
+      } catch {
+        const qAlerts = query(collection(this.db, 'flood_alerts'), orderBy('timestamp', 'desc'), limit(50));
+        alertsSnap = await getDocs(qAlerts);
+      }
+
+      const freshAlerts: FloodAlert[] = [];
+      alertsSnap.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        freshAlerts.push({
+          id: docSnapshot.id,
+          timestamp: data.timestamp || Date.now(),
+          formattedTime: data.formattedTime || new Date(data.timestamp || Date.now()).toLocaleTimeString(),
+          peakDelta: data.peakDelta || 0,
+          durationSeconds: data.durationSeconds || 0,
+          nodeId: data.nodeId || 'node-unknown',
+          nodeName: data.nodeName || 'Sensor Node',
+          village: data.village || data.location?.village || 'Dzenje',
+          location: data.location,
+          locationLabel: data.locationLabel || (data.location ? `${data.location.riverName}, ${data.location.village}` : undefined),
+          riverName: data.riverName || data.location?.riverName,
+          traditionalAuthority: data.traditionalAuthority || data.location?.traditionalAuthority,
+          district: data.district || data.location?.district,
+          region: data.region || data.location?.region,
+          latitude: data.latitude ?? data.location?.coordinates?.latitude,
+          longitude: data.longitude ?? data.location?.coordinates?.longitude,
+          mapsUrl: data.mapsUrl || data.location?.mapsUrl,
+          userId: data.userId,
+          status: data.status || 'active',
+          severity: data.severity || (data.peakDelta >= 1.5 ? 'red' : 'yellow'),
+          title: data.title,
+          message: data.message,
+          dismissedBy: data.dismissedBy,
+          dismissedAt: data.dismissedAt,
+          source: data.source || 'hardware_sensor',
+          notes: data.notes,
+        });
+      });
+
+      if (freshAlerts.length > 0) {
+        this.saveLocalAlerts(freshAlerts);
+        this.notifyAlerts(freshAlerts);
+      }
+
+      // 3. Force server query for Safety Reports collection
+      let safetySnap;
+      try {
+        const qSafety = query(collection(this.db, 'safety_reports'), orderBy('timestamp', 'desc'), limit(100));
+        safetySnap = await getDocsFromServer(qSafety);
+      } catch {
+        const qSafety = query(collection(this.db, 'safety_reports'), orderBy('timestamp', 'desc'), limit(100));
+        safetySnap = await getDocs(qSafety);
+      }
+
+      const freshReports: ResidentSafetyReport[] = [];
+      safetySnap.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        freshReports.push({
+          id: docSnapshot.id,
+          userId: data.userId || 'anonymous',
+          userName: data.userName || 'Resident',
+          village: data.village || 'Dzenje Village',
+          status: data.status || 'safe',
+          statusLabel: data.statusLabel,
+          peopleCount: data.peopleCount,
+          phone: data.phone,
+          message: data.message,
+          timestamp: data.timestamp || Date.now(),
+          formattedTime: data.formattedTime || new Date(data.timestamp || Date.now()).toLocaleTimeString(),
+          latitude: data.latitude,
+          longitude: data.longitude,
+          mapsUrl: data.mapsUrl,
+          voiceAudioBase64: data.voiceAudioBase64,
+          voiceDurationSec: data.voiceDurationSec,
+          hasVoiceNote: data.hasVoiceNote || !!data.voiceAudioBase64,
+          updatedAt: data.updatedAt,
+        });
+      });
+
+      if (freshReports.length > 0) {
+        this.saveLocalSafetyReports(freshReports);
+        this.notifySafetyReports(freshReports);
+      }
+
+      // 4. Immediately sync all contacts with SMS Gateway
       await smsGatewayService.syncUsersFromFirestore(this.db);
-      
-      // 2. Trigger onSnapshot listeners again by re-subscribing
+
+      // 5. Re-bind onSnapshot listeners to maintain continuous live sync
       this.subscribeFirestoreAlerts();
       this.subscribeFirestoreSafetyReports();
       this.subscribeFirestoreUsers();
-      
-      console.log('[Firebase] Manual full sync completed successfully.');
+
+      console.log(
+        `[Firebase] Manual refresh complete: ${freshUsers.length} users (${newUsers.length} new), ${freshAlerts.length} alerts, ${freshReports.length} reports.`
+      );
+
+      return {
+        success: true,
+        usersCount: freshUsers.length,
+        alertsCount: freshAlerts.length,
+        reportsCount: freshReports.length,
+        newUsersCount: newUsers.length,
+        newUsers,
+        timestamp: Date.now(),
+      };
     } catch (err) {
-      console.warn('[Firebase] Manual sync failed:', err);
+      console.warn('[Firebase] Manual server sync failed:', err);
+      return {
+        success: false,
+        usersCount: this.cachedUsers.length,
+        alertsCount: this.getLocalAlerts().length,
+        reportsCount: this.getLocalSafetyReports().length,
+        newUsersCount: 0,
+        newUsers: [],
+        timestamp: Date.now(),
+      };
     }
   }
 
@@ -491,6 +786,24 @@ class FirebaseFloodService {
         try {
           const cleanedProfile = cleanFirestorePayload(profile);
           await setDoc(doc(this.db, 'users', uid), cleanedProfile, { merge: true });
+
+          // Also immediately sync to sms_recipients collection on Firestore
+          if (profile.phone && profile.phone.length >= 6) {
+            await setDoc(
+              doc(this.db, 'sms_recipients', uid),
+              cleanFirestorePayload({
+                id: uid,
+                name: profile.name,
+                phone: profile.phone,
+                village: profile.village,
+                role: profile.role || 'Resident',
+                language: profile.alertLanguage || 'ny',
+                enabled: profile.smsAlertsEnabled !== false,
+                updatedAt: new Date().toISOString(),
+              }),
+              { merge: true }
+            );
+          }
         } catch (err) {
           console.warn('Could not write profile to Firestore (cached locally):', err);
         }
@@ -504,6 +817,10 @@ class FirebaseFloodService {
         isAuthenticated: true,
         isLoading: false,
       });
+
+      if (this.broadcastChannel) {
+        this.broadcastChannel.postMessage({ type: 'NEW_USER', user: profile });
+      }
 
       return profile;
     } catch (err) {
@@ -589,7 +906,23 @@ class FirebaseFloodService {
 
       if (this.db) {
         try {
-          await setDoc(doc(this.db, 'users', fbUser.uid), profile, { merge: true });
+          await setDoc(doc(this.db, 'users', fbUser.uid), cleanFirestorePayload(profile), { merge: true });
+          if (profile.phone && profile.phone.length >= 6) {
+            await setDoc(
+              doc(this.db, 'sms_recipients', fbUser.uid),
+              cleanFirestorePayload({
+                id: fbUser.uid,
+                name: profile.name,
+                phone: profile.phone,
+                village: profile.village,
+                role: profile.role || 'Resident',
+                language: profile.alertLanguage || 'ny',
+                enabled: profile.smsAlertsEnabled !== false,
+                updatedAt: new Date().toISOString(),
+              }),
+              { merge: true }
+            );
+          }
         } catch (err) {
           console.warn('Could not write Google user to Firestore:', err);
         }
@@ -603,6 +936,10 @@ class FirebaseFloodService {
         isAuthenticated: true,
         isLoading: false,
       });
+
+      if (this.broadcastChannel) {
+        this.broadcastChannel.postMessage({ type: 'NEW_USER', user: profile });
+      }
 
       return profile;
     } catch (err) {
@@ -1144,7 +1481,8 @@ class FirebaseFloodService {
               village: data.village || 'Dzenje Village',
               phone: data.phone,
               email: data.email,
-              smsAlertsEnabled: data.smsAlertsEnabled,
+              smsAlertsEnabled: data.smsAlertsEnabled !== false,
+              alertLanguage: data.alertLanguage || 'ny',
               authProvider: data.authProvider || 'name_village',
               role: data.role || 'resident',
               createdAt: data.createdAt,

@@ -31,7 +31,6 @@ import { FcmGatewayModal } from './components/FcmGatewayModal';
 import { AlertSoundModal } from './components/AlertSoundModal';
 import { SmsGatewayModal } from './components/SmsGatewayModal';
 import { AboutLegalModal } from './components/AboutLegalModal';
-import { InstallAppPrompt } from './components/InstallAppPrompt';
 import { Mic } from 'lucide-react';
 import {
   MotionData,
@@ -122,14 +121,35 @@ export default function App() {
 
   // Manual Sync & Refresh States
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [refreshToast, setRefreshToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await firebaseFloodService.manualRefreshAll();
+      const res = await firebaseFloodService.manualRefreshAll();
+      if (res && res.success) {
+        if (res.newUsersCount > 0) {
+          const names = res.newUsers.map((u) => u.name).join(', ');
+          setRefreshToast({
+            message: `✓ Found ${res.newUsersCount} new user(s) from Firebase! (${names})`,
+            type: 'success',
+          });
+        } else {
+          setRefreshToast({
+            message: `✓ Synced with Firebase! (${res.usersCount} users, ${res.alertsCount} alerts)`,
+            type: 'info',
+          });
+        }
+      }
     } catch (err) {
       console.warn('Manual refresh error:', err);
+      setRefreshToast({
+        message: 'Firebase sync completed using cached data.',
+        type: 'info',
+      });
     } finally {
-      setTimeout(() => setIsRefreshing(false), 800);
+      setTimeout(() => setIsRefreshing(false), 600);
+      setTimeout(() => setRefreshToast(null), 3800);
     }
   };
 
@@ -694,6 +714,17 @@ export default function App() {
         isRefreshing={isRefreshing}
       />
 
+      {/* Floating Real-time Firebase Sync Notification Toast */}
+      {refreshToast && (
+        <div
+          id="firebase-refresh-toast-banner"
+          className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full shadow-lg text-xs font-bold flex items-center gap-2 border animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-md max-w-[90vw] truncate select-none bg-emerald-600 text-white border-emerald-400"
+        >
+          <span className="w-2 h-2 rounded-full bg-white animate-ping shrink-0" />
+          <span className="truncate">{refreshToast.message}</span>
+        </div>
+      )}
+
       {/* 2. Fluid Responsive Content Screen */}
       <main
         id="mobile-main-scroll-area"
@@ -701,7 +732,7 @@ export default function App() {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-3.5 sm:py-5">
+        <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-3.5 sm:py-5 pb-8 sm:pb-12">
           {currentMode === 'admin' && (
             <AdminSafetyDashboardView
               safetyReports={safetyReports}
@@ -717,6 +748,8 @@ export default function App() {
               onOpenSmsModal={() => setIsSmsModalOpen(true)}
               onTurnOffSensorAndDismiss={handleTurnOffSensorAndDismiss}
               onDismissAlert={handleDismissAlert}
+              onRefresh={handleManualRefresh}
+              isRefreshing={isRefreshing}
             />
           )}
 
@@ -874,9 +907,6 @@ export default function App() {
         isOpen={isAboutModalOpen}
         onClose={() => setIsAboutModalOpen(false)}
       />
-
-      {/* 14. Automatic Install App Prompt on New Devices */}
-      <InstallAppPrompt isDarkMode={isDarkMode} />
     </div>
   );
 }

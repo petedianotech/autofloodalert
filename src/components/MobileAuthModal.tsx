@@ -17,7 +17,6 @@ import {
   Phone,
   Smartphone,
   MessageSquare,
-  Languages,
 } from 'lucide-react';
 import { UserProfile, isAppAdmin } from '../types';
 import { firebaseFloodService } from '../services/firebaseService';
@@ -354,52 +353,6 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
               </div>
             </div>
 
-            {/* Language Selection / Chilankhulo Chotumizira Mauthenga */}
-            <div className="bg-[#F3F3FA] rounded-[24px] p-4 border border-slate-100 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#49454F] uppercase tracking-wider flex items-center gap-1.5">
-                  <Languages className="w-3.5 h-3.5 text-[#1F71E8]" />
-                  Alert Language / Chilankhulo
-                </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                  {alertLanguage === 'ny' ? 'Chichewa' : 'English'}
-                </span>
-              </div>
-
-              {/* Horizontal line language selector */}
-              <div className="flex items-center p-1 bg-white rounded-2xl border border-slate-200 gap-1">
-                <button
-                  id="btn-profile-lang-chichewa"
-                  type="button"
-                  onClick={() => handleUpdateLanguageOnly('ny')}
-                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                    alertLanguage === 'ny'
-                      ? 'bg-[#1F71E8] text-white shadow-xs'
-                      : 'text-[#49454F] hover:text-[#1C1B1F]'
-                  }`}
-                >
-                  <span>🇲🇼</span>
-                  <span>Chichewa</span>
-                  {alertLanguage === 'ny' && <Check className="w-3.5 h-3.5 ml-0.5 text-white" />}
-                </button>
-
-                <button
-                  id="btn-profile-lang-english"
-                  type="button"
-                  onClick={() => handleUpdateLanguageOnly('en')}
-                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                    alertLanguage === 'en'
-                      ? 'bg-[#1F71E8] text-white shadow-xs'
-                      : 'text-[#49454F] hover:text-[#1C1B1F]'
-                  }`}
-                >
-                  <span>🇬🇧</span>
-                  <span>English</span>
-                  {alertLanguage === 'en' && <Check className="w-3.5 h-3.5 ml-0.5 text-white" />}
-                </button>
-              </div>
-            </div>
-
             {/* Phone Number & SMS Gateway Broadcast Subscription */}
             <form onSubmit={handleSavePhoneAndSms} className="bg-[#F3F3FA] rounded-[24px] p-4 border border-slate-100 space-y-3">
               <div className="flex items-center justify-between">
@@ -613,47 +566,6 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
                   </div>
                 </div>
 
-                {/* Language Preference Field - Clean Horizontal Line */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-[#1C1B1F] flex items-center gap-1.5">
-                      <Languages className="w-3.5 h-3.5 text-[#1F71E8]" />
-                      <span>Alert Language / Chilankhulo</span>
-                    </label>
-                  </div>
-                  <div className="flex items-center p-1 bg-[#F3F3FA] rounded-2xl border border-slate-200 gap-1">
-                    <button
-                      id="btn-auth-lang-ny"
-                      type="button"
-                      onClick={() => setAlertLanguage('ny')}
-                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                        alertLanguage === 'ny'
-                          ? 'bg-white text-[#1F71E8] shadow-xs border border-slate-200/80'
-                          : 'text-[#49454F] hover:text-[#1C1B1F]'
-                      }`}
-                    >
-                      <span>🇲🇼</span>
-                      <span>Chichewa</span>
-                      {alertLanguage === 'ny' && <Check className="w-3.5 h-3.5 ml-0.5 text-[#1F71E8]" />}
-                    </button>
-
-                    <button
-                      id="btn-auth-lang-en"
-                      type="button"
-                      onClick={() => setAlertLanguage('en')}
-                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                        alertLanguage === 'en'
-                          ? 'bg-white text-[#1F71E8] shadow-xs border border-slate-200/80'
-                          : 'text-[#49454F] hover:text-[#1C1B1F]'
-                      }`}
-                    >
-                      <span>🇬🇧</span>
-                      <span>English</span>
-                      {alertLanguage === 'en' && <Check className="w-3.5 h-3.5 ml-0.5 text-[#1F71E8]" />}
-                    </button>
-                  </div>
-                </div>
-
                 {/* Phone Number Field for SMS Warnings */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
@@ -726,47 +638,6 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
                       placeholder="e.g. Dzenje Village"
                       className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl border border-slate-200 bg-white text-sm font-medium text-[#1C1B1F] outline-none focus:border-[#1F71E8]"
                     />
-                  </div>
-                </div>
-
-                {/* Language Preference for Google Sign In - Clean Horizontal Line */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-[#1C1B1F] flex items-center gap-1.5">
-                      <Languages className="w-3.5 h-3.5 text-[#1F71E8]" />
-                      <span>Alert Language / Chilankhulo</span>
-                    </label>
-                  </div>
-                  <div className="flex items-center p-1 bg-[#F3F3FA] rounded-2xl border border-slate-200 gap-1">
-                    <button
-                      id="btn-google-lang-ny"
-                      type="button"
-                      onClick={() => setAlertLanguage('ny')}
-                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                        alertLanguage === 'ny'
-                          ? 'bg-white text-[#1F71E8] shadow-xs border border-slate-200/80'
-                          : 'text-[#49454F] hover:text-[#1C1B1F]'
-                      }`}
-                    >
-                      <span>🇲🇼</span>
-                      <span>Chichewa</span>
-                      {alertLanguage === 'ny' && <Check className="w-3.5 h-3.5 ml-0.5 text-[#1F71E8]" />}
-                    </button>
-
-                    <button
-                      id="btn-google-lang-en"
-                      type="button"
-                      onClick={() => setAlertLanguage('en')}
-                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                        alertLanguage === 'en'
-                          ? 'bg-white text-[#1F71E8] shadow-xs border border-slate-200/80'
-                          : 'text-[#49454F] hover:text-[#1C1B1F]'
-                      }`}
-                    >
-                      <span>🇬🇧</span>
-                      <span>English</span>
-                      {alertLanguage === 'en' && <Check className="w-3.5 h-3.5 ml-0.5 text-[#1F71E8]" />}
-                    </button>
                   </div>
                 </div>
 

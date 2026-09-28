@@ -16,6 +16,7 @@ import { UserProfile, FloodAlert, ResidentSafetyReport, isAppAdmin } from '../ty
 import { NotificationEnableCard } from './NotificationEnableCard';
 import { BatteryOptimizationCard } from './BatteryOptimizationCard';
 import { VillageReportFloodModal } from './VillageReportFloodModal';
+import { useTranslation } from '../services/i18n';
 
 interface VillageCommunityViewProps {
   currentUser: UserProfile | null;
@@ -80,6 +81,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
   onOpenReportFloodModal,
   onOpenAboutModal,
 }) => {
+  const { t, isChichewa } = useTranslation();
   const isAdmin = isAppAdmin(currentUser);
   const currentVillageName = selectedVillage || currentUser?.village || 'Dzenje Village';
 

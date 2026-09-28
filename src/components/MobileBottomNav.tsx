@@ -1,6 +1,7 @@
 import React from 'react';
 import { Activity, Bell, MapPin, LayoutDashboard } from 'lucide-react';
 import { NodeMode } from '../types';
+import { useTranslation } from '../services/i18n';
 
 interface MobileBottomNavProps {
   currentMode: NodeMode;
@@ -20,6 +21,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   isPaused,
   isAdmin = false,
 }) => {
+  const { t } = useTranslation();
+
   // Villagers and guests only see Village and Alerts tabs.
   // Admins get full app access (Dashboard, Sensor, Alerts, Village).
   interface NavTab {
@@ -33,12 +36,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   const adminTabs: NavTab[] = [
     {
       id: 'admin',
-      label: 'Dashboard',
+      label: t.navDashboard,
       icon: LayoutDashboard,
     },
     {
       id: 'sensor',
-      label: 'Sensor',
+      label: t.navSensor,
       icon: Activity,
       statusDot: isArmed
         ? isPaused
@@ -48,13 +51,13 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     },
     {
       id: 'receiver',
-      label: 'Alerts',
+      label: t.navAlerts,
       icon: Bell,
       badge: activeAlertCount > 0 ? activeAlertCount : null,
     },
     {
       id: 'village',
-      label: 'Village',
+      label: t.navVillage,
       icon: MapPin,
     },
   ];
@@ -62,12 +65,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   const villagerTabs: NavTab[] = [
     {
       id: 'village',
-      label: 'Village',
+      label: t.navVillage,
       icon: MapPin,
     },
     {
       id: 'receiver',
-      label: 'Alerts',
+      label: t.navAlerts,
       icon: Bell,
       badge: activeAlertCount > 0 ? activeAlertCount : null,
     },
@@ -78,9 +81,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   return (
     <nav
       id="mobile-bottom-navigation-bar"
-      className="md:hidden shrink-0 sticky bottom-0 z-40 w-full bg-[#FEF7FF]/95 backdrop-blur-md border-t border-slate-100 select-none pb-safe shadow-xs"
+      style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px) + 8px, 12px)' }}
+      className="md:hidden shrink-0 sticky bottom-0 z-40 w-full bg-white/95 sm:bg-[#FEF7FF]/95 backdrop-blur-xl border-t border-slate-200/90 select-none shadow-[0_-3px_15px_rgba(0,0,0,0.06)]"
     >
-      <div className="max-w-md mx-auto px-2 py-1.5 flex items-center justify-around">
+      <div className="max-w-md mx-auto px-1 sm:px-2 pt-1.5 flex items-center justify-around">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = currentMode === tab.id;
@@ -90,38 +94,38 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               key={tab.id}
               id={`tab-nav-${tab.id}`}
               onClick={() => onSelectMode(tab.id)}
-              className="flex-1 py-0.5 flex flex-col items-center justify-center relative transition-all active:scale-95 cursor-pointer group"
+              className="flex-1 py-1 flex flex-col items-center justify-center relative transition-all active:scale-95 cursor-pointer group min-h-[50px] touch-manipulation"
             >
               {/* Material 3 Elliptical Tonal Indicator */}
               <div
-                className={`w-16 h-8 rounded-full flex items-center justify-center mb-1 transition-all duration-200 relative ${
+                className={`w-14 sm:w-16 h-8 rounded-full flex items-center justify-center mb-0.5 transition-all duration-200 relative ${
                   isActive
-                    ? 'bg-[#E0EFFF] text-[#1F71E8]'
-                    : 'bg-transparent text-[#49454F] group-hover:bg-black/5'
+                    ? 'bg-[#E0EFFF] text-[#1F71E8] font-bold shadow-2xs'
+                    : 'bg-transparent text-[#49454F] group-hover:bg-slate-100/80'
                 }`}
               >
-                <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.3]' : 'stroke-[1.8]'}`} />
+                <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.4]' : 'stroke-[1.9]'}`} />
 
                 {/* Status Dot */}
                 {tab.statusDot && (
                   <span
-                    className={`absolute top-1.5 right-3.5 w-2 h-2 rounded-full ${tab.statusDot}`}
+                    className={`absolute top-1 right-2.5 sm:right-3 w-2.5 h-2.5 rounded-full ring-2 ring-white ${tab.statusDot}`}
                   />
                 )}
 
                 {/* Badge Number */}
                 {tab.badge && (
-                  <span className="absolute -top-1 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-[#BA1A1A] text-white font-mono text-[10px] font-bold flex items-center justify-center shadow-xs">
+                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-[#BA1A1A] text-white font-mono text-[10px] font-extrabold flex items-center justify-center ring-2 ring-white shadow-xs">
                     {tab.badge}
                   </span>
                 )}
               </div>
 
               <span
-                className={`text-[11px] tracking-tight truncate max-w-[80px] transition-colors ${
+                className={`text-[11px] sm:text-xs tracking-tight text-center leading-tight transition-colors truncate max-w-[85px] block ${
                   isActive
-                    ? 'text-[#1F71E8] font-semibold'
-                    : 'text-[#49454F] font-medium'
+                    ? 'text-[#1F71E8] font-bold'
+                    : 'text-[#49454F] font-semibold'
                 }`}
               >
                 {tab.label}
@@ -133,5 +137,3 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     </nav>
   );
 };
-
-

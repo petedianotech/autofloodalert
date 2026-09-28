@@ -1,6 +1,7 @@
 import React from 'react';
 import { Info, RefreshCw, LayoutDashboard, Activity, Bell, MapPin } from 'lucide-react';
 import { UserProfile, NodeMode } from '../types';
+import { useTranslation } from '../services/i18n';
 
 interface TopBarProps {
   currentUser: UserProfile | null;
@@ -36,6 +37,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   onRefresh,
   isRefreshing = false,
 }) => {
+  const { t } = useTranslation();
+
   // Get initials for user avatar badge
   const getInitials = () => {
     if (!currentUser?.name) return 'U';
@@ -55,27 +58,27 @@ export const TopBar: React.FC<TopBarProps> = ({
   }
 
   const adminTabs: NavTab[] = [
-    { id: 'admin', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'admin', label: t.navDashboard, icon: LayoutDashboard },
     {
       id: 'sensor',
-      label: 'Sensor',
+      label: t.navSensor,
       icon: Activity,
       statusDot: isArmed ? (isPaused ? 'bg-[#B06000]' : 'bg-[#137333]') : null,
     },
     {
       id: 'receiver',
-      label: 'Alerts',
+      label: t.navAlerts,
       icon: Bell,
       badge: activeAlertCount > 0 ? activeAlertCount : null,
     },
-    { id: 'village', label: 'Village', icon: MapPin },
+    { id: 'village', label: t.navVillage, icon: MapPin },
   ];
 
   const villagerTabs: NavTab[] = [
-    { id: 'village', label: 'Village', icon: MapPin },
+    { id: 'village', label: t.navVillage, icon: MapPin },
     {
       id: 'receiver',
-      label: 'Alerts',
+      label: t.navAlerts,
       icon: Bell,
       badge: activeAlertCount > 0 ? activeAlertCount : null,
     },
@@ -99,15 +102,15 @@ export const TopBar: React.FC<TopBarProps> = ({
           <div className="min-w-0">
             {/* Top Line: App Name */}
             <div className="flex items-center gap-2 font-bold text-xs sm:text-sm md:text-base text-[#1C1B1F] leading-snug">
-              <span className="truncate">Automatic Flood Alert</span>
+              <span className="truncate">{t.appName}</span>
               <span
                 className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500 inline-block shrink-0 shadow-2xs"
-                title="System Live & Active"
+                title={t.systemLive}
               />
             </div>
             {/* Bottom Line: Dzenje CDSS ADDA STEM CLUB */}
             <p className="text-[10px] sm:text-xs text-[#49454F] font-semibold leading-tight mt-0.5 truncate">
-              Dzenje CDSS ADDA STEM CLUB
+              {t.clubName}
             </p>
           </div>
         </div>
@@ -145,29 +148,29 @@ export const TopBar: React.FC<TopBarProps> = ({
           </nav>
         )}
 
-        {/* Right: Actions, Refresh, About & Profile / Sign In */}
+        {/* Right: Refresh, About & Profile */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* About & Legal Info Button */}
+          {/* 1. About & Legal Info Button */}
           {onOpenAboutModal && (
             <button
               type="button"
               id="btn-topbar-about-info"
               onClick={onOpenAboutModal}
               className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer border border-slate-200 shadow-2xs"
-              title="About Project & Legal"
+              title={t.about}
             >
               <Info className="w-4 h-4 text-blue-700" />
             </button>
           )}
 
-          {/* Manual Refresh Button */}
+          {/* 2. Manual Refresh Button */}
           {onRefresh && (
             <button
               type="button"
               id="btn-topbar-refresh"
               onClick={onRefresh}
               className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 cursor-pointer border border-slate-200 shadow-2xs"
-              title="Refresh database data"
+              title={t.refresh}
             >
               <RefreshCw
                 className={`w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-700 ${
@@ -177,7 +180,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             </button>
           )}
 
-          {/* Profile / Sign In */}
+          {/* 3. Profile / Sign In */}
           <button
             type="button"
             id="btn-topbar-user-profile"
@@ -187,7 +190,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 ? 'bg-[#E8DEF8] text-[#1D192B] border-purple-200 hover:bg-[#DBCDEE]'
                 : 'bg-white text-[#1F71E8] border-slate-200 hover:border-blue-300 hover:bg-blue-50/50'
             }`}
-            title={currentUser ? `Signed in as ${currentUser.name}` : 'Sign In'}
+            title={currentUser ? `${t.signedInAs} ${currentUser.name}` : t.signIn}
           >
             {currentUser ? (
               <>
@@ -200,7 +203,6 @@ export const TopBar: React.FC<TopBarProps> = ({
               </>
             ) : (
               <>
-                {/* Google G Multi-color Icon */}
                 <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
                   <path
                     fill="#4285F4"
@@ -219,7 +221,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
                   />
                 </svg>
-                <span>Sign In</span>
+                <span>{t.signIn}</span>
               </>
             )}
           </button>
@@ -228,4 +230,3 @@ export const TopBar: React.FC<TopBarProps> = ({
     </header>
   );
 };
-

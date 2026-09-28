@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Info,
@@ -12,7 +12,13 @@ import {
   Lock,
   ChevronRight,
   ExternalLink,
+  Smartphone,
+  Download,
+  Volume2,
+  Radio,
+  CheckCircle2,
 } from 'lucide-react';
+import { apkService, ApkConfig } from '../services/apkService';
 
 interface AboutLegalModalProps {
   isOpen: boolean;
@@ -26,6 +32,18 @@ export const AboutLegalModal: React.FC<AboutLegalModalProps> = ({
   initialTab = 'about',
 }) => {
   const [activeTab, setActiveTab] = useState<'about' | 'privacy' | 'terms'>(initialTab);
+  const [apkConfig, setApkConfig] = useState<ApkConfig>(() => apkService.getConfig());
+
+  useEffect(() => {
+    return apkService.subscribe((cfg) => {
+      setApkConfig(cfg);
+    });
+  }, []);
+
+  const handleDownloadApk = () => {
+    const url = apkConfig.downloadUrl || 'https://github.com/dzenje-stem-club/flood-alert/releases';
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
 
   if (!isOpen) return null;
 
@@ -286,6 +304,43 @@ export const AboutLegalModal: React.FC<AboutLegalModalProps> = ({
             </div>
           </div>
         )}
+
+        {/* Bottom Section: Android APK Direct Download Card */}
+        <div
+          id="modal-bottom-apk-card"
+          className="bg-white rounded-[24px] p-4 border border-blue-200/90 shadow-2xs space-y-3"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#1F71E8] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Smartphone className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="text-sm font-bold text-[#1C1B1F] leading-tight">
+                    Android Native App (APK)
+                  </h4>
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-100 text-[#1F71E8] border border-blue-200">
+                    {apkConfig.version}
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#49454F] font-medium mt-0.5 leading-snug">
+                  Install the native APK for loud locked-screen siren playback and background river acoustic monitoring.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            id="btn-about-modal-download-apk"
+            onClick={handleDownloadApk}
+            className="w-full py-2.5 px-4 rounded-xl bg-[#1F71E8] hover:bg-blue-700 active:scale-98 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
+          >
+            <Download className="w-4 h-4" />
+            <span>Download Android APK ({apkConfig.fileSize || '8.4 MB'})</span>
+          </button>
+        </div>
 
         {/* Done Button */}
         <button

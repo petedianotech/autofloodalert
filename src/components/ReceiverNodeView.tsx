@@ -21,6 +21,7 @@ import { FloodAlert, UserProfile, isAppAdmin } from '../types';
 import { sirenService } from '../services/audioSiren';
 import { NotificationEnableCard } from './NotificationEnableCard';
 import { BatteryOptimizationCard } from './BatteryOptimizationCard';
+import { useTranslation } from '../services/i18n';
 
 interface ReceiverNodeViewProps {
   alerts: FloodAlert[];
@@ -55,6 +56,7 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
   onOpenSoundModal,
   onOpenSmsModal,
 }) => {
+  const { t } = useTranslation();
   const isAdmin = isAdminProp ?? isAppAdmin(currentUser);
   const [isSirenActive, setIsSirenActive] = useState(false);
 
