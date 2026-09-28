@@ -230,7 +230,9 @@ public class NativePowerHelperPlugin extends Plugin {
             call.resolve(ret);
         } catch (Throwable e) {
             Log.w(TAG, "showNativeFloodAlert error", e);
-            call.reject("Failed to show native notification", e);
+            // PluginCall.reject accepts Exception, not Throwable
+            call.reject("Failed to show native notification",
+                e instanceof Exception ? (Exception) e : new Exception(e));
         }
     }
 }
