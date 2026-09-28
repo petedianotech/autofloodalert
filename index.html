@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Automatic Flood Alert App,  Dzenje CDSS ADDA STEM CLUB</title>
     <meta name="description" content="Automatic Flood Alert App by Dzenje CDSS ADDA STEM CLUB. Real-time vibration and bell sound flood detection with village safety roll-call." />
     <meta name="theme-color" content="#1A73E8" />
@@ -90,6 +90,11 @@
             });
         });
       }
+
+      // Prevent accidental pinch-to-zoom & double-tap zoom on mobile web browsers
+      document.addEventListener('gesturestart', function (e) {
+        e.preventDefault();
+      });
     </script>
   </head>
   <body class="bg-[#FEF7FF] text-[#1C1B1F] antialiased selection:bg-[#E0EFFF] selection:text-[#1F71E8]">

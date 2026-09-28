@@ -13,7 +13,6 @@ import {
   Layers,
   ZoomIn,
   ZoomOut,
-  Maximize2,
   Copy,
   Check,
   AlertTriangle,
@@ -92,7 +91,6 @@ export const GoogleMapsGPSViewer: React.FC<GoogleMapsGPSViewerProps> = ({
   const [currentZoom, setCurrentZoom] = useState<number>(zoom);
   const [selectedMarker, setSelectedMarker] = useState<MapMarkerItem | null>(null);
   const [copiedGps, setCopiedGps] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [customApiKey, setCustomApiKey] = useState<string>(() => {
     return localStorage.getItem('CUSTOM_GOOGLE_MAPS_KEY') || '';
   });
@@ -169,10 +167,8 @@ export const GoogleMapsGPSViewer: React.FC<GoogleMapsGPSViewerProps> = ({
   return (
     <div
       id="google-maps-gps-container"
-      className={`relative rounded-2xl overflow-hidden border border-slate-300 bg-slate-900 shadow-md ${
-        isFullscreen ? 'fixed inset-4 z-50 rounded-3xl max-h-[95vh]' : ''
-      } ${className}`}
-      style={{ height: isFullscreen ? 'calc(100vh - 32px)' : height }}
+      className={`relative rounded-2xl overflow-hidden border border-slate-300 bg-slate-900 shadow-md ${className}`}
+      style={{ height }}
     >
       {/* ================= 1. MAP HEADER OVERLAY ================= */}
       <div className="absolute top-2.5 left-2.5 right-2.5 z-10 flex items-center justify-between gap-2 pointer-events-none">
@@ -232,7 +228,7 @@ export const GoogleMapsGPSViewer: React.FC<GoogleMapsGPSViewerProps> = ({
           </button>
         </div>
 
-        {/* Action icons: Fullscreen, Key config */}
+        {/* Action icons: Key config */}
         <div className="flex items-center gap-1 pointer-events-auto">
           <button
             type="button"
@@ -241,15 +237,6 @@ export const GoogleMapsGPSViewer: React.FC<GoogleMapsGPSViewerProps> = ({
             title="Configure Google Maps API Key"
           >
             <KeyRound className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-2 rounded-xl bg-black/75 backdrop-blur-md text-white/90 hover:text-white hover:bg-black/90 border border-white/20 transition cursor-pointer shadow-md"
-            title={isFullscreen ? 'Exit Fullscreen' : 'View Fullscreen Map'}
-          >
-            <Maximize2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

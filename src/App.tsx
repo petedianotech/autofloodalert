@@ -688,7 +688,7 @@ export default function App() {
   return (
     <div
       id="app-root-container"
-      className={`min-h-screen h-screen h-[100vh] h-[100dvh] w-full overflow-hidden flex flex-col transition-colors duration-200 font-sans ${
+      className={`h-full h-[100dvh] w-full overflow-hidden flex flex-col transition-colors duration-200 font-sans ${
         isDarkMode ? 'bg-[#141218] text-[#E6E1E5]' : 'bg-[#FEF7FF] text-[#1C1B1F]'
       }`}
     >

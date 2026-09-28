@@ -82,7 +82,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     <nav
       id="mobile-bottom-navigation-bar"
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px) + 8px, 12px)' }}
-      className="md:hidden shrink-0 sticky bottom-0 z-40 w-full bg-white/95 sm:bg-[#FEF7FF]/95 backdrop-blur-xl border-t border-slate-200/90 select-none shadow-[0_-3px_15px_rgba(0,0,0,0.06)]"
+      className="md:hidden shrink-0 relative z-40 w-full bg-white/95 sm:bg-[#FEF7FF]/95 backdrop-blur-xl border-t border-slate-200/90 select-none shadow-[0_-3px_15px_rgba(0,0,0,0.06)]"
     >
       <div className="max-w-md mx-auto px-1 sm:px-2 pt-1.5 flex items-center justify-around">
         {tabs.map((tab) => {
