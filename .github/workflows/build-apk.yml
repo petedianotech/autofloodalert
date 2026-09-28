@@ -31,6 +31,8 @@ jobs:
           echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > "$ANDROID_HOME/licenses/android-sdk-preview-license"
           if [ -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
             yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+            # Ensure platform and build-tools for compileSdk 36 are available
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" || true
           fi
 
       - name: Set up Node.js 22 (LTS)
@@ -81,4 +83,3 @@ jobs:
           name: Dzenje-Flood-Alert-APK
           path: build-output/Dzenje-Flood-Alert.apk
           retention-days: 30
-
