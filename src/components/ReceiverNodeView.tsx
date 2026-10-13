@@ -344,10 +344,10 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
                   </div>
                   <div>
                     <h3 className="font-bold text-base text-slate-900 leading-tight">
-                      Emergency Rescue Station
+                      {t.emergencyRescueStation}
                     </h3>
                     <p className="text-xs text-slate-500 font-medium mt-0.5">
-                      Village Flood Warning Network
+                      {t.villageFloodWarningNetwork}
                     </p>
                   </div>
                 </div>
@@ -397,7 +397,7 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-slate-900 uppercase tracking-wider block">
-                  River Flood Alerts
+                  {t.riverFloodAlerts}
                 </span>
                 <span className="text-xs font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">
                   {alerts.length} total
@@ -449,7 +449,7 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                <span>Active Only</span>
+                <span>{t.activeOnly}</span>
                 <span className="text-[10px] bg-black/10 px-1.5 py-0.2 rounded-full">
                   {alerts.filter((a) => a.status === 'active').length}
                 </span>

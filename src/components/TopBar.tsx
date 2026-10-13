@@ -37,7 +37,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onRefresh,
   isRefreshing = false,
 }) => {
-  const { t } = useTranslation();
+  const { t, toggleLanguage, isChichewa } = useTranslation();
 
   // Get initials for user avatar badge
   const getInitials = () => {
@@ -179,6 +179,17 @@ export const TopBar: React.FC<TopBarProps> = ({
               />
             </button>
           )}
+          
+          {/* Language Switcher */}
+          <button
+            type="button"
+            id="btn-topbar-language"
+            onClick={toggleLanguage}
+            className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-full flex items-center bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold shadow-2xs cursor-pointer border border-slate-200"
+            title={isChichewa ? t.switchToEnglish : t.switchToChichewa}
+          >
+            {isChichewa ? 'EN' : 'NY'}
+          </button>
 
           {/* 3. Profile / Sign In */}
           <button

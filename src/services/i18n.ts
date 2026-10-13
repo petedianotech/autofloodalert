@@ -169,6 +169,10 @@ export interface Translations {
   villageMachokola: string;
   traditionalAuthorityMabuka: string;
   districtMulanje: string;
+  emergencyRescueStation: string;
+  villageFloodWarningNetwork: string;
+  riverFloodAlerts: string;
+  activeOnly: string;
 }
 
 export const translations: Record<SupportedLanguage, Translations> = {
@@ -337,6 +341,10 @@ export const translations: Record<SupportedLanguage, Translations> = {
     villageMachokola: 'Machokola Village',
     traditionalAuthorityMabuka: 'T/A Mabuka',
     districtMulanje: 'Mulanje District',
+    emergencyRescueStation: 'Emergency Rescue Station',
+    villageFloodWarningNetwork: 'Village Flood Warning Network',
+    riverFloodAlerts: 'River Flood Alerts',
+    activeOnly: 'Active Only',
   },
 
   ny: {
@@ -504,6 +512,10 @@ export const translations: Record<SupportedLanguage, Translations> = {
     villageMachokola: 'Mudzi wa Machokola',
     traditionalAuthorityMabuka: 'T/A Mabuka',
     districtMulanje: 'Boma la Mulanje',
+    emergencyRescueStation: 'Malo a Chipulumutso a Mwadzidzidzi',
+    villageFloodWarningNetwork: 'Dongosolo Lochenjeza la Kusefukira kwa Madzi m\'Mudzi',
+    riverFloodAlerts: 'Machenjezo a Kusefukira kwa Mtsinje',
+    activeOnly: 'Zomwe Zikuchitika',
   },
 };
 

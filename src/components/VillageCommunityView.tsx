@@ -143,10 +143,10 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
             </div>
             <div className="min-w-0">
               <h3 className="font-bold text-base sm:text-lg text-slate-900 leading-snug">
-                Villages &amp; Safe High Ground
+                {t.villageCommunityTitle}
               </h3>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Registered residents, check-ins, and designated evacuation shelters
+                {t.villageCommunityDesc}
               </p>
             </div>
           </div>
