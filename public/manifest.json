@@ -1,7 +1,7 @@
 {
-  "name": "Automatic Flood Alert App, Dzenje CDSS ADDA STEM CLUB",
+  "name": "Automatic Flood Alert",
   "short_name": "Flood Alert",
-  "description": "Automatic Flood Alert App by Dzenje CDSS ADDA STEM CLUB. Real-time river vibration detection, siren warnings, and village safety roll-call.",
+  "description": "Automatic Flood Alert app. Real-time river vibration detection, siren warnings, and village safety roll-call.",
   "start_url": "/",
   "id": "/",
   "scope": "/",
