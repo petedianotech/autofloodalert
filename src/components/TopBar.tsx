@@ -89,7 +89,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   return (
     <header
       id="app-top-bar"
-      className="sticky top-0 z-30 bg-[#FEF7FF]/95 backdrop-blur-md px-3.5 sm:px-6 lg:px-8 py-2.5 sm:py-3 border-b border-slate-200/80 select-none shadow-xs"
+      className="sticky top-0 z-30 bg-white/95 backdrop-blur-md px-3.5 sm:px-6 lg:px-8 py-2.5 sm:py-3 border-b border-slate-200 select-none shadow-xs"
     >
       <div className="w-full max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
         {/* Left: App PWA Icon + App Name & Club Branding */}

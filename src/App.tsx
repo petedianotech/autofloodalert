@@ -399,10 +399,10 @@ export default function App() {
           : userVillage;
 
         NotificationService.sendFloodPushNotification(
-          isYellow ? `⚠️ FLOOD WARNING: ${locationSummary}` : `🚨 CRITICAL FLOOD ALARM: ${locationSummary}`,
+          isYellow ? `⚠️ HIGH FLOOD RISK: ${locationSummary}` : `🚨 CRITICAL FLOOD WARNING: ${locationSummary}`,
           isYellow
-            ? `Flood warning at ${locationSummary}. Please get ready and check your safety!`
-            : `CRITICAL FLOOD ALARM at ${locationSummary}! Move to high ground immediately!`,
+            ? `River water is rising near ${locationSummary}. Please stay alert and prepare to move to high ground.`
+            : `CRITICAL FLOOD WARNING near ${locationSummary}! Move your family to safe high ground immediately!`,
           {
             village: currentActive.village || userVillage,
             riverName: currentActive.riverName,
@@ -435,19 +435,19 @@ export default function App() {
       const isAcoustic = source === 'acoustic_sound_sensor';
 
       let title = isYellow
-        ? '⚠️ Warning: Flood Motor Vibration Detected'
-        : '🚨 CRITICAL FLOOD ALARM: Move to Safety';
+        ? 'HIGH FLOOD RISK — Stay Alert'
+        : 'CRITICAL FLOOD WARNING — Move to Higher Ground Now';
       let message = isYellow
-        ? `Motor vibration reached ${peakValue.toFixed(1)} m/s². Be on alert.`
-        : `Strong motor flood vibration of ${peakValue.toFixed(1)} m/s² detected! Move to safe high ground now.`;
+        ? `River water is rising fast near ${userVillage}. Stay alert, keep your phone ready, and prepare to move to safe high ground.`
+        : `Rapid flood water detected near ${userVillage}. Move your family, children, and animals to designated safe high ground immediately.`;
 
       if (isAcoustic) {
         title = isYellow
-          ? '⚠️ Warning: System Bell Ringing'
-          : '🚨 CRITICAL FLOOD ALARM: Emergency Warning Bell';
+          ? 'HIGH FLOOD RISK — Warning Bell Ringing'
+          : 'CRITICAL FLOOD WARNING — Move to Higher Ground Now';
         message = isYellow
-          ? `System warning bell sound reached ${peakValue.toFixed(0)} dB. Stay alert.`
-          : `Emergency flood warning bell ringing loudly at ${peakValue.toFixed(0)} dB! Move to safety now!`;
+          ? `Emergency flood warning bell ringing near ${userVillage}. Prepare to move to high ground.`
+          : `Continuous emergency warning bell ringing near ${userVillage}! Evacuate to designated safe high ground immediately!`;
       }
 
       await firebaseFloodService.recordFloodAlert({
@@ -695,7 +695,7 @@ export default function App() {
     <div
       id="app-root-container"
       className={`h-full h-[100dvh] w-full overflow-hidden flex flex-col transition-colors duration-200 font-sans ${
-        isDarkMode ? 'bg-[#141218] text-[#E6E1E5]' : 'bg-[#FEF7FF] text-[#1C1B1F]'
+        isDarkMode ? 'bg-[#0F172A] text-[#F8FAFC]' : 'bg-[#F8FAFC] text-[#0F172A]'
       }`}
     >
       {/* 1. Top App Bar */}

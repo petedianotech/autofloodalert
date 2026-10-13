@@ -45,7 +45,7 @@ export const FirebaseConfigModal: React.FC<FirebaseConfigModalProps> = ({
         className={`w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] border p-6 shadow-2xl transition-all ${
           isDarkMode
             ? 'bg-[#1E1F20] border-[#444746] text-[#E3E3E3]'
-            : 'bg-[#FEF7FF] border-[#E0E2EC] text-[#1C1B1F]'
+            : 'bg-white border-slate-200 text-slate-900'
         }`}
       >
         {/* Header */}

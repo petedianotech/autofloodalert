@@ -4,13 +4,15 @@ import {
   Users,
   Check,
   Home,
-  Phone,
   Mic,
   Building,
   CheckCircle2,
   Info,
   Droplets,
   AlertTriangle,
+  ShieldCheck,
+  ShieldAlert,
+  ArrowRight,
 } from 'lucide-react';
 import { UserProfile, FloodAlert, ResidentSafetyReport, isAppAdmin } from '../types';
 import { NotificationEnableCard } from './NotificationEnableCard';
@@ -60,11 +62,11 @@ const VILLAGES_DATA: VillageData[] = [
     safeAreas: [
       {
         name: 'Chikulumuzu Hill',
-        capacity: '400+ in the hill',
+        capacity: '400+ people',
       },
       {
         name: 'Mayero Church',
-        capacity: '250 in church',
+        capacity: '250 people',
       },
     ],
   },
@@ -72,16 +74,15 @@ const VILLAGES_DATA: VillageData[] = [
 
 export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
   currentUser,
+  alerts = [],
   safetyReports = [],
   selectedVillage = 'Dzenje Village',
   onSelectVillage,
-  onOpenAuthModal,
   onOpenDirectVoiceSOS,
   onOpenCheckInModal,
   onOpenReportFloodModal,
-  onOpenAboutModal,
 }) => {
-  const { t, isChichewa } = useTranslation();
+  const { t } = useTranslation();
   const isAdmin = isAppAdmin(currentUser);
   const currentVillageName = selectedVillage || currentUser?.village || 'Dzenje Village';
 
@@ -91,7 +92,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
       (v) => v.name.toLowerCase() === currentVillageName.toLowerCase()
     ) || VILLAGES_DATA[0];
 
-  const [activeTabSection, setActiveTabSection] = useState<'villages' | 'shelters' | 'guide'>('villages');
+  const [activeTabSection, setActiveTabSection] = useState<'shelters' | 'villages' | 'guide'>('shelters');
   const [isInternalReportModalOpen, setIsInternalReportModalOpen] = useState(false);
 
   const handleTriggerReportFlood = () => {
@@ -119,6 +120,15 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
     0
   );
 
+  // Check if there is an active flood warning for this village
+  const activeVillageAlert = alerts.find(
+    (a) =>
+      a.status === 'active' &&
+      (!a.village ||
+        a.village.toLowerCase().includes(activeVillageData.name.toLowerCase()) ||
+        activeVillageData.name.toLowerCase().includes(a.village.toLowerCase()))
+  );
+
   // ================= ADMIN VIEW =================
   if (isAdmin) {
     const totalAllPeople = allReports.reduce((sum, r) => sum + (r.peopleCount || 1), 0);
@@ -126,37 +136,37 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
     return (
       <div className="space-y-4 pb-20 select-none">
         {/* Admin Header */}
-        <div className="bg-[#F3F3FA] rounded-[24px] p-4.5 border border-slate-100 space-y-3.5 shadow-xs">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3.5 shadow-xs">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
-              <Building className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0">
+              <Building className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h3 className="font-bold text-base sm:text-lg text-[#1C1B1F] leading-snug">
-                Villages &amp; Safe Areas
+              <h3 className="font-bold text-base sm:text-lg text-slate-900 leading-snug">
+                Villages &amp; Safe High Ground
               </h3>
-              <p className="text-xs text-[#49454F] font-medium mt-0.5">
-                Total people registered and designated safe high ground areas
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Registered residents, check-ins, and designated evacuation shelters
               </p>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-3.5 border border-slate-100 flex items-center justify-between shadow-2xs">
-            <span className="text-xs sm:text-sm font-bold text-[#49454F] uppercase tracking-wider">
-              Total App Users Across All Villages
+          <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 flex items-center justify-between">
+            <span className="text-xs sm:text-sm font-bold text-slate-700">
+              Total People Checked In Across All Villages
             </span>
             <div className="text-right shrink-0">
-              <span className="text-lg font-extrabold text-[#1C1B1F] block">
+              <span className="text-lg font-extrabold text-slate-900 block">
                 {totalAllPeople}
               </span>
               <span className="text-[10px] text-blue-700 font-bold uppercase">
-                {totalAllPeople === 1 ? 'App User' : 'App Users'}
+                {totalAllPeople === 1 ? 'Resident' : 'Residents'}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Responsive Grid of Villages, Total People, and Safe Areas */}
+        {/* Responsive Grid of Villages */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {VILLAGES_DATA.map((v) => {
             const vReports = allReports.filter(
@@ -169,63 +179,47 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
             return (
               <div
                 key={v.id}
-                className="bg-[#F3F3FA] rounded-[24px] p-4.5 border border-slate-100 space-y-3 shadow-xs flex flex-col justify-between"
+                className="bg-white rounded-2xl p-4 border border-slate-200 space-y-3 shadow-xs flex flex-col justify-between"
               >
                 <div>
-                  {/* Village Name & People Count Header */}
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
-                        <MapPin className="w-5 h-5" />
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                        <MapPin className="w-4 h-4" />
                       </div>
                       <div>
-                        <h4 className="font-bold text-base text-[#1C1B1F] leading-tight">{v.name}</h4>
-                        <span className="text-xs text-[#49454F] font-medium">
-                          {vPeopleCount} {vPeopleCount === 1 ? 'user checked in' : 'users checked in'}
+                        <h4 className="font-bold text-sm text-slate-900 leading-tight">{v.name}</h4>
+                        <span className="text-xs text-slate-500 font-medium">
+                          {vPeopleCount} {vPeopleCount === 1 ? 'person checked in' : 'people checked in'}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-slate-200 text-xs font-bold text-[#1C1B1F]">
+                    <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-xs font-bold text-slate-800">
                       <Users className="w-3.5 h-3.5 text-blue-600" />
                       <span>{vPeopleCount}</span>
                     </div>
                   </div>
 
-                  {/* Safe Areas List */}
                   <div className="space-y-2 pt-3">
-                    <span className="text-xs font-bold text-[#49454F] uppercase tracking-wider block">
+                    <span className="text-xs font-bold text-slate-600 block">
                       Safe Areas ({v.safeAreas.length})
                     </span>
 
-                    {v.safeAreas.length > 0 ? (
-                      <div className="space-y-2">
-                        {v.safeAreas.map((area, aIdx) => (
-                          <div
-                            key={aIdx}
-                            className="bg-white rounded-2xl p-3 border border-slate-100 flex items-center justify-between shadow-2xs gap-2"
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                                <Home className="w-3.5 h-3.5" />
-                              </div>
-                              <div className="min-w-0">
-                                <h5 className="font-bold text-xs sm:text-sm text-[#1C1B1F] truncate">{area.name}</h5>
-                                <span className="text-[11px] text-slate-500 font-medium block">High Ground</span>
-                              </div>
-                            </div>
-
-                            <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full shrink-0">
-                              {area.capacity}
-                            </span>
-                          </div>
-                        ))}
+                    {v.safeAreas.map((area, aIdx) => (
+                      <div
+                        key={aIdx}
+                        className="bg-slate-50 rounded-xl p-2.5 border border-slate-200/80 flex items-center justify-between gap-2"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Home className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span className="font-semibold text-xs text-slate-800 truncate">{area.name}</span>
+                        </div>
+                        <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">
+                          {area.capacity}
+                        </span>
                       </div>
-                    ) : (
-                      <div className="bg-white rounded-2xl p-3 border border-slate-100 text-center text-xs text-slate-400 font-medium">
-                        No safe areas listed
-                      </div>
-                    )}
+                    ))}
                   </div>
                 </div>
               </div>
@@ -236,382 +230,356 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
     );
   }
 
-  // ================= VILLAGER / REGULAR USER VIEW =================
+  // ================= VILLAGER / RESIDENT DASHBOARD =================
   return (
     <div className="space-y-4 pb-20 select-none">
+      {/* 0. Native System Enablement Prompts (Auto-hiding once configured) */}
+      <NotificationEnableCard isDarkMode={false} />
+      <BatteryOptimizationCard />
+
       {/* Responsive layout: 2-column on desktop/tablets */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left Column: Alerts, Banner & Quick Actions */}
+        {/* Left Column: Village Safety Hub & Quick Actions */}
         <div className="lg:col-span-5 space-y-4">
-          {/* 0. Notification & Loud Siren Enablement Card */}
-          <NotificationEnableCard isDarkMode={false} />
-
-          {/* 0.1 Battery Optimization / Unrestricted Background Siren Card */}
-          <BatteryOptimizationCard />
-
-          {/* ================= 1. TOP COMMUNITY BANNER ================= */}
-          <div className="bg-[#F3F3FA] rounded-[24px] p-4.5 border border-slate-100 space-y-3.5 shadow-xs">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
-                <Building className="w-6 h-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-base text-[#1C1B1F] leading-tight">
+          
+          {/* ================= 1. PRIMARY VILLAGE DASHBOARD CARD ================= */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3.5 shadow-xs">
+            {/* Top Row: Selected Village & Quick Switch */}
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-base text-slate-900 leading-tight truncate">
                     {activeVillageData.name}
                   </h3>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Mulanje District &bull; Ruo River Area
+                  </p>
                 </div>
-                <p className="text-xs text-[#49454F] font-medium mt-0.5">
-                  Flood safety and high ground shelter information
-                </p>
               </div>
-            </div>
-
-            {/* Dynamic Firestore Quick Numbers Bar */}
-            <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-200/60">
-              <div className="bg-white rounded-2xl p-2.5 text-center border border-slate-100">
-                <span className="text-[11px] text-[#49454F] font-medium block">
-                  Check-Ins
-                </span>
-                <span className="text-base font-bold text-[#1C1B1F]">
-                  {realTotalReportsCount}
-                </span>
-              </div>
-
-              <div className="bg-white rounded-2xl p-2.5 text-center border border-slate-100">
-                <span className="text-[11px] text-[#49454F] font-medium block">
-                  Safe
-                </span>
-                <span className="text-base font-bold text-emerald-700">
-                  {realSafeCount}
-                </span>
-              </div>
-
-              <div className="bg-white rounded-2xl p-2.5 text-center border border-slate-100">
-                <span className="text-[11px] text-[#49454F] font-medium block">
-                  People
-                </span>
-                <span className="text-base font-bold text-blue-700">
-                  {realHeadcountSum}
-                </span>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              {onOpenCheckInModal && (
-                <button
-                  type="button"
-                  onClick={onOpenCheckInModal}
-                  className="flex-1 min-w-[130px] py-2.5 px-3 rounded-full bg-[#1F71E8] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs hover:bg-blue-700 active:scale-98 transition cursor-pointer"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Mark I Am Safe</span>
-                </button>
-              )}
 
               <button
                 type="button"
-                onClick={handleTriggerReportFlood}
-                className="flex-1 min-w-[130px] py-2.5 px-3 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs hover:bg-blue-100 active:scale-98 transition cursor-pointer"
+                onClick={() => setActiveTabSection('villages')}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-full transition cursor-pointer shrink-0"
+                title="Switch selected village"
               >
-                <Droplets className="w-4 h-4 text-[#1F71E8]" />
-                <span>Report Floods</span>
+                Change
               </button>
+            </div>
 
-              {!isAdmin && onOpenDirectVoiceSOS && (
+            {/* Safety Status Banner */}
+            {activeVillageAlert ? (
+              <div
+                className={`p-3 rounded-xl border flex items-center gap-2.5 ${
+                  activeVillageAlert.severity === 'red'
+                    ? 'bg-red-50 border-red-200 text-red-900'
+                    : 'bg-amber-50 border-amber-200 text-amber-900'
+                }`}
+              >
+                {activeVillageAlert.severity === 'red' ? (
+                  <ShieldAlert className="w-5 h-5 text-red-600 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                )}
+                <div className="min-w-0 text-xs">
+                  <span className="font-bold block">
+                    {activeVillageAlert.severity === 'red'
+                      ? 'CRITICAL FLOOD WARNING'
+                      : 'HIGH FLOOD RISK'}
+                  </span>
+                  <span className="font-medium text-slate-700 truncate block">
+                    River water rising. Safe high ground areas ready.
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 rounded-xl bg-emerald-50/80 border border-emerald-200 text-emerald-950 flex items-center gap-2.5">
+                <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div className="min-w-0 text-xs">
+                  <span className="font-bold text-emerald-900 block">Normal Monitoring &bull; No Active Floods</span>
+                  <span className="font-medium text-slate-600">River sensors watching water levels continuously.</span>
+                </div>
+              </div>
+            )}
+
+            {/* Statistics Bar: Check-Ins / Safe / People */}
+            <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-100">
+              <div className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
+                <span className="text-[11px] text-slate-500 font-medium block">Check-Ins</span>
+                <span className="text-base font-bold text-slate-900">{realTotalReportsCount}</span>
+              </div>
+
+              <div className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
+                <span className="text-[11px] text-slate-500 font-medium block">Safe</span>
+                <span className="text-base font-bold text-emerald-600">{realSafeCount}</span>
+              </div>
+
+              <div className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
+                <span className="text-[11px] text-slate-500 font-medium block">People</span>
+                <span className="text-base font-bold text-blue-600">{realHeadcountSum}</span>
+              </div>
+            </div>
+
+            {/* Primary Safety Actions: Prioritize "Mark I Am Safe", "Report Floods", and "Voice SOS" */}
+            <div className="pt-1 space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                {onOpenCheckInModal && (
+                  <button
+                    type="button"
+                    id="btn-village-mark-safe"
+                    onClick={onOpenCheckInModal}
+                    className="py-3 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer min-h-[44px]"
+                  >
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>Mark I Am Safe</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
-                  onClick={onOpenDirectVoiceSOS}
-                  className="py-2.5 px-3.5 rounded-full bg-red-600 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs hover:bg-red-700 active:scale-98 transition cursor-pointer shrink-0"
-                  title="Voice SOS"
+                  id="btn-village-report-floods"
+                  onClick={handleTriggerReportFlood}
+                  className="py-3 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-98 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer min-h-[44px]"
                 >
-                  <Mic className="w-4 h-4" />
-                  <span>Voice SOS</span>
+                  <Droplets className="w-4 h-4 shrink-0" />
+                  <span>Report Floods</span>
+                </button>
+              </div>
+
+              {/* Emergency Voice SOS Button (Clear, prominent, red) */}
+              {onOpenDirectVoiceSOS && (
+                <button
+                  type="button"
+                  id="btn-village-voice-sos"
+                  onClick={onOpenDirectVoiceSOS}
+                  className="w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 active:scale-98 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition cursor-pointer min-h-[44px]"
+                  title="Send Emergency Voice SOS"
+                >
+                  <Mic className="w-4 h-4 shrink-0" />
+                  <span>Emergency Voice SOS (Rescue Line)</span>
                 </button>
               )}
             </div>
           </div>
-
-          {/* ================= OPTIONAL FLOOD SIGHTING REPORT CARD (NO GRADIENTS) ================= */}
-          <div className="bg-blue-50/90 rounded-[24px] p-4.5 border border-blue-200 space-y-3 shadow-xs">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#1F71E8] text-white flex items-center justify-center shadow-xs shrink-0 mt-0.5">
-                <Droplets className="w-5 h-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h4 className="font-bold text-sm sm:text-base text-[#1C1B1F] leading-tight">
-                    See Flood Waters Rising?
-                  </h4>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
-                    Optional Report
-                  </span>
-                </div>
-                <p className="text-xs text-[#49454F] font-medium mt-1 leading-relaxed">
-                  If you see river overflowing, bridges underwater, or flooding in {activeVillageData.name}, send a quick report with your GPS location directly to the admin.
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleTriggerReportFlood}
-              className="w-full py-2.5 px-4 rounded-full bg-[#1F71E8] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-xs hover:bg-blue-700 active:scale-98 transition cursor-pointer"
-            >
-              <AlertTriangle className="w-4 h-4" />
-              <span>Send Flood Report with My Location to Admin</span>
-            </button>
-          </div>
         </div>
 
-        {/* Right Column: Tabbed Community Content */}
-        <div className="lg:col-span-7 space-y-4">
-          {/* ================= 2. SECTION TABS ================= */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        {/* Right Column: Safe Areas, Village Selection, & Safety Guide */}
+        <div className="lg:col-span-7 space-y-3.5">
+          {/* Segmented Control Tabs */}
+          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200">
             <button
               type="button"
-              onClick={() => setActiveTabSection('villages')}
-              className={`py-2 px-3.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                activeTabSection === 'villages'
-                  ? 'bg-[#1F71E8] text-white shadow-xs'
-                  : 'bg-[#F3EDF7] text-[#49454F] hover:bg-[#E7E0EC]'
-              }`}
-            >
-              <MapPin className="w-3.5 h-3.5" />
-              <span>Villages ({VILLAGES_DATA.length})</span>
-            </button>
-
-            <button
-              type="button"
+              id="tab-shelters"
               onClick={() => setActiveTabSection('shelters')}
-              className={`py-2 px-3.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTabSection === 'shelters'
-                  ? 'bg-[#1F71E8] text-white shadow-xs'
-                  : 'bg-[#F3EDF7] text-[#49454F] hover:bg-[#E7E0EC]'
+                  ? 'bg-white text-slate-900 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Home className="w-3.5 h-3.5" />
+              <Home className="w-3.5 h-3.5 text-emerald-600" />
               <span>Safe Areas ({activeVillageData.safeAreas.length})</span>
             </button>
 
             <button
               type="button"
-              onClick={() => setActiveTabSection('guide')}
-              className={`py-2 px-3.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                activeTabSection === 'guide'
-                  ? 'bg-[#1F71E8] text-white shadow-xs'
-                  : 'bg-[#F3EDF7] text-[#49454F] hover:bg-[#E7E0EC]'
+              id="tab-villages"
+              onClick={() => setActiveTabSection('villages')}
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                activeTabSection === 'villages'
+                  ? 'bg-white text-slate-900 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Info className="w-3.5 h-3.5" />
+              <MapPin className="w-3.5 h-3.5 text-blue-600" />
+              <span>Switch Village</span>
+            </button>
+
+            <button
+              type="button"
+              id="tab-guide"
+              onClick={() => setActiveTabSection('guide')}
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                activeTabSection === 'guide'
+                  ? 'bg-white text-slate-900 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Info className="w-3.5 h-3.5 text-amber-600" />
               <span>Safety Guide</span>
             </button>
           </div>
 
-          {/* ================= 3. TAB CONTENT: VILLAGES LIST ================= */}
-          {activeTabSection === 'villages' && (
-            <div className="bg-[#F3F3FA] rounded-[24px] p-4 sm:p-5 border border-slate-100 space-y-3.5 shadow-xs">
-              <div className="flex items-center justify-between pb-1">
-                <span className="text-xs font-bold text-[#49454F] uppercase tracking-wider block">
-                  Choose Your Village
-                </span>
-                <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full">
-                  Tap to Switch
+          {/* TAB 1: SAFE HIGH GROUND SHELTERS */}
+          {activeTabSection === 'shelters' && (
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3 shadow-xs">
+              <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Safe High Ground Evacuation Areas
+                  </h4>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Designated shelters for residents in {activeVillageData.name}
+                  </p>
+                </div>
+                <span className="text-xs bg-emerald-50 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full border border-emerald-200">
+                  High Ground
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {VILLAGES_DATA.map((v) => {
-                  const isSelected =
-                    activeVillageData.name.toLowerCase() === v.name.toLowerCase();
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                {activeVillageData.safeAreas.map((area, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-2 flex flex-col justify-between"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                        <Home className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <h5 className="font-bold text-sm text-slate-900 leading-tight">
+                          {area.name}
+                        </h5>
+                        <span className="text-xs text-emerald-700 font-medium block mt-0.5">
+                          High Ground Evacuation Shelter
+                        </span>
+                      </div>
+                    </div>
 
+                    <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-600">
+                      <span className="font-medium">Capacity:</span>
+                      <span className="font-bold text-slate-900">{area.capacity}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: SWITCH VILLAGE */}
+          {activeTabSection === 'villages' && (
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3 shadow-xs">
+              <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Select Your Village
+                  </h4>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Tap to view flood status and shelters for another village
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                {VILLAGES_DATA.map((v) => {
+                  const isSelected = activeVillageData.name.toLowerCase() === v.name.toLowerCase();
                   const vReports = allReports.filter(
                     (r) =>
                       r.village.toLowerCase().includes(v.name.toLowerCase()) ||
                       v.name.toLowerCase().includes(r.village.toLowerCase())
                   );
-                  const vPeopleCount = vReports.reduce(
-                    (sum, r) => sum + (r.peopleCount || 1),
-                    0
-                  );
+                  const vPeopleCount = vReports.reduce((sum, r) => sum + (r.peopleCount || 1), 0);
 
                   return (
-                    <div
+                    <button
                       key={v.id}
-                      onClick={() => onSelectVillage && onSelectVillage(v.name)}
-                      className={`bg-white rounded-2xl p-3.5 border transition cursor-pointer active:scale-99 shadow-xs flex flex-col justify-between ${
+                      type="button"
+                      onClick={() => {
+                        onSelectVillage?.(v.name);
+                        setActiveTabSection('shelters');
+                      }}
+                      className={`p-3.5 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
                         isSelected
-                          ? 'border-[#1F71E8] ring-2 ring-blue-200'
-                          : 'border-slate-100 hover:border-slate-300'
+                          ? 'bg-blue-50/60 border-blue-600 ring-1 ring-blue-500'
+                          : 'bg-slate-50 border-slate-200 hover:border-slate-300'
                       }`}
                     >
-                      <div>
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-start gap-2.5">
-                            <div className="w-3.5 h-3.5 rounded-full bg-blue-600 mt-1 shrink-0" />
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <h4 className="font-bold text-sm text-[#1C1B1F] leading-tight">
-                                  {v.name}
-                                </h4>
-                                {isSelected && (
-                                  <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.2 rounded-full">
-                                    Active
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {isSelected && (
-                            <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-2xs shrink-0">
-                              <Check className="w-3 h-3" />
-                            </div>
-                          )}
+                      <div className="flex items-start justify-between gap-2 w-full">
+                        <div className="flex items-center gap-2">
+                          <MapPin className={`w-4 h-4 ${isSelected ? 'text-blue-600' : 'text-slate-400'}`} />
+                          <span className="font-bold text-sm text-slate-900">{v.name}</span>
                         </div>
-                      </div>
-
-                      {/* Village details footer */}
-                      <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-[#49454F]">
-                        <div className="flex items-center gap-1">
-                          <Home className="w-3.5 h-3.5 text-blue-600" />
-                          <span>
-                            {v.safeAreas.length > 0
-                              ? `${v.safeAreas.length} Safe Area${v.safeAreas.length > 1 ? 's' : ''}`
-                              : 'No safe areas'}
+                        {isSelected && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white">
+                            Active
                           </span>
-                        </div>
-                        <div className="flex items-center gap-1 font-semibold text-slate-700">
-                          <Users className="w-3.5 h-3.5 text-slate-500" />
-                          <span>{vPeopleCount}</span>
-                        </div>
+                        )}
                       </div>
-                    </div>
+
+                      <div className="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-500 w-full">
+                        <span>{v.safeAreas.length} Safe Area{v.safeAreas.length > 1 ? 's' : ''}</span>
+                        <span className="font-semibold text-slate-700">{vPeopleCount} checked in</span>
+                      </div>
+                    </button>
                   );
                 })}
               </div>
             </div>
           )}
 
-          {/* ================= 4. TAB CONTENT: SAFE SHELTERS ================= */}
-          {activeTabSection === 'shelters' && (
-            <div className="bg-[#F3F3FA] rounded-[24px] p-4 sm:p-5 border border-slate-100 space-y-3.5 shadow-xs">
-              <div className="flex items-center justify-between pb-1">
-                <div>
-                  <h4 className="text-xs font-bold text-[#49454F] uppercase tracking-wider">
-                    Safe High Ground Areas
-                  </h4>
-                  <p className="text-xs text-[#49454F] font-medium mt-0.5">
-                    Designated locations for {activeVillageData.name}
-                  </p>
-                </div>
-                <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 rounded-full">
-                  Safe Zones
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {activeVillageData.safeAreas.length > 0 ? (
-                  activeVillageData.safeAreas.map((area, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-white rounded-2xl p-4 border border-slate-100 space-y-2 shadow-xs flex flex-col justify-between"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-start gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                            <Home className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <h5 className="font-bold text-sm text-[#1C1B1F] leading-tight">
-                              {area.name}
-                            </h5>
-                            <span className="text-xs text-emerald-700 font-semibold inline-block mt-0.5">
-                              High Ground Evacuation Area
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="pt-2 border-t border-slate-100">
-                        <span className="text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-full inline-block">
-                          Capacity: {area.capacity}
-                        </span>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="col-span-full bg-white rounded-2xl p-5 border border-slate-100 text-center text-xs text-slate-500 font-medium">
-                    No safe areas listed for {activeVillageData.name} yet.
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ================= 5. TAB CONTENT: SIMPLE SAFETY GUIDE ================= */}
+          {/* TAB 3: SAFETY GUIDE */}
           {activeTabSection === 'guide' && (
-            <div className="bg-[#F3F3FA] rounded-[24px] p-4 sm:p-5 border border-slate-100 space-y-3.5 shadow-xs">
-              <div className="flex items-center justify-between pb-1">
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3 shadow-xs">
+              <div className="flex items-center justify-between pb-1 border-b border-slate-100">
                 <div>
-                  <h4 className="text-xs font-bold text-[#49454F] uppercase tracking-wider">
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                     What To Do In A Flood Warning
                   </h4>
-                  <p className="text-xs text-[#49454F] font-medium mt-0.5">
-                    Simple steps for all family and village members
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Clear safety steps for families in the village
                   </p>
                 </div>
-                <span className="text-xs bg-blue-100 text-blue-800 font-bold px-2.5 py-1 rounded-full">
-                  Guide
-                </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="bg-white rounded-2xl p-3.5 border border-slate-100 flex items-start gap-3 shadow-xs">
-                  <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-2.5">
+                  <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
                     1
-                  </div>
+                  </span>
                   <div>
-                    <h5 className="font-bold text-xs text-[#1C1B1F]">Move to High Ground Immediately</h5>
-                    <p className="text-xs text-[#49454F] mt-0.5 leading-relaxed">
-                      Do not wait for water to reach your house. Move your family to your designated safe area.
+                    <h5 className="font-bold text-xs text-slate-900">Move to High Ground Now</h5>
+                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                      Do not wait for water to reach your home. Walk to designated high ground right away.
                     </p>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl p-3.5 border border-slate-100 flex items-start gap-3 shadow-xs">
-                  <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-2.5">
+                  <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
                     2
-                  </div>
+                  </span>
                   <div>
-                    <h5 className="font-bold text-xs text-[#1C1B1F]">Never Cross Moving River Water</h5>
-                    <p className="text-xs text-[#49454F] mt-0.5 leading-relaxed">
-                      Fast flood water is dangerous. Stay on dry high land.
+                    <h5 className="font-bold text-xs text-slate-900">Never Cross Fast River Water</h5>
+                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                      Moving flood water can sweep away people and animals. Stay on dry land.
                     </p>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl p-3.5 border border-slate-100 flex items-start gap-3 shadow-xs">
-                  <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-2.5">
+                  <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
                     3
-                  </div>
+                  </span>
                   <div>
-                    <h5 className="font-bold text-xs text-[#1C1B1F]">Help Children and the Elderly</h5>
-                    <p className="text-xs text-[#49454F] mt-0.5 leading-relaxed">
-                      Help family members and neighbors who need support reaching safe ground.
+                    <h5 className="font-bold text-xs text-slate-900">Assist Neighbors &amp; Children</h5>
+                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                      Help children, the sick, and elderly family members reach high ground safely.
                     </p>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl p-3.5 border border-slate-100 flex items-start gap-3 shadow-xs">
-                  <div className="w-7 h-7 rounded-full bg-red-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-2.5">
+                  <span className="w-6 h-6 rounded-full bg-red-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
                     4
-                  </div>
+                  </span>
                   <div>
-                    <h5 className="font-bold text-xs text-[#1C1B1F]">Send Voice SOS If Trapped</h5>
-                    <p className="text-xs text-[#49454F] mt-0.5 leading-relaxed">
-                      Tap the red Voice SOS button in this app to record where you are.
+                    <h5 className="font-bold text-xs text-slate-900">Send Voice SOS If Trapped</h5>
+                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                      Tap the red Emergency Voice SOS button to record where you are and call for rescue.
                     </p>
                   </div>
                 </div>
@@ -631,4 +599,3 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
     </div>
   );
 };
-

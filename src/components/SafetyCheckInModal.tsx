@@ -153,62 +153,66 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
 
   return (
     <div
-      id="safety-checkin-modal"
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200 select-none"
+      id="safety-checkin-screen"
+      className="fixed inset-0 z-50 bg-slate-50 flex flex-col h-full w-full overflow-hidden select-none animate-in fade-in duration-200"
     >
-      <div
-        id="safety-checkin-dialog"
-        className="w-full max-w-md rounded-t-[28px] sm:rounded-[28px] border border-slate-200 bg-[#FEF7FF] text-[#1C1B1F] shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
-      >
-        {/* Mobile Drag handle */}
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className="w-10 h-1 rounded-full bg-slate-300" />
-        </div>
-
-        {/* Top Bar Header */}
-        <div className="flex items-center justify-between px-5 pt-3 pb-3 border-b border-slate-200">
-          <div className="flex items-center gap-3">
-            <img
-              src="/icon.svg"
-              alt="App Icon"
-              className="w-9 h-9 rounded-xl object-cover shadow-2xs shrink-0"
-            />
-            <div>
-              <h2 className="text-sm font-bold leading-tight text-[#1C1B1F]">
-                Automatic Flood Alert App
-              </h2>
-              <p className="text-xs font-medium text-[#49454F] mt-0.5">
-                Dzenje CDSS ADDA STEM CLUB • Safety Check-In
-              </p>
-            </div>
-          </div>
+      {/* Full-Screen Top Header Bar */}
+      <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between shadow-xs">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             id="close-safety-modal-btn"
             type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-full flex items-center justify-center bg-[#F3EDF7] hover:bg-[#E7E0EC] text-[#1C1B1F] transition cursor-pointer"
-            title="Close"
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 transition active:scale-95 cursor-pointer shrink-0"
+            title="Back"
           >
-            <X className="w-4.5 h-4.5" />
+            <X className="w-5 h-5" />
           </button>
-        </div>
 
-        {/* Body Content */}
-        {submittedSuccess ? (
-          <div className="p-8 flex flex-col items-center justify-center text-center space-y-3">
-            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shadow-xs">
-              <CheckCircle2 className="w-10 h-10" />
-            </div>
-            <h3 className="text-lg font-bold text-[#1C1B1F]">Status Saved!</h3>
-            <p className="text-sm text-[#49454F] max-w-xs font-medium">
-              Your safety status has been recorded on the community dashboard.
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-tight truncate">
+              Community Safety Check-In
+            </h1>
+            <p className="text-xs text-slate-500 font-medium truncate">
+              Dzenje CDSS ADDA STEM CLUB &bull; Emergency Roll-Call
             </p>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4 flex-1">
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition active:scale-95 cursor-pointer"
+        >
+          Cancel
+        </button>
+      </header>
+
+      {/* Main Full-Screen Scrolling Container */}
+      <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 pb-24">
+        <div className="max-w-2xl mx-auto">
+          {submittedSuccess ? (
+            <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-xs flex flex-col items-center justify-center text-center space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shadow-xs">
+                <CheckCircle2 className="w-10 h-10" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900">Safety Status Recorded!</h3>
+              <p className="text-sm text-slate-600 max-w-sm font-medium leading-relaxed">
+                Your report has been synced to the village dashboard. Rescue teams and community leaders can see that your household is accounted for.
+              </p>
+              <button
+                type="button"
+                onClick={onClose}
+                className="mt-2 py-3 px-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-xs transition active:scale-95 cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200 shadow-xs space-y-5">
             {/* Status Type Selector */}
             <div className="space-y-2">
-              <span className="text-xs font-bold text-[#49454F] uppercase tracking-wider block">
+              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
                 Select Your Safety Status
               </span>
               <div className="grid grid-cols-2 gap-2.5">
@@ -217,10 +221,10 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                   type="button"
                   id="status-option-safe"
                   onClick={() => setStatus('safe')}
-                  className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition cursor-pointer ${
+                  className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition cursor-pointer min-h-[44px] ${
                     status === 'safe'
                       ? 'bg-emerald-50 border-2 border-emerald-600 text-emerald-950 shadow-xs'
-                      : 'bg-[#F3F3FA] border border-slate-200 text-[#1C1B1F] hover:border-emerald-400'
+                      : 'bg-slate-50 border border-slate-200 text-slate-900 hover:border-emerald-400'
                   }`}
                 >
                   <div className="flex items-center justify-between font-bold text-xs text-emerald-800">
@@ -241,7 +245,7 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                   className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition cursor-pointer ${
                     status === 'evacuated'
                       ? 'bg-blue-50 border-2 border-[#1F71E8] text-blue-950 shadow-xs'
-                      : 'bg-[#F3F3FA] border border-slate-200 text-[#1C1B1F] hover:border-blue-400'
+                      : 'bg-slate-50 border border-slate-200 text-[#1C1B1F] hover:border-blue-400'
                   }`}
                 >
                   <div className="flex items-center justify-between font-bold text-xs text-blue-800">
@@ -262,7 +266,7 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                   className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition cursor-pointer ${
                     status === 'in_flooding'
                       ? 'bg-amber-50 border-2 border-amber-600 text-amber-950 shadow-xs'
-                      : 'bg-[#F3F3FA] border border-slate-200 text-[#1C1B1F] hover:border-amber-400'
+                      : 'bg-slate-50 border border-slate-200 text-[#1C1B1F] hover:border-amber-400'
                   }`}
                 >
                   <div className="flex items-center justify-between font-bold text-xs text-amber-800">
@@ -283,7 +287,7 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                   className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition cursor-pointer ${
                     status === 'needs_help'
                       ? 'bg-red-50 border-2 border-red-600 text-red-950 shadow-xs'
-                      : 'bg-[#F3F3FA] border border-slate-200 text-[#1C1B1F] hover:border-red-400'
+                      : 'bg-slate-50 border border-slate-200 text-[#1C1B1F] hover:border-red-400'
                   }`}
                 >
                   <div className="flex items-center justify-between font-bold text-xs text-red-800">
@@ -395,7 +399,7 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
             </div>
 
             {/* GPS Location Attachment */}
-            <div className="bg-[#F3F3FA] rounded-2xl p-3.5 border border-slate-200 space-y-2.5 shadow-2xs">
+            <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 space-y-2.5 shadow-2xs">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${latitude && isGpsLive ? 'bg-emerald-100 text-emerald-700' : latitude && !isGpsLive ? 'bg-blue-100 text-[#1F71E8]' : 'bg-slate-200 text-slate-700'}`}>
@@ -500,7 +504,7 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                 type="button"
                 id="cancel-safety-btn"
                 onClick={onClose}
-                className="flex-1 py-3.5 px-4 rounded-full text-sm font-bold bg-[#F3EDF7] hover:bg-[#E7E0EC] text-[#1C1B1F] transition active:scale-98 cursor-pointer"
+                className="flex-1 py-3.5 px-4 rounded-full text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition active:scale-98 cursor-pointer min-h-[44px]"
               >
                 Cancel
               </button>
@@ -521,7 +525,8 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
             </div>
           </form>
         )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 };

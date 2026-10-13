@@ -4,13 +4,13 @@
   :root {
     --font-sans: 'Google Sans', 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     --font-mono: 'Roboto Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
-    --m3-surface: #FEF7FF;
-    --m3-surface-container: #F3F3FA;
+    --m3-surface: #F8FAFC;
+    --m3-surface-container: #FFFFFF;
     --m3-primary: #1F71E8;
-    --m3-secondary-container: #E0EFFF;
-    --m3-on-surface: #1C1B1F;
-    --m3-on-surface-variant: #49454F;
-    --m3-outline: #9C9C9C;
+    --m3-secondary-container: #EBF3FE;
+    --m3-on-surface: #0F172A;
+    --m3-on-surface-variant: #475569;
+    --m3-outline: #CBD5E1;
   }
   
   *, *::before, *::after {
@@ -75,43 +75,43 @@
   scrollbar-width: none;  /* Firefox */
 }
 
-/* Material 3 Card Elevation */
+/* Clean Solid Card Style (No gradients) */
 .m3-card {
-  background-color: #F3F3FA;
-  border-radius: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(231, 224, 236, 0.6);
+  background-color: #FFFFFF;
+  border-radius: 20px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  border: 1px solid #E2E8F0;
 }
 
 .dark .m3-card {
-  background-color: #1E1F20;
-  border-color: #303134;
+  background-color: #1E293B;
+  border-color: #334155;
   box-shadow: none;
 }
 
-/* Material 3 Primary Pill Button */
+/* Primary Button (Solid Blue, No Gradients) */
 .m3-btn-primary {
   background-color: #1F71E8;
   color: #FFFFFF;
-  border-radius: 100px;
-  font-weight: 500;
+  border-radius: 12px;
+  font-weight: 600;
   transition: all 0.15s ease-in-out;
 }
 .m3-btn-primary:hover {
   background-color: #1A63CC;
 }
 
-/* Material 3 Outlined Button */
+/* Outlined Button */
 .m3-btn-outlined {
   border: 1.5px solid #1F71E8;
   color: #1F71E8;
-  border-radius: 100px;
-  font-weight: 500;
+  border-radius: 12px;
+  font-weight: 600;
   background-color: transparent;
   transition: all 0.15s ease-in-out;
 }
 .m3-btn-outlined:hover {
-  background-color: #E0EFFF;
+  background-color: #EFF6FF;
 }
 
 

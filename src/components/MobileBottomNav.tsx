@@ -82,7 +82,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     <nav
       id="mobile-bottom-navigation-bar"
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px) + 8px, 12px)' }}
-      className="md:hidden shrink-0 relative z-40 w-full bg-white/95 sm:bg-[#FEF7FF]/95 backdrop-blur-xl border-t border-slate-200/90 select-none shadow-[0_-3px_15px_rgba(0,0,0,0.06)]"
+      className="md:hidden shrink-0 relative z-40 w-full bg-white/95 backdrop-blur-xl border-t border-slate-200 select-none shadow-[0_-3px_15px_rgba(0,0,0,0.04)]"
     >
       <div className="max-w-md mx-auto px-1 sm:px-2 pt-1.5 flex items-center justify-around">
         {tabs.map((tab) => {
@@ -96,12 +96,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               onClick={() => onSelectMode(tab.id)}
               className="flex-1 py-1 flex flex-col items-center justify-center relative transition-all active:scale-95 cursor-pointer group min-h-[50px] touch-manipulation"
             >
-              {/* Material 3 Elliptical Tonal Indicator */}
+              {/* Tonal Indicator */}
               <div
                 className={`w-14 sm:w-16 h-8 rounded-full flex items-center justify-center mb-0.5 transition-all duration-200 relative ${
                   isActive
-                    ? 'bg-[#E0EFFF] text-[#1F71E8] font-bold shadow-2xs'
-                    : 'bg-transparent text-[#49454F] group-hover:bg-slate-100/80'
+                    ? 'bg-blue-50 text-blue-600 font-bold shadow-2xs'
+                    : 'bg-transparent text-slate-500 group-hover:bg-slate-100/80'
                 }`}
               >
                 <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.4]' : 'stroke-[1.9]'}`} />

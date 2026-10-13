@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Bell, BellRing, Volume2, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
 import { NotificationService } from '../services/notificationService';
 import { sirenService } from '../services/audioSiren';
+import { Capacitor } from '@capacitor/core';
 
 interface NotificationEnableCardProps {
   isDarkMode?: boolean;
@@ -18,7 +19,11 @@ export const NotificationEnableCard: React.FC<NotificationEnableCardProps> = ({
   const [isEnabling, setIsEnabling] = useState(false);
   const [nativeEnabled, setNativeEnabled] = useState<boolean>(false);
 
+  // Only show this card on native Android APK, hide on web PWA as requested
+  const isNative = Capacitor.isNativePlatform();
+
   useEffect(() => {
+    if (!isNative) return;
     NotificationService.checkNativeNotificationStatus().then((enabled) => {
       if (enabled) {
         setNativeEnabled(true);
@@ -31,7 +36,11 @@ export const NotificationEnableCard: React.FC<NotificationEnableCardProps> = ({
     return () => {
       unsubPerm();
     };
-  }, []);
+  }, [isNative]);
+
+  if (!isNative) {
+    return null;
+  }
 
   const handleEnableAlerts = async () => {
     sirenService.unlockAudio();

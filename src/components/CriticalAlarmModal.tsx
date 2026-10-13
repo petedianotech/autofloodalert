@@ -354,7 +354,7 @@ export const CriticalAlarmModal: React.FC<CriticalAlarmModalProps> = ({
             <span>Reported at: <strong>{activeAlert.formattedTime || 'Just now'}</strong></span>
             <span className="font-semibold text-[#81C995] flex items-center gap-1">
               <Activity className="w-3 h-3" />
-              Live Bell Sensor Signal
+              Live River Sensor Active
             </span>
           </div>
         </div>

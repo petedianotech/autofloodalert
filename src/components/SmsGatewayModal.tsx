@@ -131,49 +131,57 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
 
   return (
     <div
-      id="modal-sms-gateway"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+      id="screen-sms-gateway"
+      className="fixed inset-0 z-50 bg-slate-50 flex flex-col h-full w-full overflow-hidden select-none animate-in fade-in duration-200"
     >
-      <div className="bg-[#F3F3FA] rounded-[28px] max-w-lg w-full p-4 sm:p-6 text-[#1C1B1F] shadow-2xl border border-slate-200 space-y-4 max-h-[92vh] overflow-y-auto">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#006A4E] text-white flex items-center justify-center shadow-xs shrink-0">
-              <MessageSquare className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-[#1C1B1F] leading-tight">
-                SMS Flood Alert Gateway
-              </h2>
-              <p className="text-xs text-[#49454F]">
-                Mark numbers to receive Chichewa or English SMS warnings
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              id="btn-sms-refresh-recipients"
-              onClick={handleRefreshContacts}
-              disabled={isRefreshingContacts}
-              className="px-3 py-1.5 rounded-xl bg-white border border-emerald-300 hover:bg-emerald-50 text-[#006A4E] text-xs font-bold flex items-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer disabled:opacity-50"
-              title="Refresh newly signed-up users and phone numbers from Firebase"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 text-[#006A4E] ${isRefreshingContacts ? 'animate-spin' : ''}`} />
-              <span>Refresh Contacts</span>
-            </button>
+      {/* Full-Screen Top Header Bar */}
+      <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between shadow-xs">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 transition active:scale-95 cursor-pointer shrink-0"
+            title="Back"
+          >
+            <X className="w-5 h-5" />
+          </button>
 
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-9 h-9 rounded-full bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-[#49454F] transition active:scale-95 cursor-pointer shrink-0"
-              title="Close"
-            >
-              <X className="w-5 h-5" />
-            </button>
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-lg font-bold text-[#1C1B1F] leading-tight truncate">
+              SMS Flood Alert Gateway
+            </h1>
+            <p className="text-xs text-[#49454F] font-medium truncate">
+              Chichewa &amp; English Emergency Broadcast Network
+            </p>
           </div>
         </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            id="btn-sms-refresh-recipients"
+            onClick={handleRefreshContacts}
+            disabled={isRefreshingContacts}
+            className="px-3 py-2 rounded-xl bg-white border border-emerald-300 hover:bg-emerald-50 text-[#006A4E] text-xs font-bold flex items-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer disabled:opacity-50"
+            title="Refresh newly signed-up users and phone numbers from Firebase"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-[#006A4E] ${isRefreshingContacts ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh Contacts</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition active:scale-95 cursor-pointer"
+          >
+            Done
+          </button>
+        </div>
+      </header>
+
+      {/* Main Full-Screen Area */}
+      <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 pb-24">
+        <div className="max-w-2xl mx-auto w-full bg-white rounded-3xl border border-slate-200 p-5 sm:p-7 shadow-xs space-y-4 text-[#1C1B1F]">
 
         {/* Refresh feedback toast if triggered */}
         {refreshMsg && (
@@ -462,8 +470,8 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
           <Check className="w-4 h-4 text-[#006A4E]" />
           <span>Done</span>
         </button>
-
-      </div>
+        </div>
+      </main>
     </div>
   );
 };

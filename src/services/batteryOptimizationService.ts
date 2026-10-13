@@ -13,6 +13,16 @@ interface NativePowerHelper {
   openNotificationSettings(): Promise<{ opened: boolean }>;
   showNativeFloodAlert(options: { title: string; body: string }): Promise<{ notified: boolean }>;
   boostSystemAlarmVolume(): Promise<{ boosted: boolean }>;
+  canScheduleExactAlarms(): Promise<{ canSchedule: boolean }>;
+  openExactAlarmSettings(): Promise<{ opened: boolean }>;
+  scheduleExactFloodAlarm(options: {
+    alarmId?: number;
+    triggerAtMillis: number;
+    title?: string;
+    message?: string;
+    village?: string;
+  }): Promise<{ scheduled: boolean; alarmId: number; triggerAtMillis: number }>;
+  cancelExactFloodAlarm(options: { alarmId: number }): Promise<{ cancelled: boolean }>;
 }
 
 export const NativePowerHelperPlugin = registerPlugin<NativePowerHelper>('NativePowerHelper');

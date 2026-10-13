@@ -235,4 +235,165 @@ public class NativePowerHelperPlugin extends Plugin {
                 e instanceof Exception ? (Exception) e : new Exception(e));
         }
     }
+
+    @PluginMethod
+    public void canScheduleExactAlarms(PluginCall call) {
+        try {
+            Context context = getContext();
+            boolean canSchedule = true;
+            if (context != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                android.app.AlarmManager alarmManager = (android.app.AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+                canSchedule = alarmManager != null && alarmManager.canScheduleExactAlarms();
+            }
+            JSObject ret = new JSObject();
+            ret.put("canSchedule", canSchedule);
+            call.resolve(ret);
+        } catch (Throwable e) {
+            Log.w(TAG, "canScheduleExactAlarms error: " + e.getMessage());
+            JSObject ret = new JSObject();
+            ret.put("canSchedule", true);
+            call.resolve(ret);
+        }
+    }
+
+    @PluginMethod
+    public void openExactAlarmSettings(PluginCall call) {
+        try {
+            Context context = getContext();
+            if (context != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
+                intent.setData(Uri.parse("package:" + context.getPackageName()));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(intent);
+                JSObject ret = new JSObject();
+                ret.put("opened", true);
+                call.resolve(ret);
+                return;
+            }
+        } catch (Throwable e) {
+            Log.w(TAG, "openExactAlarmSettings error: " + e.getMessage());
+        }
+        JSObject ret = new JSObject();
+        ret.put("opened", false);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void scheduleExactFloodAlarm(PluginCall call) {
+        try {
+            Context context = getContext();
+            if (context == null) {
+                call.reject("Null context");
+                return;
+            }
+
+            int alarmId = call.getInt("alarmId", (int) (System.currentTimeMillis() % 100000));
+            long triggerAtMillis = call.getLong("triggerAtMillis", System.currentTimeMillis() + 5000);
+            String title = call.getString("title", "🚨 CRITICAL FLOOD WARNING");
+            String message = call.getString("message", "Continuous river rise detected! Evacuate immediately.");
+            String village = call.getString("village", "Dzenje Village");
+
+            Intent intent = new Intent(context, FloodAlarmReceiver.class);
+            intent.setAction(FloodAlarmReceiver.ACTION_TRIGGER_FLOOD_ALARM);
+            intent.putExtra(FloodAlarmReceiver.EXTRA_ALARM_ID, alarmId);
+            intent.putExtra(FloodAlarmReceiver.EXTRA_TITLE, title);
+            intent.putExtra(FloodAlarmReceiver.EXTRA_MESSAGE, message);
+            intent.putExtra(FloodAlarmReceiver.EXTRA_VILLAGE, village);
+
+            int pendingFlags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                ? PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
+                : PendingIntent.FLAG_UPDATE_CURRENT;
+
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                context,
+                alarmId,
+                intent,
+                pendingFlags
+            );
+
+            android.app.AlarmManager alarmManager = (android.app.AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+            if (alarmManager == null) {
+                call.reject("AlarmManager service unavailable");
+                return;
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // Allows alarm to execute even when device is in deep Doze mode
+                alarmManager.setExactAndAllowWhileIdle(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                );
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                alarmManager.setExact(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                );
+            } else {
+                alarmManager.set(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                );
+            }
+
+            Log.i(TAG, "Exact flood alarm registered with AlarmManager: id=" + alarmId + " at " + triggerAtMillis);
+
+            JSObject ret = new JSObject();
+            ret.put("scheduled", true);
+            ret.put("alarmId", alarmId);
+            ret.put("triggerAtMillis", triggerAtMillis);
+            call.resolve(ret);
+
+        } catch (SecurityException se) {
+            Log.e(TAG, "Exact alarm permission denied: " + se.getMessage());
+            call.reject("SCHEDULE_EXACT_ALARM permission required by Android: " + se.getMessage());
+        } catch (Throwable t) {
+            Log.e(TAG, "scheduleExactFloodAlarm failed: " + t.getMessage(), t);
+            call.reject("Failed to schedule alarm: " + t.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void cancelExactFloodAlarm(PluginCall call) {
+        try {
+            Context context = getContext();
+            if (context == null) {
+                call.reject("Null context");
+                return;
+            }
+
+            int alarmId = call.getInt("alarmId", 0);
+            Intent intent = new Intent(context, FloodAlarmReceiver.class);
+            intent.setAction(FloodAlarmReceiver.ACTION_TRIGGER_FLOOD_ALARM);
+
+            int pendingFlags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                ? PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_NO_CREATE
+                : PendingIntent.FLAG_NO_CREATE;
+
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                context,
+                alarmId,
+                intent,
+                pendingFlags
+            );
+
+            if (pendingIntent != null) {
+                android.app.AlarmManager alarmManager = (android.app.AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+                if (alarmManager != null) {
+                    alarmManager.cancel(pendingIntent);
+                }
+                pendingIntent.cancel();
+                Log.i(TAG, "Cancelled exact flood alarm: id=" + alarmId);
+            }
+
+            JSObject ret = new JSObject();
+            ret.put("cancelled", true);
+            call.resolve(ret);
+        } catch (Throwable t) {
+            Log.w(TAG, "cancelExactFloodAlarm error: " + t.getMessage());
+            call.reject("Error cancelling alarm: " + t.getMessage());
+        }
+    }
 }

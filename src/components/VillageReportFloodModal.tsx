@@ -300,36 +300,44 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-[28px] w-full max-w-lg shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Header */}
-        <div className="p-4 sm:p-5 bg-gradient-to-r from-blue-700 to-[#1F71E8] text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-white/15 text-white flex items-center justify-center shadow-xs shrink-0">
-              <Droplets className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="font-bold text-base sm:text-lg leading-tight">
-                Report Flooding to Admin
-              </h3>
-              <p className="text-xs text-blue-100 font-medium mt-0.5">
-                Tell the flood team what you see with your location
-              </p>
-            </div>
-          </div>
-
+    <div
+      id="screen-village-report-flood"
+      className="fixed inset-0 z-50 bg-slate-50 flex flex-col h-full w-full overflow-hidden select-none animate-in fade-in duration-200"
+    >
+      {/* Full-Screen Top Header Bar */}
+      <header className="sticky top-0 z-20 bg-blue-600 text-white px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-xs">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
             onClick={handleCloseModal}
-            className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition cursor-pointer"
-            aria-label="Close"
+            className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition active:scale-95 cursor-pointer shrink-0"
+            title="Back"
           >
             <X className="w-5 h-5" />
           </button>
+
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-lg font-bold leading-tight truncate">
+              Report Flooding to Admin
+            </h1>
+            <p className="text-xs text-blue-100 font-medium truncate">
+              Attach river sightings &amp; live GPS for village rescue
+            </p>
+          </div>
         </div>
 
-        {/* Content Area */}
-        <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-4 text-[#1C1B1F]">
+        <button
+          type="button"
+          onClick={handleCloseModal}
+          className="px-3.5 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition active:scale-95 cursor-pointer"
+        >
+          Cancel
+        </button>
+      </header>
+
+      {/* Main Full-Screen Area */}
+      <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 pb-24">
+        <div className="max-w-2xl mx-auto w-full bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden p-5 sm:p-7 text-[#1C1B1F] space-y-5">
           {submittedSuccess ? (
             <div className="py-8 text-center space-y-4">
               <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-sm">
@@ -379,7 +387,7 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
                       placeholder="e.g. Peter Damiano"
                       value={userName}
                       onChange={(e) => setUserName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-2xl bg-[#F3F3FA] border border-slate-200 text-xs font-medium text-[#1C1B1F] focus:outline-none focus:ring-2 focus:ring-[#1F71E8]"
+                      className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-medium text-[#1C1B1F] focus:outline-none focus:ring-2 focus:ring-[#1F71E8]"
                     />
                   </div>
 
@@ -390,7 +398,7 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
                     <select
                       value={village}
                       onChange={(e) => setVillage(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-2xl bg-[#F3F3FA] border border-slate-200 text-xs font-medium text-[#1C1B1F] focus:outline-none focus:ring-2 focus:ring-[#1F71E8]"
+                      className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-medium text-[#1C1B1F] focus:outline-none focus:ring-2 focus:ring-[#1F71E8]"
                     >
                       <option value="Dzenje Village">Dzenje Village</option>
                       <option value="Machokola Village">Machokola Village</option>
@@ -417,7 +425,7 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
                         className={`w-full p-3 rounded-2xl border text-left flex items-center justify-between transition cursor-pointer active:scale-99 ${
                           isSelected
                             ? 'bg-blue-50 border-blue-600 ring-2 ring-blue-200'
-                            : 'bg-[#F3F3FA] border-slate-200/80 hover:bg-slate-100'
+                            : 'bg-slate-50 border-slate-200/80 hover:bg-slate-100'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -455,7 +463,7 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
                     className={`p-2.5 rounded-2xl border text-center transition cursor-pointer ${
                       waterLevel === 'low'
                         ? 'bg-blue-50 border-blue-600 font-bold text-blue-900 ring-2 ring-blue-200'
-                        : 'bg-[#F3F3FA] border-slate-200 text-[#49454F]'
+                        : 'bg-slate-50 border-slate-200 text-[#49454F]'
                     }`}
                   >
                     <span className="block text-xs font-bold">Ankle Deep</span>
@@ -468,7 +476,7 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
                     className={`p-2.5 rounded-2xl border text-center transition cursor-pointer ${
                       waterLevel === 'medium'
                         ? 'bg-amber-50 border-amber-500 font-bold text-amber-900 ring-2 ring-amber-200'
-                        : 'bg-[#F3F3FA] border-slate-200 text-[#49454F]'
+                        : 'bg-slate-50 border-slate-200 text-[#49454F]'
                     }`}
                   >
                     <span className="block text-xs font-bold">Knee Deep</span>
@@ -481,7 +489,7 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
                     className={`p-2.5 rounded-2xl border text-center transition cursor-pointer ${
                       waterLevel === 'high'
                         ? 'bg-orange-50 border-orange-600 font-bold text-orange-900 ring-2 ring-orange-200'
-                        : 'bg-[#F3F3FA] border-slate-200 text-[#49454F]'
+                        : 'bg-slate-50 border-slate-200 text-[#49454F]'
                     }`}
                   >
                     <span className="block text-xs font-bold">Waist Deep</span>
@@ -494,7 +502,7 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
                     className={`p-2.5 rounded-2xl border text-center transition cursor-pointer ${
                       waterLevel === 'critical'
                         ? 'bg-red-50 border-red-600 font-bold text-red-900 ring-2 ring-red-200'
-                        : 'bg-[#F3F3FA] border-slate-200 text-[#49454F]'
+                        : 'bg-slate-50 border-slate-200 text-[#49454F]'
                     }`}
                   >
                     <span className="block text-xs font-bold">Fast Rushing</span>
@@ -638,7 +646,7 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
                       placeholder="Phone number (e.g. 0991234567)"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-[#F3F3FA] border border-slate-200 text-xs font-medium text-[#1C1B1F] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1F71E8]"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-medium text-[#1C1B1F] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1F71E8]"
                     />
                   </div>
 
@@ -648,13 +656,13 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
                       placeholder="Any extra details..."
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-2xl bg-[#F3F3FA] border border-slate-200 text-xs font-medium text-[#1C1B1F] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1F71E8]"
+                      className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-medium text-[#1C1B1F] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1F71E8]"
                     />
                   </div>
                 </div>
 
                 {/* Voice Note Recording Box */}
-                <div className="p-3 bg-[#F3F3FA] rounded-2xl border border-slate-200/80 flex items-center justify-between gap-2">
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
                       <Mic className="w-4 h-4" />
@@ -743,7 +751,7 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
             </form>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 };

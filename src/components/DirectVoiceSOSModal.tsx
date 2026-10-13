@@ -12,6 +12,7 @@ import {
   Loader2,
   Trash2,
   AlertTriangle,
+  RotateCcw,
 } from 'lucide-react';
 import { ResidentSafetyReport, SafetyStatusType, UserProfile } from '../types';
 import { firebaseFloodService } from '../services/firebaseService';
@@ -35,12 +36,18 @@ export const DirectVoiceSOSModal: React.FC<DirectVoiceSOSModalProps> = ({
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [selectedStatus, setSelectedStatus] = useState<SafetyStatusType>('needs_help');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submittedSuccess, setSubmittedSuccess] = useState(false);
+  const [deliveryStatus, setDeliveryStatus] = useState<'idle' | 'submitting' | 'confirmed' | 'failed'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [micError, setMicError] = useState<string | null>(null);
+
+  // Cached base64 audio and duration for retrying if network failed
+  const [cachedAudioBase64, setCachedAudioBase64] = useState<string | undefined>();
+  const [cachedDurationSec, setCachedDurationSec] = useState<number>(0);
 
   // GPS Coordinates
   const [latitude, setLatitude] = useState<number | undefined>();
   const [longitude, setLongitude] = useState<number | undefined>();
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | undefined>();
   const [gpsStatus, setGpsStatus] = useState<'acquiring' | 'ready' | 'unavailable'>('acquiring');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -50,14 +57,13 @@ export const DirectVoiceSOSModal: React.FC<DirectVoiceSOSModalProps> = ({
   const audioMimeTypeRef = useRef<string>('audio/webm');
 
   // Background GPS Acquisition
-  useEffect(() => {
-    if (!isOpen) return;
-
+  const acquireGps = () => {
     setGpsStatus('acquiring');
     locationService.getDeviceGpsCoordinates({ enableHighAccuracy: true, timeout: 8000 })
       .then((coords) => {
         setLatitude(coords.latitude);
         setLongitude(coords.longitude);
+        setGpsAccuracy(coords.accuracy);
         setGpsStatus('ready');
       })
       .catch((err) => {
@@ -66,12 +72,18 @@ export const DirectVoiceSOSModal: React.FC<DirectVoiceSOSModalProps> = ({
           .then((coords) => {
             setLatitude(coords.latitude);
             setLongitude(coords.longitude);
+            setGpsAccuracy(coords.accuracy);
             setGpsStatus('ready');
           })
           .catch(() => {
             setGpsStatus('unavailable');
           });
       });
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    acquireGps();
   }, [isOpen]);
 
   // Start recording on modal open
@@ -81,11 +93,14 @@ export const DirectVoiceSOSModal: React.FC<DirectVoiceSOSModalProps> = ({
       return;
     }
 
-    setSubmittedSuccess(false);
+    setDeliveryStatus('idle');
     setIsSubmitting(false);
+    setErrorMessage(null);
     setMicError(null);
     setRecordingSeconds(0);
     setSelectedStatus('needs_help');
+    setCachedAudioBase64(undefined);
+    setCachedDurationSec(0);
 
     startRecordingNow();
 
@@ -173,16 +188,72 @@ export const DirectVoiceSOSModal: React.FC<DirectVoiceSOSModalProps> = ({
       console.warn('Direct voice SOS mic error:', err);
       setMicError(
         err.name === 'NotAllowedError'
-          ? 'Please allow microphone access to record voice.'
-          : 'Could not access microphone.'
+          ? 'Microphone permission blocked. Please allow microphone access in your browser or phone settings to record voice.'
+          : 'Could not access microphone on this device.'
       );
       setIsRecording(false);
     }
   };
 
+  const executeSend = async (audioData?: string, duration?: number) => {
+    setIsSubmitting(true);
+    setDeliveryStatus('submitting');
+    setErrorMessage(null);
+
+    const userName = currentUser?.name || 'Resident';
+    const village = currentUser?.village || 'Dzenje Village';
+    const statusLabel =
+      selectedStatus === 'needs_help'
+        ? 'Emergency Rescue Needed (Voice SOS)'
+        : selectedStatus === 'in_flooding'
+        ? 'In Flooding (Voice Message)'
+        : 'Safe Update (Voice Message)';
+
+    const mapsUrl =
+      latitude && longitude ? `https://www.google.com/maps?q=${latitude},${longitude}` : undefined;
+
+    try {
+      const report = await firebaseFloodService.submitSafetyReport({
+        userId: currentUser?.uid || 'user_' + Math.random().toString(36).substring(2, 8),
+        userName,
+        village,
+        status: selectedStatus,
+        statusLabel,
+        peopleCount: 1,
+        message:
+          selectedStatus === 'needs_help'
+            ? '🚨 IMMEDIATE RESCUE SOS — Resident sent urgent voice recording from high water.'
+            : selectedStatus === 'safe'
+            ? '✅ Resident reported safe status with voice confirmation.'
+            : '⚠️ Water rising — Resident sent urgent voice notice.',
+        latitude,
+        longitude,
+        mapsUrl,
+        voiceAudioBase64: audioData,
+        voiceDurationSec: duration || 1,
+        hasVoiceNote: Boolean(audioData),
+      });
+
+      setDeliveryStatus('confirmed');
+      setIsSubmitting(false);
+      if (onSuccess) onSuccess(report);
+
+      // Auto close after 2.5s on confirmed delivery
+      setTimeout(() => {
+        onClose();
+      }, 2500);
+    } catch (err: any) {
+      console.error('Failed to submit direct voice SOS:', err);
+      setIsSubmitting(false);
+      setDeliveryStatus('failed');
+      setErrorMessage(
+        'Delivery failed: Could not reach the community database. Please check your data connection and tap Retry.'
+      );
+    }
+  };
+
   const handleStopAndSend = async () => {
     if (isSubmitting) return;
-    setIsSubmitting(true);
 
     if (timerRef.current !== null) {
       clearInterval(timerRef.current);
@@ -221,121 +292,96 @@ export const DirectVoiceSOSModal: React.FC<DirectVoiceSOSModalProps> = ({
     }
     setIsRecording(false);
 
-    try {
-      const userName = currentUser?.name || 'Resident';
-      const village = currentUser?.village || 'Dzenje Village';
-      const statusLabel =
-        selectedStatus === 'needs_help'
-          ? 'Emergency Rescue Needed (Voice SOS)'
-          : selectedStatus === 'in_flooding'
-          ? 'In Flooding (Voice Message)'
-          : 'Safe Update (Voice Message)';
+    setCachedAudioBase64(base64Audio);
+    setCachedDurationSec(durationSec);
 
-      const mapsUrl =
-        latitude && longitude ? `https://www.google.com/maps?q=${latitude},${longitude}` : undefined;
+    await executeSend(base64Audio, durationSec);
+  };
 
-      const report = await firebaseFloodService.submitSafetyReport({
-        userId: currentUser?.uid || 'user_' + Math.random().toString(36).substring(2, 8),
-        userName,
-        village,
-        status: selectedStatus,
-        statusLabel,
-        peopleCount: 1,
-        message:
-          selectedStatus === 'needs_help'
-            ? '🚨 IMMEDIATE RESCUE SOS - Resident sent urgent voice recording.'
-            : selectedStatus === 'safe'
-            ? '✅ Resident reported safe status with voice confirmation.'
-            : '⚠️ Water rising - Resident sent voice message.',
-        latitude,
-        longitude,
-        mapsUrl,
-        voiceAudioBase64: base64Audio,
-        voiceDurationSec: durationSec,
-        hasVoiceNote: true,
-      });
-
-      setSubmittedSuccess(true);
-      if (onSuccess) onSuccess(report);
-
-      setTimeout(() => {
-        setIsSubmitting(false);
-        setSubmittedSuccess(false);
-        onClose();
-      }, 1000);
-    } catch (err) {
-      console.error('Failed to submit direct voice SOS:', err);
-      setIsSubmitting(false);
-      alert('Could not submit voice SOS. Please check internet connection.');
-    }
+  const handleRetry = () => {
+    executeSend(cachedAudioBase64, cachedDurationSec);
   };
 
   if (!isOpen) return null;
 
   return (
     <div
-      id="direct-voice-sos-modal-overlay"
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 select-none"
+      id="screen-direct-voice-sos"
+      className="fixed inset-0 z-50 bg-slate-900 text-white flex flex-col h-full w-full overflow-hidden select-none animate-in fade-in duration-200"
     >
-      <div
-        id="direct-voice-sos-card"
-        className="w-full max-w-md rounded-t-[28px] sm:rounded-[28px] border border-slate-200 bg-[#FEF7FF] text-[#1C1B1F] shadow-2xl transition-all max-h-[92vh] overflow-y-auto"
-      >
-        {/* Mobile Drag handle */}
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className="w-10 h-1 rounded-full bg-slate-300" />
-        </div>
-
-        {/* Top Header */}
-        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-slate-100">
-          <div className="flex items-center gap-2.5">
-            <img
-              src="/icon.svg"
-              alt="App Icon"
-              className="w-9 h-9 rounded-xl object-cover shadow-2xs shrink-0"
-            />
-            <div>
-              <h2 className="text-sm font-bold leading-tight text-[#1C1B1F]">
-                Automatic Flood Alert App
-              </h2>
-              <p className="text-xs font-medium text-[#49454F] mt-0.5">
-                Dzenje CDSS ADDA STEM CLUB • Voice SOS
-              </p>
-            </div>
-          </div>
-
+      {/* Full-Screen Top Header Bar */}
+      <header className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md border-b border-white/10 px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-xs">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
             id="btn-close-direct-voice-sos"
             onClick={onClose}
-            className="w-9 h-9 rounded-full flex items-center justify-center bg-[#F3EDF7] hover:bg-[#E7E0EC] text-[#49454F] transition cursor-pointer"
-            title="Close"
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 text-white transition active:scale-95 cursor-pointer shrink-0"
+            title="Back"
           >
-            <X className="w-4.5 h-4.5" />
+            <X className="w-5 h-5" />
           </button>
+
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-lg font-bold text-white leading-tight truncate">
+              Emergency Voice SOS
+            </h1>
+            <p className="text-xs text-red-300 font-medium truncate">
+              Direct Line to Village Rescue &bull; Dzenje CDSS ADDA STEM
+            </p>
+          </div>
         </div>
 
-        {submittedSuccess ? (
-          <div className="p-8 text-center space-y-3">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition active:scale-95 cursor-pointer"
+        >
+          Cancel
+        </button>
+      </header>
+
+      {/* Main Full-Screen Area */}
+      <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 pb-24 flex flex-col justify-center">
+        <div className="max-w-xl mx-auto w-full bg-slate-800/90 rounded-3xl border border-white/10 shadow-2xl overflow-hidden p-5 sm:p-7 text-white">
+
+        {/* Confirmed Delivery State */}
+        {deliveryStatus === 'confirmed' ? (
+          <div className="p-8 text-center space-y-3.5">
             <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 mx-auto flex items-center justify-center">
               <CheckCircle2 className="w-10 h-10" />
             </div>
-            <h2 className="text-lg font-bold text-[#1C1B1F]">Voice SOS Sent!</h2>
-            <p className="text-sm text-[#49454F] max-w-xs mx-auto font-medium">
-              Your voice note and location have been sent to village safety teams.
+            <h2 className="text-lg font-bold text-slate-900">Delivery Confirmed!</h2>
+            <p className="text-sm text-slate-600 max-w-xs mx-auto font-medium leading-relaxed">
+              Your voice note and location have been successfully delivered to the village emergency dispatch. Stay on high ground.
             </p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="py-2.5 px-6 rounded-full bg-slate-900 text-white text-xs font-bold transition hover:bg-black cursor-pointer"
+            >
+              Done
+            </button>
           </div>
         ) : (
           <div className="p-5 space-y-4">
-            {/* Live Audio Visualizer */}
+            {/* Live Audio Visualizer / Status */}
             <div className="text-center space-y-2 py-1">
-              <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center transition-all bg-red-100 text-red-600">
+              <div
+                className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center transition-all ${
+                  isRecording
+                    ? 'bg-red-600 text-white ring-4 ring-red-200'
+                    : micError
+                    ? 'bg-slate-100 text-slate-400'
+                    : 'bg-red-100 text-red-600'
+                }`}
+              >
                 {isRecording ? (
-                  <Mic className="w-8 h-8 animate-pulse text-red-600" />
+                  <Mic className="w-9 h-9 animate-pulse text-white" />
                 ) : micError ? (
-                  <MicOff className="w-8 h-8 text-slate-400" />
+                  <MicOff className="w-9 h-9 text-slate-400" />
                 ) : (
-                  <Mic className="w-8 h-8 text-red-600" />
+                  <Mic className="w-9 h-9 text-red-600" />
                 )}
               </div>
 
@@ -345,34 +391,60 @@ export const DirectVoiceSOSModal: React.FC<DirectVoiceSOSModalProps> = ({
                     <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping" />
                     <span>Recording Voice ({recordingSeconds}s / 30s)</span>
                   </div>
-                  <p className="text-xs text-[#49454F] font-medium">
-                    Speak clearly: Say where you are and what help you need.
+                  <p className="text-xs text-slate-600 font-medium">
+                    State your name, exact location, and the help you need.
                   </p>
                 </div>
               ) : micError ? (
-                <div className="p-3 rounded-2xl bg-red-100 text-red-700 text-xs font-semibold">
-                  {micError}
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-medium space-y-2">
+                  <p>{micError}</p>
+                  <button
+                    type="button"
+                    onClick={startRecordingNow}
+                    className="py-1 px-3 rounded-lg bg-red-600 text-white font-bold text-xs hover:bg-red-700 cursor-pointer"
+                  >
+                    Retry Microphone Access
+                  </button>
                 </div>
               ) : (
-                <p className="text-xs text-[#49454F] font-medium">
-                  Starting microphone...
+                <p className="text-xs text-slate-500 font-medium">
+                  Connecting to audio hardware...
                 </p>
               )}
             </div>
 
-            {/* Emergency Tag Selector */}
+            {/* Error Banner with Retry Button (if submission failed) */}
+            {deliveryStatus === 'failed' && (
+              <div className="p-3.5 rounded-xl bg-red-50 border border-red-300 text-red-900 space-y-2.5 text-xs">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                  <span className="font-semibold">{errorMessage}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRetry}
+                  disabled={isSubmitting}
+                  className="w-full py-2.5 px-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Retry Sending SOS Now</span>
+                </button>
+              </div>
+            )}
+
+            {/* Emergency Type Selector */}
             <div className="space-y-1.5">
-              <span className="text-xs font-bold text-[#49454F] uppercase tracking-wider block">
-                Emergency Type:
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                Emergency Situation:
               </span>
               <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setSelectedStatus('needs_help')}
-                  className={`py-2.5 px-2 rounded-2xl text-xs font-bold transition flex flex-col items-center justify-center gap-1 border text-center cursor-pointer ${
+                  className={`py-2.5 px-2 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-1 border text-center cursor-pointer min-h-[44px] ${
                     selectedStatus === 'needs_help'
-                      ? 'bg-red-50 border-red-500 text-red-900 shadow-xs'
-                      : 'bg-[#F3F3FA] border-slate-100 text-[#49454F]'
+                      ? 'bg-red-50 border-red-500 text-red-900 shadow-2xs'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                   }`}
                 >
                   <AlertOctagon className="w-4 h-4 text-red-600" />
@@ -382,10 +454,10 @@ export const DirectVoiceSOSModal: React.FC<DirectVoiceSOSModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedStatus('in_flooding')}
-                  className={`py-2.5 px-2 rounded-2xl text-xs font-bold transition flex flex-col items-center justify-center gap-1 border text-center cursor-pointer ${
+                  className={`py-2.5 px-2 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-1 border text-center cursor-pointer min-h-[44px] ${
                     selectedStatus === 'in_flooding'
-                      ? 'bg-amber-50 border-amber-500 text-amber-900 shadow-xs'
-                      : 'bg-[#F3F3FA] border-slate-100 text-[#49454F]'
+                      ? 'bg-amber-50 border-amber-500 text-amber-900 shadow-2xs'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                   }`}
                 >
                   <LifeBuoy className="w-4 h-4 text-amber-600" />
@@ -395,10 +467,10 @@ export const DirectVoiceSOSModal: React.FC<DirectVoiceSOSModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedStatus('safe')}
-                  className={`py-2.5 px-2 rounded-2xl text-xs font-bold transition flex flex-col items-center justify-center gap-1 border text-center cursor-pointer ${
+                  className={`py-2.5 px-2 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-1 border text-center cursor-pointer min-h-[44px] ${
                     selectedStatus === 'safe'
-                      ? 'bg-emerald-50 border-emerald-500 text-emerald-900 shadow-xs'
-                      : 'bg-[#F3F3FA] border-slate-100 text-[#49454F]'
+                      ? 'bg-emerald-50 border-emerald-500 text-emerald-900 shadow-2xs'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                   }`}
                 >
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
@@ -407,23 +479,24 @@ export const DirectVoiceSOSModal: React.FC<DirectVoiceSOSModalProps> = ({
               </div>
             </div>
 
-            {/* Resident & GPS status */}
-            <div className="bg-[#F3F3FA] rounded-2xl p-3 border border-slate-100 flex items-center justify-between text-xs">
+            {/* Resident & GPS Status Bar */}
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 flex items-center justify-between text-xs">
               <div className="min-w-0">
-                <p className="font-bold text-sm text-[#1C1B1F] truncate">
+                <p className="font-bold text-sm text-slate-900 truncate">
                   {currentUser?.name || 'Resident'}
                 </p>
-                <p className="text-xs text-[#49454F] truncate font-medium">
+                <p className="text-xs text-slate-500 truncate font-medium">
                   {currentUser?.village || 'Dzenje Village'}
                 </p>
               </div>
-              <div className="flex items-center gap-1 text-xs font-semibold text-slate-600">
+
+              <div className="flex items-center gap-1 text-xs font-semibold text-slate-700 shrink-0">
                 <MapPin className="w-4 h-4 text-red-500" />
                 <span>
                   {gpsStatus === 'ready'
-                    ? 'GPS Attached'
+                    ? `GPS Connected (±${gpsAccuracy || 10}m)`
                     : gpsStatus === 'acquiring'
-                    ? 'Getting GPS...'
+                    ? 'Acquiring GPS...'
                     : 'Village Location'}
                 </span>
               </div>
@@ -436,12 +509,12 @@ export const DirectVoiceSOSModal: React.FC<DirectVoiceSOSModalProps> = ({
                 id="btn-direct-voice-send-now"
                 onClick={handleStopAndSend}
                 disabled={isSubmitting}
-                className="w-full py-3.5 rounded-full bg-red-600 hover:bg-red-700 text-white font-bold text-sm shadow-xs transition active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-3.5 rounded-xl bg-red-600 hover:bg-red-700 active:scale-98 text-white font-bold text-sm shadow-xs transition flex items-center justify-center gap-2 cursor-pointer min-h-[46px]"
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Sending Voice SOS...</span>
+                    <span>Sending Voice SOS to Dispatch...</span>
                   </>
                 ) : (
                   <>
@@ -451,24 +524,24 @@ export const DirectVoiceSOSModal: React.FC<DirectVoiceSOSModalProps> = ({
                 )}
               </button>
 
-              <div className="flex items-center justify-between px-2">
+              <div className="flex items-center justify-between px-1">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="text-xs text-[#49454F] hover:text-red-600 flex items-center gap-1 py-1 transition cursor-pointer font-semibold"
+                  className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 py-1 transition cursor-pointer font-semibold"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5" />
                   <span>Cancel</span>
                 </button>
-                <span className="text-xs text-[#49454F] font-medium">
-                  Direct notice to village rescue team
+                <span className="text-[11px] text-slate-500 font-medium">
+                  Direct urgent broadcast to rescue team
                 </span>
               </div>
             </div>
           </div>
         )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 };
-

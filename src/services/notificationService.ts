@@ -331,6 +331,23 @@ export class NotificationService {
       // continue with web / PWA fallbacks
     }
 
+    // 0b. If in APK, also register with Android AlarmManager as an immediate exact wake alarm so screen powers on even on lockscreen
+    if (Capacitor.isNativePlatform()) {
+      try {
+        if (NativePowerHelperPlugin && typeof NativePowerHelperPlugin.scheduleExactFloodAlarm === 'function') {
+          await NativePowerHelperPlugin.scheduleExactFloodAlarm({
+            alarmId: Math.floor(Date.now() % 100000),
+            triggerAtMillis: Date.now() + 200, // Trigger immediately via AlarmManager RTC_WAKEUP
+            title,
+            message: body,
+            village: payload?.village,
+          });
+        }
+      } catch (alarmErr) {
+        console.warn('[AlarmManager] exact alarm trigger warning:', alarmErr);
+      }
+    }
+
     // Always trigger hardware vibration immediately if supported (even offline)
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       try {
