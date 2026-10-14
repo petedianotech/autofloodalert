@@ -5,25 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Automatic Flood Alert</title>
     <meta name="description" content="Automatic Flood Alert app. Real-time river vibration and bell sound flood detection with village safety roll-call." />
-    <meta name="theme-color" content="#1A73E8" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Automatic Flood Alert" />
-    <meta name="format-detection" content="telephone=no" />
+    <meta name="theme-color" content="#1F71E8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1F71E8" />
     <meta name="color-scheme" content="light" />
-
-    <!-- Open Graph (OG) Social Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Flood Alert" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Flood Alert" />
+    <meta name="format-detection" content="telephone=no" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Automatic Flood Alert" />
-    <meta property="og:description" content="Community flood warning and safety roll-call network." />
+    <meta property="og:description" content="Community flood warning and safety roll-call network for Dzenje and Machokola villages." />
     <meta property="og:image" content="/og-image.jpg" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="675" />
-    <meta property="og:image:alt" content="Automatic Flood Alert" />
-    <meta property="og:site_name" content="Automatic Flood Alert" />
-
-    <!-- Twitter Card Meta Tags -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Automatic Flood Alert" />
     <meta name="twitter:description" content="Community flood warning and safety roll-call network." />
@@ -33,33 +27,20 @@
     <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
-    <!-- Material 3 Typography & Fonts (with display=swap for older Android) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;0,900;1,400;1,500&family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-
-    <!-- Core Polyfills & Legacy Android 6.0.1 Compatibility Shim -->
     <script>
       (function () {
-        // 1. globalThis polyfill for older V8 / WebViews (< Chrome 71)
         if (typeof globalThis === 'undefined') {
-          if (typeof window !== 'undefined') {
-            window.globalThis = window;
-          } else if (typeof self !== 'undefined') {
-            self.globalThis = self;
-          }
+          if (typeof window !== 'undefined') window.globalThis = window;
+          else if (typeof self !== 'undefined') self.globalThis = self;
         }
-
-        // 2. AudioContext prefix fallback for older Android Chrome / WebViews
         if (typeof window !== 'undefined') {
           window.AudioContext = window.AudioContext || window.webkitAudioContext || null;
         }
-
-        // 3. getUserMedia legacy bridge for Android 6.0.1
         if (typeof navigator !== 'undefined') {
-          if (!navigator.mediaDevices) {
-            navigator.mediaDevices = {};
-          }
+          if (!navigator.mediaDevices) navigator.mediaDevices = {};
           if (!navigator.mediaDevices.getUserMedia) {
             var legacyGetUserMedia =
               navigator.getUserMedia ||
@@ -75,8 +56,6 @@
             }
           }
         }
-
-        // 4. Object.assign polyfill for very old WebViews
         if (typeof Object.assign !== 'function') {
           Object.assign = function (target) {
             if (target == null) throw new TypeError('Cannot convert undefined or null to object');
@@ -96,22 +75,30 @@
         }
       })();
     </script>
-
-    <!-- PWA Service Worker Registration -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
           navigator.serviceWorker.register('/sw.js', { scope: '/' })
             .then(function (reg) {
               console.log('[PWA] Service Worker active with scope:', reg.scope);
+              setInterval(function () {
+                try { reg.update(); } catch (e) {}
+              }, 30 * 60 * 1000);
+              reg.addEventListener('updatefound', function () {
+                var nw = reg.installing;
+                if (!nw) return;
+                nw.addEventListener('statechange', function () {
+                  if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                    console.log('[PWA] New version available');
+                  }
+                });
+              });
             })
             .catch(function (err) {
               console.warn('[PWA] Service Worker registration:', err);
             });
         });
       }
-
-      // Prevent accidental pinch-to-zoom & double-tap zoom on mobile web browsers
       document.addEventListener('gesturestart', function (e) {
         e.preventDefault();
       });
