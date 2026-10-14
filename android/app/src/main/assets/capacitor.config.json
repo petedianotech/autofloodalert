@@ -1,5 +1,5 @@
 {
-	"appId": "com.dzenjecdsstem.floodalert",
+	"appId": "com.petediano.autofloodalert",
 	"appName": "Auto Flood Alert",
 	"webDir": "dist",
 	"server": {
