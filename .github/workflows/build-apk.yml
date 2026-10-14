@@ -7,6 +7,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Auto Flood Alert APK
@@ -131,23 +134,70 @@ jobs:
           fi
 
       - name: Prepare APK Artifacts
+        id: prepare_apk
         run: |
           mkdir -p build-output
+          APK_PATH=""
+          APK_NAME=""
+
           if [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
             cp android/app/build/outputs/apk/release/app-release.apk build-output/Auto-Flood-Alert-Release.apk
+            APK_PATH="build-output/Auto-Flood-Alert-Release.apk"
+            APK_NAME="Auto-Flood-Alert-Release.apk"
             echo "Release APK ready."
           elif [ -f android/app/build/outputs/apk/debug/app-debug.apk ]; then
             cp android/app/build/outputs/apk/debug/app-debug.apk build-output/Auto-Flood-Alert-Debug.apk
+            APK_PATH="build-output/Auto-Flood-Alert-Debug.apk"
+            APK_NAME="Auto-Flood-Alert-Debug.apk"
             echo "Debug APK ready."
           else
-            find android/app/build/outputs/apk -name "*.apk" -exec cp {} build-output/ \;
+            FOUND=$(find android/app/build/outputs/apk -name "*.apk" 2>/dev/null | head -1)
+            if [ -n "$FOUND" ]; then
+              cp "$FOUND" build-output/
+              APK_PATH="build-output/$(basename "$FOUND")"
+              APK_NAME="$(basename "$FOUND")"
+            fi
           fi
+
           ls -la build-output/ || true
 
-      - name: Upload Installable APK
+          if [ -z "$APK_PATH" ] || [ ! -f "$APK_PATH" ]; then
+            echo "ERROR: No APK file was produced by Gradle."
+            find android/app/build -name "*.apk" 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
+          echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
+          echo "### APK ready: \`$APK_NAME\`" >> "$GITHUB_STEP_SUMMARY"
+          ls -lh "$APK_PATH" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Installable APK (Artifacts)
         uses: actions/upload-artifact@v4
         with:
           name: Auto-Flood-Alert-APK
           path: build-output/*.apk
           retention-days: 30
-          if-no-files-found: warn
+          if-no-files-found: error
+
+      # Easy mobile download: attach APK to a GitHub Release on main branch pushes
+      - name: Publish APK to GitHub Release
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ github.run_number }}
+          name: Auto Flood Alert APK #${{ github.run_number }}
+          body: |
+            Installable Android APK for **Automatic Flood Alert**.
+
+            - Package: `com.petediano.autofloodalert`
+            - Built from commit: `${{ github.sha }}`
+            - Download the `.apk` file below on your phone and open it to install.
+
+            If Android blocks install: Settings → Security → allow install from this source.
+          files: build-output/*.apk
+          draft: false
+          prerelease: false
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
