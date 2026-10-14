@@ -30,8 +30,8 @@ public class MainActivity extends BridgeActivity {
         try {
             if (FirebaseApp.getApps(this).isEmpty()) {
                 FirebaseOptions options = new FirebaseOptions.Builder()
-                    .setApplicationId("1:158763014091:android:9d45e4517b620b7237084e")
-                    .setApiKey("AIzaSyDsh5VHm1rk4tiacIYVkkxZF3LK5lPmH0w")
+                    .setApplicationId("1:158763014091:android:413d41cb07f66bdb37084e")
+                    .setApiKey("AIzaSyCTvzdH0rBl_HcacwBAFHKc_Gch57mXrWY")
                     .setProjectId("automatic-flood-alert")
                     .setGcmSenderId("158763014091")
                     .build();
