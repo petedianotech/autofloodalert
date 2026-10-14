@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'autofloodalert',
-  appName: 'automatic flood alert',
+  appId: 'com.petediano.autofloodalert',
+  appName: 'Auto Flood Alert',
   webDir: 'dist',
   server: {
     androidScheme: 'https',
