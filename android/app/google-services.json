@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "158763014091-cr2iijpnanmchk588kv290fq443racq8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.petediano.autofloodalert",
+            "certificate_hash": "ea5cae8e26f732f6b834f2002dd9f4b92e856a27"
+          }
+        },
+        {
           "client_id": "158763014091-74pp71vgs0q81v8u19m9u9f7rk4ha160.apps.googleusercontent.com",
           "client_type": 3
         }
