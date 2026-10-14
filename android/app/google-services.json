@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "158763014091",
+    "project_id": "automatic-flood-alert",
+    "storage_bucket": "automatic-flood-alert.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:158763014091:android:413d41cb07f66bdb37084e",
+        "android_client_info": {
+          "package_name": "com.petediano.autofloodalert"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "158763014091-74pp71vgs0q81v8u19m9u9f7rk4ha160.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCTvzdH0rBl_HcacwBAFHKc_Gch57mXrWY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "158763014091-74pp71vgs0q81v8u19m9u9f7rk4ha160.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
