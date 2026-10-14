@@ -14,28 +14,35 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            if (System.getenv("RELEASE_KEYSTORE_PASSWORD")) {
-                signingConfig signingConfigs.release
-            }
-        }
-        debug {
-            // Debug builds are always debug-signed
-        }
-    }
+
+    // Must be declared BEFORE buildTypes so signingConfigs.release exists when referenced
     signingConfigs {
         release {
-            if (System.getenv("RELEASE_KEYSTORE_PASSWORD")) {
-                storeFile file('../release.jks')
-                storePassword System.getenv("RELEASE_KEYSTORE_PASSWORD")
+            def keystorePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+            def keystoreFile = file("../release.jks")
+            if (keystorePassword != null && !keystorePassword.isEmpty() && keystoreFile.exists()) {
+                storeFile keystoreFile
+                storePassword keystorePassword
                 keyAlias System.getenv("RELEASE_KEY_ALIAS")
                 keyPassword System.getenv("RELEASE_KEY_PASSWORD")
             }
         }
     }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // Only attach signing config when keystore was actually configured
+            if (signingConfigs.release.storeFile != null) {
+                signingConfig signingConfigs.release
+            }
+        }
+        debug {
+            // Debug builds use the default debug keystore
+        }
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_21
         targetCompatibility JavaVersion.VERSION_21
@@ -43,7 +50,7 @@ android {
 }
 
 repositories {
-    flatDir{
+    flatDir {
         dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
     }
 }
@@ -68,6 +75,6 @@ try {
     if (servicesJSON.text) {
         apply plugin: 'com.google.gms.google-services'
     }
-} catch(Exception e) {
+} catch (Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
 }
