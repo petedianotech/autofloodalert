@@ -6,7 +6,6 @@ import {
   Bell,
   Trash2,
   AlertTriangle,
-  AlertOctagon,
   MapPin,
   Clock,
   MessageSquare,
@@ -16,7 +15,7 @@ import {
   ChevronDown,
   ChevronUp,
   Layers,
-  Filter,
+  Info,
 } from 'lucide-react';
 import { FloodAlert, UserProfile, isAppAdmin } from '../types';
 import { sirenService } from '../services/audioSiren';
@@ -73,21 +72,15 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
   };
 
   const handleItemDelete = (alertId: string) => {
-    if (onDeleteAlert) {
-      onDeleteAlert(alertId);
-    } else {
-      onDismissAlert(alertId);
-    }
+    if (onDeleteAlert) onDeleteAlert(alertId);
+    else onDismissAlert(alertId);
   };
 
   const toggleGroupExpand = (groupId: string) => {
     setExpandedGroupIds((prev) => {
       const next = new Set(prev);
-      if (next.has(groupId)) {
-        next.delete(groupId);
-      } else {
-        next.add(groupId);
-      }
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
       return next;
     });
   };
@@ -103,7 +96,6 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
 
     let displayTitle = alert.title || '';
     let displayMessage = alert.message || '';
-
     const titleLower = (alert.title || '').toLowerCase();
     if (
       titleLower.includes('clear') ||
@@ -121,12 +113,7 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
     }
 
     const msgLower = (alert.message || '').toLowerCase();
-    if (
-      msgLower.includes('clear') ||
-      msgLower.includes('normal') ||
-      msgLower.includes('no action') ||
-      isResolved
-    ) {
+    if (msgLower.includes('clear') || msgLower.includes('normal') || msgLower.includes('no action') || isResolved) {
       displayMessage = t.alertMsgRiverClear;
     } else if (isRed) {
       displayMessage = t.alertMsgCriticalMove;
@@ -137,28 +124,19 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
     }
 
     let stateLabel = t.stateActiveWarning;
-    if (isResolved) {
-      stateLabel = t.stateResolved;
-    } else if (isUpdated) {
-      stateLabel = t.stateUpdated;
-    } else if (isRed) {
-      stateLabel = t.stateCriticalWarning;
-    } else if (isYellow) {
-      stateLabel = t.stateHighFloodRisk;
-    } else {
-      stateLabel = t.stateMonitoring;
-    }
+    if (isResolved) stateLabel = t.stateResolved;
+    else if (isUpdated) stateLabel = t.stateUpdated;
+    else if (isRed) stateLabel = t.stateCriticalWarning;
+    else if (isYellow) stateLabel = t.stateHighFloodRisk;
+    else stateLabel = t.stateMonitoring;
 
     return { displayTitle, displayMessage, stateLabel, isRed, isYellow, isResolved };
   };
 
   const filteredAlerts = useMemo(() => {
-    if (statusFilter === 'active') {
-      return alerts.filter((a) => a.status === 'active');
-    }
-    if (statusFilter === 'resolved') {
+    if (statusFilter === 'active') return alerts.filter((a) => a.status === 'active');
+    if (statusFilter === 'resolved')
       return alerts.filter((a) => a.status === 'dismissed' || a.status === 'resolved');
-    }
     return alerts;
   }, [alerts, statusFilter]);
 
@@ -194,17 +172,11 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
       } else {
         const group = groups.get(locKey)!;
         group.allAlerts.push(alert);
-        if (alert.status === 'active') {
-          group.hasActive = true;
-        }
-        if (alert.severity === 'red') {
-          group.highestSeverity = 'red';
-        } else if (alert.severity === 'yellow' && group.highestSeverity !== 'red') {
+        if (alert.status === 'active') group.hasActive = true;
+        if (alert.severity === 'red') group.highestSeverity = 'red';
+        else if (alert.severity === 'yellow' && group.highestSeverity !== 'red')
           group.highestSeverity = 'yellow';
-        }
-        if (alert.timestamp > group.latestAlert.timestamp) {
-          group.latestAlert = alert;
-        }
+        if (alert.timestamp > group.latestAlert.timestamp) group.latestAlert = alert;
       }
     }
     return Array.from(groups.values()).sort(
@@ -216,32 +188,67 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
 
   return (
     <div className="space-y-4 pb-20 select-none">
+      {/* Always show: enable notifications + battery exemption so phone wakes when closed */}
       <NotificationEnableCard isDarkMode={false} />
       <BatteryOptimizationCard />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5">
-        {/* Left column: Siren + quick actions */}
+        {/* Left column */}
         <div className="lg:col-span-5 space-y-4">
+          {/* Resident SOS card — always available */}
           <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3.5 shadow-xs">
             <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
-                <BellRing className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
+                <MessageSquare className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <h3 className="font-bold text-base text-slate-900 leading-tight">{t.villageSirenBroadcast}</h3>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">{t.manuallySoundSilenceSirens}</p>
+                <h3 className="font-bold text-base text-slate-900 leading-tight">{t.sendEmergencyVoiceSos}</h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">{t.cutOffByFloodVoiceHelp}</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            {onOpenVoiceSOS && (
+              <button
+                type="button"
+                id="btn-alerts-voice-sos"
+                onClick={onOpenVoiceSOS}
+                className="w-full py-3.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold flex items-center justify-center gap-2 shadow-xs transition cursor-pointer min-h-[48px] active:scale-98"
+              >
+                <MessageSquare className="w-4.5 h-4.5 shrink-0" />
+                <span>{t.sendEmergencyVoiceSos}</span>
+              </button>
+            )}
+
+            {!isAdmin && (
+              <div className="flex items-start gap-2 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
+                  Flood alerts are sent automatically by the sensor network and village admins. Residents
+                  receive alerts on this screen and via push notification — you do not need to send alerts.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Admin-only: siren broadcast + gateway tools (sending alerts is admin role) */}
+          {isAdmin && (
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3.5 shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                  <BellRing className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-base text-slate-900 leading-tight">{t.villageSirenBroadcast}</h3>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">{t.manuallySoundSilenceSirens}</p>
+                </div>
+              </div>
+
               <button
                 type="button"
                 id="btn-sound-emergency-siren"
                 onClick={toggleEmergencySiren}
-                className={`py-3 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer min-h-[44px] active:scale-98 ${
-                  isSirenActive
-                    ? 'bg-red-700 text-white'
-                    : 'bg-red-600 hover:bg-red-700 text-white'
+                className={`w-full py-3 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer min-h-[44px] active:scale-98 ${
+                  isSirenActive ? 'bg-red-700 text-white' : 'bg-red-600 hover:bg-red-700 text-white'
                 }`}
               >
                 {isSirenActive ? (
@@ -257,49 +264,37 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
                 )}
               </button>
 
-              {onOpenVoiceSOS && (
+              <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-100">
                 <button
                   type="button"
-                  id="btn-alerts-voice-sos"
-                  onClick={onOpenVoiceSOS}
-                  className="py-3 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer min-h-[44px] active:scale-98"
+                  onClick={() => onOpenSoundModal?.()}
+                  className="py-2.5 px-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-700 flex flex-col items-center gap-1 transition cursor-pointer min-h-[52px]"
+                  title="Change Alert Sound"
                 >
-                  <MessageSquare className="w-4 h-4 shrink-0" />
-                  <span>{t.sendEmergencyVoiceSos}</span>
+                  <Music className="w-4 h-4 text-blue-600" />
+                  <span className="text-center leading-tight">{t.soundLabel}</span>
                 </button>
-              )}
+                <button
+                  type="button"
+                  onClick={() => onOpenFcmModal?.()}
+                  className="py-2.5 px-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-700 flex flex-col items-center gap-1 transition cursor-pointer min-h-[52px]"
+                  title="Push Alerts Settings"
+                >
+                  <Bell className="w-4 h-4 text-blue-600" />
+                  <span className="text-center leading-tight">{t.pushLabel}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenSmsModal?.()}
+                  className="py-2.5 px-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-700 flex flex-col items-center gap-1 transition cursor-pointer min-h-[52px]"
+                  title="SMS Gateway Broadcast"
+                >
+                  <MessageSquare className="w-4 h-4 text-emerald-600" />
+                  <span className="text-center leading-tight">{t.smsLabel}</span>
+                </button>
+              </div>
             </div>
-
-            <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => onOpenSoundModal?.()}
-                className="py-2.5 px-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-700 flex flex-col items-center gap-1 transition cursor-pointer min-h-[52px]"
-                title="Change Alert Sound"
-              >
-                <Music className="w-4 h-4 text-blue-600" />
-                <span className="text-center leading-tight">{t.soundLabel}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onOpenFcmModal?.()}
-                className="py-2.5 px-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-700 flex flex-col items-center gap-1 transition cursor-pointer min-h-[52px]"
-                title="Push Alerts Settings"
-              >
-                <Bell className="w-4 h-4 text-blue-600" />
-                <span className="text-center leading-tight">{t.pushLabel}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onOpenSmsModal?.()}
-                className="py-2.5 px-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-700 flex flex-col items-center gap-1 transition cursor-pointer min-h-[52px]"
-                title="SMS Gateway Broadcast"
-              >
-                <MessageSquare className="w-4 h-4 text-emerald-600" />
-                <span className="text-center leading-tight">{t.smsLabel}</span>
-              </button>
-            </div>
-          </div>
+          )}
 
           <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-2">
             <div className="flex items-center justify-between">
@@ -323,7 +318,7 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
           </div>
         </div>
 
-        {/* Right column: Alerts feed */}
+        {/* Right column: Alerts feed (receive-only for residents) */}
         <div className="lg:col-span-7 space-y-3.5">
           <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3 shadow-xs">
             <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -367,10 +362,7 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
                       : 'border-emerald-200 bg-emerald-50/30';
 
                   return (
-                    <div
-                      key={group.id}
-                      className={`rounded-xl border p-3.5 space-y-2.5 ${severityBorder}`}
-                    >
+                    <div key={group.id} className={`rounded-xl border p-3.5 space-y-2.5 ${severityBorder}`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-start gap-2.5 min-w-0">
                           <div
@@ -408,11 +400,7 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
                               onClick={() => toggleGroupExpand(group.id)}
                               className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 cursor-pointer"
                             >
-                              {isExpanded ? (
-                                <ChevronUp className="w-3.5 h-3.5" />
-                              ) : (
-                                <ChevronDown className="w-3.5 h-3.5" />
-                              )}
+                              {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                             </button>
                           )}
                         </div>
@@ -473,13 +461,10 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
                                         : 'bg-emerald-600'
                                     }`}
                                   />
-                                  <span className="font-semibold text-slate-800 truncate">
-                                    {subFriendly.stateLabel}
-                                  </span>
+                                  <span className="font-semibold text-slate-800 truncate">{subFriendly.stateLabel}</span>
                                 </div>
                                 <span className="text-[11px] text-slate-500 font-medium shrink-0 ml-2">
-                                  {subAlert.formattedTime ||
-                                    new Date(subAlert.timestamp).toLocaleTimeString()}
+                                  {subAlert.formattedTime || new Date(subAlert.timestamp).toLocaleTimeString()}
                                 </span>
                               </div>
                             );
@@ -493,9 +478,7 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
                 <div className="bg-slate-50 rounded-xl p-6 text-center space-y-2 border border-slate-200">
                   <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
                   <p className="text-xs font-bold text-slate-900">{t.riverChannelsClear}</p>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
-                    {t.alertMsgMonitoring}
-                  </p>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">{t.alertMsgMonitoring}</p>
                 </div>
               )}
             </div>
