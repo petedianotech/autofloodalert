@@ -4,14 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "dev": "node scripts/restore-app.mjs && tsx server.ts",
+    "build": "node scripts/restore-app.mjs && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
+    "restore-app": "node scripts/restore-app.mjs",
     "cap:sync": "cap sync android",
-    "cap:build": "vite build && cap sync android",
+    "cap:build": "node scripts/restore-app.mjs && vite build && cap sync android",
     "cap:open": "cap open android"
   },
   "dependencies": {
