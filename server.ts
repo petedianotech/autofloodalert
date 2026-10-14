@@ -16,7 +16,6 @@ async function startServer() {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // CORS and Cache headers for PWA Manifest & Assets (for PWABuilder & crawlers)
   app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -31,7 +30,6 @@ async function startServer() {
     next();
   });
 
-  // Serve static assets from public/ directory explicitly
   const publicDir = path.join(process.cwd(), 'public');
   app.use(express.static(publicDir, {
     maxAge: '1h',
@@ -45,12 +43,10 @@ async function startServer() {
     }
   }));
 
-  // 1. Health check
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: Date.now() });
   });
 
-  // 2. Firebase Cloud Messaging (FCM) Push Gateway Status
   app.get('/api/push/status', (req, res) => {
     const fcmServerKey = process.env.FIREBASE_FCM_SERVER_KEY || process.env.FCM_SERVER_KEY;
     const isConfigured = Boolean(fcmServerKey && fcmServerKey.trim().length > 10);
@@ -67,7 +63,6 @@ async function startServer() {
     });
   });
 
-  // 5. Firebase Cloud Messaging (FCM) Push Broadcast to Wake Closed/Background Phones
   app.post('/api/push/broadcast', async (req, res) => {
     try {
       const fcmServerKey = process.env.FIREBASE_FCM_SERVER_KEY || process.env.FCM_SERVER_KEY;
@@ -90,7 +85,6 @@ async function startServer() {
         });
       }
 
-      // Collect target tokens
       let targetTokens: string[] = [];
       if (Array.isArray(tokens) && tokens.length > 0) {
         targetTokens = tokens.filter((t) => typeof t === 'string' && t.trim().length > 10);
@@ -103,39 +97,32 @@ async function startServer() {
         });
       }
 
-      // Prepare High-Priority FCM Payload for Android APK and Web PWA
+      // High-priority payload so Android wakes the device even when the app is killed
+      // (same pattern used by chat apps for message notifications).
       const fcmPayload = {
         registration_ids: targetTokens,
         priority: 'high',
-        time_to_live: 0, // Deliver immediately or discard if unreachable
+        content_available: true,
+        time_to_live: 86400,
         notification: {
           title: title,
           body: body,
           sound: 'default',
           android_channel_id: 'dzenje_flood_alarm_channel_v1',
           click_action: 'FLDT_ALARM_OPEN',
-          icon: 'ic_launcher'
+          tag: 'flood_emergency',
         },
         data: {
-          title: title,
-          body: body,
-          severity: severity || 'red',
-          village: village || 'Dzenje Village',
+          title: String(title),
+          body: String(body),
+          severity: String(severity || 'red'),
+          village: String(village || 'Dzenje Village'),
           peakDelta: String(peakDelta || 0),
           timestamp: String(Date.now()),
           alarmType: 'flood_siren',
           click_action: 'FLDT_ALARM_OPEN',
-          ...(customData || {})
+          ...(customData || {}),
         },
-        android: {
-          priority: 'high',
-          notification: {
-            channel_id: 'dzenje_flood_alarm_channel_v1',
-            sound: 'default',
-            priority: 'max',
-            visibility: 'public'
-          }
-        }
       };
 
       console.log(`[FCM Gateway] Dispatching high-priority push to ${targetTokens.length} devices...`);
@@ -160,7 +147,7 @@ async function startServer() {
         });
       }
 
-      console.log(`[FCM Gateway] Push sent successfully: ${responseJson?.success} delivered, ${responseJson?.failure} failed.`);
+      console.log(`[FCM Gateway] Push sent: ${responseJson?.success} delivered, ${responseJson?.failure} failed.`);
 
       return res.json({
         success: true,
@@ -179,7 +166,6 @@ async function startServer() {
     }
   });
 
-  // 6. Textbee SMS Gateway API Relay Endpoint
   app.post('/api/sms/send', async (req, res) => {
     try {
       const {
@@ -196,7 +182,6 @@ async function startServer() {
         });
       }
 
-      // Enforce Textbee length limit: below 100 characters (max 99 characters)
       const defaultMsg = 'FLOOD ALERT: Ruo River rising fast at Dzenje! Evacuate to high ground now!';
       const safeMessage = (message || defaultMsg).slice(0, 99);
       const cleanRecipients = recipients.map((r: string) => (r || '').trim()).filter((r: string) => r.length >= 6);
@@ -232,7 +217,7 @@ async function startServer() {
             sentCount: cleanRecipients.length,
             failedCount: 0,
             totalRecipients: cleanRecipients.length,
-            textbeeMessage: tbData.message || 'SMS queued successfully on Samsung SM-A105F device.',
+            textbeeMessage: tbData.message || 'SMS queued successfully.',
           });
         }
       } catch (tbErr: any) {
@@ -255,7 +240,6 @@ async function startServer() {
     }
   });
 
-  // Vite middleware for development vs static build in production
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
