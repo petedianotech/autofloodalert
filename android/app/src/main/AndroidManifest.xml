@@ -48,7 +48,7 @@
             android:name=".FloodAlarmReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.dzenjecdsstem.floodalert.ACTION_TRIGGER_FLOOD_ALARM" />
+                <action android:name="com.petediano.autofloodalert.ACTION_TRIGGER_FLOOD_ALARM" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
