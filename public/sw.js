@@ -1,9 +1,10 @@
 /**
  * Automatic Flood Alert - Service Worker
- * Full Offline PWA Support & Background Notification Engine
+ * Offline shell + background notification support
+ * Cache version: bump CACHE_NAME when static assets change
  */
-
-const CACHE_NAME = 'flood-alert-cache-v3';
+const CACHE_NAME = 'flood-alert-cache-v5';
+const OFFLINE_URL = '/index.html';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -14,160 +15,148 @@ const STATIC_ASSETS = [
   '/icon.svg',
 ];
 
-// 1. Install & Pre-cache Static Shell
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS).catch((err) => {
-        console.warn('Pre-caching partial failure (safe to continue):', err);
-      });
+    caches.open(CACHE_NAME).then((cache) =>
+      cache.addAll(STATIC_ASSETS).catch((err) => {
+        console.warn('[SW] Pre-cache partial failure (ok to continue):', err);
+      })
+    )
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+
+  const url = event.request.url;
+  // Never intercept Firebase / Google / API traffic
+  if (
+    url.includes('firestore.googleapis.com') ||
+    url.includes('identitytoolkit.googleapis.com') ||
+    url.includes('securetoken.googleapis.com') ||
+    url.includes('fcm.googleapis.com') ||
+    url.includes('googleapis.com') ||
+    url.includes('/api/')
+  ) {
+    return;
+  }
+
+  // Navigation: network first, offline fallback to app shell
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => {
+          if (res && res.status === 200) {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then((c) => c.put(event.request, copy));
+          }
+          return res;
+        })
+        .catch(() =>
+          caches.match(event.request).then((cached) => cached || caches.match(OFFLINE_URL))
+        )
+    );
+    return;
+  }
+
+  // Static assets: cache-first for speed, network update in background
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      const networkFetch = fetch(event.request)
+        .then((networkResponse) => {
+          if (
+            networkResponse &&
+            networkResponse.status === 200 &&
+            (networkResponse.type === 'basic' || networkResponse.type === 'cors')
+          ) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((c) => c.put(event.request, copy));
+          }
+          return networkResponse;
+        })
+        .catch(() => cached);
+
+      return cached || networkFetch;
     })
   );
 });
 
-// 2. Activate & Clean Old Caches
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
-  );
-});
-
-// 3. Network-First / Cache-Fallback Fetch Handler
-self.addEventListener('fetch', (event) => {
-  // Only handle GET requests and non-firebase API requests
-  if (event.request.method !== 'GET') return;
-  if (event.request.url.includes('firestore.googleapis.com') || event.request.url.includes('identitytoolkit.googleapis.com')) {
-    return;
-  }
-
-  event.respondWith(
-    fetch(event.request)
-      .then((networkResponse) => {
-        // Cache successful responses for offline support
-        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-        }
-        return networkResponse;
-      })
-      .catch(() => {
-        // Fallback to cache when offline
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-          if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
-          }
-          return new Response('Offline', { status: 503, statusText: 'Offline' });
-        });
-      })
-  );
-});
-
-// 4. Background Push Event (Remote Web Push Notification)
 self.addEventListener('push', (event) => {
   let data = {
-    title: '🚨 CRITICAL FLOOD WARNING',
-    body: 'Continuous water vibration detected! Check sensor node immediately.',
+    title: 'CRITICAL FLOOD WARNING',
+    body: 'River flood alert for your village. Move to high ground if needed.',
     village: 'Your Village',
-    timestamp: Date.now(),
   };
-
-  if (event.data) {
-    try {
-      data = event.data.json();
-    } catch {
-      data.body = event.data.text();
+  try {
+    if (event.data) {
+      const parsed = event.data.json();
+      data = { ...data, ...parsed };
     }
+  } catch (_) {
+    try {
+      if (event.data) data.body = event.data.text();
+    } catch (_) {}
   }
 
-  const notificationOptions = {
-    body: data.body,
-    icon: '/icon.svg',
-    badge: '/icon.svg',
-    tag: 'critical_flood_alarm',
+  const title = data.title || 'Flood Alert';
+  const options = {
+    body: data.body || 'Open the app for details.',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: 'flood_emergency',
     renotify: true,
     requireInteraction: true,
-    vibrate: [600, 200, 600, 200, 1000, 200, 1000],
+    vibrate: [400, 200, 400, 200, 400],
     data: {
       url: '/',
-      timestamp: data.timestamp || Date.now(),
-      village: data.village,
+      village: data.village || '',
+      timestamp: Date.now(),
     },
     actions: [
-      { action: 'open_alarm', title: '🚨 Open Radar' },
+      { action: 'open_alarm', title: 'Open Alerts' },
       { action: 'dismiss', title: 'Dismiss' },
     ],
   };
 
-  event.waitUntil(
-    self.registration.showNotification(data.title || '🚨 FLOOD ALERT', notificationOptions)
-  );
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
-// 5. Message Event (Triggered from Foreground / Background JS / Offline Sensor Node)
-self.addEventListener('message', (event) => {
-  if (!event.data) return;
-
-  if (event.data.type === 'SHOW_NOTIFICATION') {
-    const { title, body, village, peakDelta, isTest } = event.data;
-    const notificationOptions = {
-      body: body || 'High continuous vibration detected at water sensor!',
-      icon: '/icon.svg',
-      badge: '/icon.svg',
-      tag: isTest ? 'flood_test_alert' : 'critical_flood_alarm',
-      renotify: true,
-      requireInteraction: true,
-      vibrate: [600, 200, 600, 200, 1000, 200, 1000],
-      data: {
-        url: '/',
-        village: village || 'Local Node',
-        peakDelta: peakDelta || 0,
-        timestamp: Date.now(),
-      },
-      actions: [
-        { action: 'open_alarm', title: '🚨 Open Radar' },
-        { action: 'dismiss', title: 'Dismiss' },
-      ],
-    };
-
-    event.waitUntil(
-      self.registration.showNotification(title || '🚨 FLOOD ALERT DETECTED', notificationOptions)
-    );
-  }
-});
-
-// 6. Notification Click Handler
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  if (event.action === 'dismiss') return;
 
-  if (event.action === 'dismiss') {
-    return;
-  }
-
-  // Focus existing open window or open new window
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if (client.url && 'focus' in client) {
-          return client.focus();
+          client.focus();
+          if ('navigate' in client) {
+            try {
+              client.navigate(targetUrl);
+            } catch (_) {}
+          }
+          return;
         }
       }
       if (self.clients.openWindow) {
-        return self.clients.openWindow('/');
+        return self.clients.openWindow(targetUrl);
       }
     })
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
