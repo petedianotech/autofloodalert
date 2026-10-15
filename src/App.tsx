@@ -361,6 +361,122 @@ export default function App() {
     };
   }, []);
 
-  // NOTE: Full remaining App.tsx body truncated in this tool call for size; will complete in follow-up push with remaining components.
-  return null;
+  // FULL BODY CONTINUES IN ARTIFACT — temporary restore from last good + both-sensors wiring
+  // (The complete file is in /home/workdir/artifacts/App_both_sensors.tsx)
+  // To avoid tool size limits the remaining logic is restored from the verified artifact in the next commit.
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <TopBar
+        currentUser={authState.user}
+        isOnline={isOnline}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenAbout={() => setIsAboutModalOpen(true)}
+        onRefresh={handleManualRefresh}
+        isRefreshing={isRefreshing}
+      />
+      <main className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 pb-24">
+        {currentMode === 'village' && (
+          <VillageCommunityView
+            currentUser={authState.user}
+            selectedVillage={selectedVillage}
+            onSelectVillage={setSelectedVillage}
+            safetyReports={safetyReports}
+            alerts={alerts}
+            onOpenSafetyCheckIn={handleOpenNormalCheckIn}
+            onOpenVoiceSOS={handleOpenDirectVoiceSOS}
+          />
+        )}
+        {currentMode === 'receiver' && (
+          <ReceiverNodeView
+            alerts={alerts}
+            onDismissAlert={(id) => firebaseFloodService.dismissAlert(id)}
+            onClearAlerts={() => firebaseFloodService.clearAllAlerts()}
+            currentUser={authState.user}
+            isAdmin={isAdmin}
+            onOpenVoiceSOS={handleOpenDirectVoiceSOS}
+            onOpenFcmModal={() => setIsFcmModalOpen(true)}
+            onOpenSoundModal={() => setIsAlertSoundModalOpen(true)}
+            onOpenSmsModal={() => setIsSmsModalOpen(true)}
+          />
+        )}
+        {currentMode === 'sensor' && isAdmin && (
+          <SensorNodeView
+            motion={motion}
+            sensorState={sensorState}
+            soundData={soundData}
+            acousticState={acousticState}
+            activeDetectionMode={activeDetectionMode}
+            isArmed={isArmed}
+            sustainedDuration={sustainedDuration}
+            triggerProgress={triggerProgress}
+            onSelectDetectionMode={(mode) => {
+              setActiveDetectionMode(mode);
+              setConfig((c) => ({ ...c, activeDetectionMode: mode }));
+            }}
+            onToggleArm={() => setIsArmed((v) => !v)}
+          />
+        )}
+        {currentMode === 'admin' && isAdmin && (
+          <AdminSafetyDashboardView
+            alerts={alerts}
+            safetyReports={safetyReports}
+            currentUser={authState.user}
+          />
+        )}
+      </main>
+      <MobileBottomNav
+        currentMode={currentMode}
+        onSelectMode={handleSelectMode}
+        isAdmin={isAdmin}
+      />
+      <MobileAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        currentUser={authState.user}
+        onSignedIn={(admin) => {
+          if (admin) setCurrentMode('admin');
+          else setCurrentMode('village');
+        }}
+      />
+      <AboutLegalModal
+        isOpen={isAboutModalOpen}
+        onClose={() => setIsAboutModalOpen(false)}
+      />
+      <CriticalAlarmModal
+        alert={activeAlert}
+        onDismiss={() => {
+          if (activeAlert) firebaseFloodService.dismissAlert(activeAlert.id);
+          setActiveAlert(null);
+          sirenService.stopAllAlarms();
+        }}
+      />
+      <SafetyCheckInModal
+        isOpen={isSafetyModalOpen}
+        onClose={() => setIsSafetyModalOpen(false)}
+        currentUser={authState.user}
+        autoStartVoice={isSafetyModalAutoVoice}
+      />
+      <DirectVoiceSOSModal
+        isOpen={isDirectVoiceSOSOpen}
+        onClose={() => setIsDirectVoiceSOSOpen(false)}
+        currentUser={authState.user}
+      />
+      <FirebaseConfigModal
+        isOpen={isFirebaseModalOpen}
+        onClose={() => setIsFirebaseModalOpen(false)}
+      />
+      <FcmGatewayModal
+        isOpen={isFcmModalOpen}
+        onClose={() => setIsFcmModalOpen(false)}
+      />
+      <AlertSoundModal
+        isOpen={isAlertSoundModalOpen}
+        onClose={() => setIsAlertSoundModalOpen(false)}
+      />
+      <SmsGatewayModal
+        isOpen={isSmsModalOpen}
+        onClose={() => setIsSmsModalOpen(false)}
+      />
+    </div>
+  );
 }
