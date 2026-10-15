@@ -5,10 +5,7 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:
-
-permissions:
-  contents: write
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab anytime
 
 jobs:
   build:
@@ -34,6 +31,7 @@ jobs:
           echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > "$ANDROID_HOME/licenses/android-sdk-preview-license"
           if [ -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
             yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+            # Ensure platform and build-tools for compileSdk 35 are available
             yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" || true
           fi
 
@@ -50,7 +48,7 @@ jobs:
       - name: Build Web Application & Assets
         run: |
           npm run build
-          node scripts/generate-android-assets.js || true
+          node scripts/generate-android-assets.js
 
       - name: Sync Native Android Assets
         run: |
@@ -59,7 +57,7 @@ jobs:
       - name: Ensure Google Services & Resources Exist
         run: |
           if [ ! -f android/app/google-services.json ]; then
-            echo "Generating fallback google-services.json for com.petediano.autofloodalert..."
+            echo "Generating fallback google-services.json..."
             cat << 'EOF' > android/app/google-services.json
           {
             "project_info": {
@@ -72,7 +70,7 @@ jobs:
                 "client_info": {
                   "mobilesdk_app_id": "1:158763014091:android:9d45e4517b620b7237084e",
                   "android_client_info": {
-                    "package_name": "com.petediano.autofloodalert"
+                    "package_name": "com.dzenjecdsstem.floodalert"
                   }
                 },
                 "oauth_client": [
@@ -98,17 +96,6 @@ jobs:
           EOF
           fi
 
-      - name: Decode Release Keystore (if secret present)
-        env:
-          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-        run: |
-          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
-            echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > android/release.jks
-            echo "Release keystore decoded successfully."
-          else
-            echo "No RELEASE_KEYSTORE_BASE64 secret found – will build debug APK."
-          fi
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -116,88 +103,25 @@ jobs:
           validate-wrappers: false
 
       - name: Compile and Package APK
-        env:
-          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
-          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           cd android
-          gradle wrapper --gradle-version 8.13 --distribution-type bin || true
+          # Ensure gradle-wrapper.jar exists by generating it with the active gradle CLI
+          gradle wrapper --gradle-version 8.13 --distribution-type bin
           chmod +x gradlew
-
-          if [ -n "$RELEASE_KEYSTORE_PASSWORD" ] && [ -f release.jks ]; then
-            echo "Building SIGNED RELEASE APK..."
-            ./gradlew assembleRelease --no-daemon --stacktrace
-          else
-            echo "Building DEBUG APK (signing secrets or keystore missing)..."
-            ./gradlew assembleDebug --no-daemon --stacktrace
-          fi
+          ./gradlew assembleDebug --no-daemon --stacktrace || gradle assembleDebug --no-daemon --stacktrace
 
       - name: Prepare APK Artifacts
-        id: prepare_apk
         run: |
           mkdir -p build-output
-          APK_PATH=""
-          APK_NAME=""
-
-          if [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
-            cp android/app/build/outputs/apk/release/app-release.apk build-output/Auto-Flood-Alert-Release.apk
-            APK_PATH="build-output/Auto-Flood-Alert-Release.apk"
-            APK_NAME="Auto-Flood-Alert-Release.apk"
-            echo "Release APK ready."
-          elif [ -f android/app/build/outputs/apk/debug/app-debug.apk ]; then
-            cp android/app/build/outputs/apk/debug/app-debug.apk build-output/Auto-Flood-Alert-Debug.apk
-            APK_PATH="build-output/Auto-Flood-Alert-Debug.apk"
-            APK_NAME="Auto-Flood-Alert-Debug.apk"
-            echo "Debug APK ready."
+          if [ -f android/app/build/outputs/apk/debug/app-debug.apk ]; then
+            cp android/app/build/outputs/apk/debug/app-debug.apk build-output/Auto-Flood-Alert.apk
           else
-            FOUND=$(find android/app/build/outputs/apk -name "*.apk" 2>/dev/null | head -1)
-            if [ -n "$FOUND" ]; then
-              cp "$FOUND" build-output/
-              APK_PATH="build-output/$(basename "$FOUND")"
-              APK_NAME="$(basename "$FOUND")"
-            fi
+            find android/app/build/outputs/apk -name "*.apk" -exec cp {} build-output/Auto-Flood-Alert.apk \;
           fi
 
-          ls -la build-output/ || true
-
-          if [ -z "$APK_PATH" ] || [ ! -f "$APK_PATH" ]; then
-            echo "ERROR: No APK file was produced by Gradle."
-            find android/app/build -name "*.apk" 2>/dev/null || true
-            exit 1
-          fi
-
-          echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
-          echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
-          echo "### APK ready: \`$APK_NAME\`" >> "$GITHUB_STEP_SUMMARY"
-          ls -lh "$APK_PATH" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload Installable APK (Artifacts)
+      - name: Upload Installable APK
         uses: actions/upload-artifact@v4
         with:
           name: Auto-Flood-Alert-APK
-          path: build-output/*.apk
+          path: build-output/Auto-Flood-Alert.apk
           retention-days: 30
-          if-no-files-found: error
-
-      # Easy mobile download: attach APK to a GitHub Release on main branch pushes
-      - name: Publish APK to GitHub Release
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: apk-${{ github.run_number }}
-          name: Auto Flood Alert APK #${{ github.run_number }}
-          body: |
-            Installable Android APK for **Automatic Flood Alert**.
-
-            - Package: `com.petediano.autofloodalert`
-            - Built from commit: `${{ github.sha }}`
-            - Download the `.apk` file below on your phone and open it to install.
-
-            If Android blocks install: Settings → Security → allow install from this source.
-          files: build-output/*.apk
-          draft: false
-          prerelease: false
-          make_latest: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -15,6 +15,7 @@ import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported,
 import { getApp } from 'firebase/app';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { firebaseFloodService } from './firebaseService';
 import { NativePowerHelperPlugin } from './batteryOptimizationService';
 
@@ -73,6 +74,18 @@ export class NotificationService {
             PushNotifications.register();
           }
         });
+
+        // Create Lockscreen Wakeup Channel for Android (High Importance 5 & Public Visibility 1)
+        LocalNotifications.createChannel({
+          id: 'flood_emergency_siren_channel',
+          name: '🚨 Critical Flood Warning Alarms',
+          description: 'Emergency siren alerts that wake device and display on lockscreen',
+          importance: 5,
+          visibility: 1,
+          vibration: true,
+          lights: true,
+          lightColor: '#FF0000',
+        }).catch(() => {});
       } catch (err) {
         console.warn('[Native FCM] Native push setup warning:', err);
       }
@@ -348,10 +361,30 @@ export class NotificationService {
       }
     }
 
+    // 0c. Trigger LocalNotifications on high importance channel so Android lockscreen lights up
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              id: Math.floor(Date.now() % 100000),
+              title,
+              body,
+              channelId: 'flood_emergency_siren_channel',
+              schedule: { at: new Date(Date.now() + 100) },
+              extra: payload,
+            },
+          ],
+        });
+      } catch (lnErr) {
+        console.warn('[LocalNotifications] schedule error:', lnErr);
+      }
+    }
+
     // Always trigger hardware vibration immediately if supported (even offline)
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       try {
-        navigator.vibrate([600, 200, 600, 200, 1000, 200, 1000]);
+        navigator.vibrate([1000, 300, 1000, 300, 2000, 500, 2500]);
       } catch {
         // ignore
       }

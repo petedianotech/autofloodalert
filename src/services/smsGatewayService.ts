@@ -10,11 +10,10 @@ export interface SmsRecipient {
   phone: string;
   role: string;
   village: string;
-  language?: 'en' | 'ny';
+  language?: 'en';
   enabled: boolean;
 }
 
-export const CHICHEWA_SMS_ALERT = 'KUSEFUKIRA KWA MADZI: Nsinje wa Ruo  madzi akusefukira  pitani Kumalo okwera';
 export const SIMPLE_ENGLISH_SMS_ALERT = 'FLOOD ALERT: Ruo River rising fast at Dzenje! Go to high ground now!';
 
 export interface SmsGatewayConfig {
@@ -167,7 +166,7 @@ class SmsGatewayServiceClass {
       id: newId,
       phone: cleanPhone,
       village: recipient.village === 'Machokola' ? 'Machokola Village' : (recipient.village || 'Dzenje Village'),
-      language: recipient.language || 'ny',
+      language: 'en',
       enabled: recipient.enabled !== undefined ? recipient.enabled : true,
     };
 
@@ -194,7 +193,7 @@ class SmsGatewayServiceClass {
     phone: string;
     village: string;
     role?: string;
-    language?: 'en' | 'ny';
+    language?: 'en';
     enabled?: boolean;
   }) {
     if (!user.phone || user.phone.trim().length < 6) return;
@@ -219,7 +218,7 @@ class SmsGatewayServiceClass {
         phone: cleanPhone,
         village: userVillage,
         role: user.role || updatedList[existingIndex].role || 'Signed-In Resident',
-        language: user.language || updatedList[existingIndex].language || 'ny',
+        language: 'en',
         enabled: user.enabled !== undefined ? user.enabled : (currentEnabled ?? true),
       };
     } else {
@@ -229,7 +228,7 @@ class SmsGatewayServiceClass {
         phone: cleanPhone,
         village: userVillage,
         role: user.role || 'Signed-In Resident',
-        language: user.language || 'ny',
+        language: 'en',
         enabled: user.enabled !== undefined ? user.enabled : true, // Immediately enabled for real users who sign up
       });
     }
@@ -296,7 +295,7 @@ class SmsGatewayServiceClass {
               phone: data.phone,
               village: data.village || 'Dzenje Village',
               role: data.role || 'Community Contact',
-              language: data.language || 'ny',
+              language: 'en',
               enabled: data.enabled ?? true,
             });
           }
@@ -341,16 +340,16 @@ class SmsGatewayServiceClass {
     }
   }
 
-  public updateRecipientLanguage(id: string, language: 'en' | 'ny') {
+  public updateRecipientLanguage(id: string, language: 'en') {
     this.config.recipients = this.config.recipients.map((r) =>
       r.id === id ? { ...r, language } : r
     );
     this.saveConfig({ recipients: this.config.recipients });
   }
 
-  public setAllRecipientsEnabled(enabled: boolean, languageFilter?: 'en' | 'ny') {
+  public setAllRecipientsEnabled(enabled: boolean, languageFilter?: 'en') {
     this.config.recipients = this.config.recipients.map((r) => {
-      if (languageFilter && (r.language || 'ny') !== languageFilter) {
+      if (languageFilter && (r.language || 'en') !== languageFilter) {
         return r;
       }
       return { ...r, enabled };
@@ -450,19 +449,9 @@ class SmsGatewayServiceClass {
       }
 
       // Deduplicate unique phone numbers
-      const chichewaPhones = Array.from(
+      const allPhones = Array.from(
         new Set(
           active
-            .filter((r) => (r.language || 'ny') === 'ny')
-            .map((r) => normalizePhoneNumber(r.phone))
-            .filter((p) => p.length >= 6)
-        )
-      );
-
-      const englishPhones = Array.from(
-        new Set(
-          active
-            .filter((r) => r.language === 'en')
             .map((r) => normalizePhoneNumber(r.phone))
             .filter((p) => p.length >= 6)
         )
@@ -471,31 +460,22 @@ class SmsGatewayServiceClass {
       let totalSent = 0;
       const errors: string[] = [];
 
-      if (chichewaPhones.length > 0) {
-        const resNy = await this.sendBroadcastSms(CHICHEWA_SMS_ALERT, chichewaPhones);
-        if (resNy.success) {
-          totalSent += chichewaPhones.length;
-        } else if (resNy.error) {
-          errors.push(`Chichewa: ${resNy.error}`);
-        }
-      }
-
-      if (englishPhones.length > 0) {
-        const resEn = await this.sendBroadcastSms(SIMPLE_ENGLISH_SMS_ALERT, englishPhones);
-        if (resEn.success) {
-          totalSent += englishPhones.length;
-        } else if (resEn.error) {
-          errors.push(`English: ${resEn.error}`);
+      if (allPhones.length > 0) {
+        const res = await this.sendBroadcastSms(SIMPLE_ENGLISH_SMS_ALERT, allPhones);
+        if (res.success) {
+          totalSent += allPhones.length;
+        } else if (res.error) {
+          errors.push(res.error);
         }
       }
 
       return {
         success: totalSent > 0 || errors.length === 0,
         sentCount: totalSent,
-        failedCount: (chichewaPhones.length + englishPhones.length) - totalSent,
-        chichewaCount: chichewaPhones.length,
-        englishCount: englishPhones.length,
-        recipientsCount: chichewaPhones.length + englishPhones.length,
+        failedCount: allPhones.length - totalSent,
+        chichewaCount: 0,
+        englishCount: allPhones.length,
+        recipientsCount: allPhones.length,
         error: errors.length > 0 ? errors.join('; ') : undefined,
       };
     } finally {
@@ -622,15 +602,6 @@ class SmsGatewayServiceClass {
     langOrDelta?: 'en' | 'ny' | number,
     maybeLang?: 'en' | 'ny'
   ): string {
-    const lang: 'en' | 'ny' =
-      typeof langOrDelta === 'string'
-        ? langOrDelta
-        : maybeLang || 'ny';
-
-    if (lang === 'ny') {
-      // Exact Chichewa message requested by user
-      return CHICHEWA_SMS_ALERT.slice(0, 99);
-    }
     const cleanVillage = village && village !== 'all' ? village.replace(' Village', '') : 'Dzenje';
     const msg = `FLOOD ALERT: ${riverName} River rising fast at ${cleanVillage}! Go to high ground now!`;
     return msg.slice(0, 99);

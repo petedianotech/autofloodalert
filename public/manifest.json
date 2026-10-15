@@ -1,23 +1,37 @@
 {
   "name": "Automatic Flood Alert",
   "short_name": "Flood Alert",
-  "description": "Village flood warning for Dzenje & Machokola, Mulanje. River alerts, safety check-in, and emergency SOS.",
-  "start_url": "/?source=pwa",
+  "description": "Automatic Flood Alert app. Real-time river vibration detection, siren warnings, and village safety roll-call.",
+  "start_url": "/",
   "id": "/",
   "scope": "/",
   "dir": "ltr",
-  "lang": "en",
+  "lang": "en-US",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui", "browser"],
-  "orientation": "any",
-  "background_color": "#F8FAFC",
-  "theme_color": "#1F71E8",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "portrait-primary",
+  "background_color": "#141218",
+  "theme_color": "#1A73E8",
   "launch_handler": {
     "client_mode": "navigate-existing"
   },
   "handle_links": "preferred",
+  "file_handlers": [
+    {
+      "action": "/",
+      "name": "Flood Alert File",
+      "accept": {
+        "text/plain": [".txt", ".json"]
+      }
+    }
+  ],
   "prefer_related_applications": false,
   "related_applications": [],
+  "iarc_rating_id": "e84b072d-71b3-4d3e-86ae-31a8ce4e53b7",
   "categories": [
     "utilities",
     "safety",
@@ -45,7 +59,7 @@
     },
     {
       "src": "/icon.svg",
-      "sizes": "any",
+      "sizes": "192x192 512x512",
       "type": "image/svg+xml",
       "purpose": "any"
     }
@@ -56,21 +70,21 @@
       "sizes": "540x960",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Live flood alerts and village safety"
+      "label": "Live Flood Radar, Vibration Monitor and Siren Alert"
     },
     {
       "src": "/screenshot-desktop.png",
       "sizes": "960x540",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Village community safety dashboard"
+      "label": "Village Community Safety Roll-Call and Admin Command Center"
     }
   ],
   "shortcuts": [
     {
-      "name": "Flood Alerts",
-      "short_name": "Alerts",
-      "description": "Open live river flood alerts",
+      "name": "Live Flood Radar",
+      "short_name": "Radar",
+      "description": "View live river vibration sensor and water level warning",
       "url": "/?view=receiver",
       "icons": [
         {
@@ -81,10 +95,23 @@
       ]
     },
     {
-      "name": "Village Safety",
-      "short_name": "Village",
-      "description": "Safety check-in and evacuation zones",
-      "url": "/?view=village",
+      "name": "Emergency Voice SOS",
+      "short_name": "Voice SOS",
+      "description": "Record and broadcast voice SOS message with GPS coordinates",
+      "url": "/?view=sos",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Village Safety Roll-Call",
+      "short_name": "Check-In",
+      "description": "Check in safe or mark location for evacuation support",
+      "url": "/?view=community",
       "icons": [
         {
           "src": "/icon-192.png",

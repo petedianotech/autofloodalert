@@ -19,22 +19,28 @@ export const NotificationEnableCard: React.FC<NotificationEnableCardProps> = ({
   const [isEnabling, setIsEnabling] = useState(false);
   const [nativeEnabled, setNativeEnabled] = useState<boolean>(false);
 
-  // Show on web PWA and native APK so users can enable flood alerts in the browser too
+  // Only show this card on native Android APK, hide on web PWA as requested
   const isNative = Capacitor.isNativePlatform();
 
   useEffect(() => {
+    if (!isNative) return;
+    NotificationService.checkNativeNotificationStatus().then((enabled) => {
+      if (enabled) {
+        setNativeEnabled(true);
+      }
+    });
+
     const unsubPerm = NotificationService.subscribePermission((perm) => {
       setPermission(perm);
     });
-    if (isNative) {
-      NotificationService.checkNativeNotificationStatus().then((enabled) => {
-        if (enabled) setNativeEnabled(true);
-      });
-    }
     return () => {
       unsubPerm();
     };
   }, [isNative]);
+
+  if (!isNative) {
+    return null;
+  }
 
   const handleEnableAlerts = async () => {
     sirenService.unlockAudio();
@@ -80,16 +86,14 @@ export const NotificationEnableCard: React.FC<NotificationEnableCardProps> = ({
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-bold text-base text-[#1C1B1F] leading-tight">
-              Turn On Flood Alerts & Sirens
+              Turn On Flood Alerts &amp; Sirens
             </h3>
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
               Required
             </span>
           </div>
           <p className="text-xs sm:text-sm text-[#49454F] mt-1 font-normal leading-relaxed">
-            {isNative
-              ? 'Allow loud siren warnings so your phone alerts you even when locked or in your pocket.'
-              : 'Allow browser notifications so this installed app can warn you about rising river levels.'}
+            Allow loud siren warnings so your mobile phone alerts you immediately even when locked or in your pocket.
           </p>
         </div>
       </div>
@@ -98,21 +102,15 @@ export const NotificationEnableCard: React.FC<NotificationEnableCardProps> = ({
         <div className="flex items-center justify-between gap-2 p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium">
           <div className="flex items-center gap-2 min-w-0">
             <AlertCircle className="w-4 h-4 shrink-0 text-amber-700" />
-            <span className="truncate">
-              {isNative
-                ? 'Alerts are disabled in system settings.'
-                : 'Notifications blocked in the browser. Allow them in site settings.'}
-            </span>
+            <span className="truncate">Alerts are disabled in your system settings.</span>
           </div>
-          {isNative && (
-            <button
-              type="button"
-              onClick={handleOpenSettings}
-              className="px-3 py-1.5 rounded-xl bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold shrink-0 transition active:scale-98 cursor-pointer"
-            >
-              Fix in Settings
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleOpenSettings}
+            className="px-3 py-1.5 rounded-xl bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold shrink-0 transition active:scale-98 cursor-pointer"
+          >
+            Fix in Settings
+          </button>
         </div>
       )}
 
@@ -131,3 +129,4 @@ export const NotificationEnableCard: React.FC<NotificationEnableCardProps> = ({
     </div>
   );
 };
+

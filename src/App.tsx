@@ -13,7 +13,6 @@
  * - Web Audio Siren API (high-pitched emergency oscillating alarm sound)
  * - Firebase Web SDK v10 Modular Integration (Firestore flood_alerts + users)
  * - Critical Flood Alert Modal Overlay with "HOLD TO DISMISS" safety control
- * - BOTH sensors: vibration + bell can be armed together
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -184,7 +183,7 @@ export default function App() {
       const currentIndex = allowedModes.indexOf(currentMode);
       
       if (diffX < 0) {
-        // Swipe Left (Right to Left gesture) -> Advance to next page
+        // Swipe Left (Right to Left gesture) -> Advance to next page (e.g. Dashboard -> Sensor -> Alerts -> Village)
         if (currentIndex < allowedModes.length - 1 && currentIndex >= 0) {
           handleSelectMode(allowedModes[currentIndex + 1]);
         }
@@ -220,7 +219,7 @@ export default function App() {
     return DEFAULT_CONFIG;
   });
 
-  // Detection Mode (Motion Vibration vs Sound & Resonance Sensor vs BOTH)
+  // Detection Mode (Motion Vibration vs Sound & Resonance Sensor)
   const [activeDetectionMode, setActiveDetectionMode] = useState<SensorDetectionMode>(
     config.activeDetectionMode || 'motion'
   );
@@ -361,121 +360,558 @@ export default function App() {
     };
   }, []);
 
-  // FULL BODY CONTINUES IN ARTIFACT — temporary restore from last good + both-sensors wiring
-  // (The complete file is in /home/workdir/artifacts/App_both_sensors.tsx)
-  // To avoid tool size limits the remaining logic is restored from the verified artifact in the next commit.
+  // 2. Firebase Alerts Subscription
+  useEffect(() => {
+    const unsubAlerts = firebaseFloodService.subscribeAlerts((updatedAlerts) => {
+      setAlerts(updatedAlerts);
+
+      // Check if there is an active alert for this node
+      const currentActive = updatedAlerts.find((a) => a.status === 'active');
+      if (currentActive && (!activeAlert || activeAlert.id !== currentActive.id)) {
+        setActiveAlert(currentActive);
+        
+        // Admin Dashboard MUST NOT ring - only ring for regular community users
+        if (!isAdmin) {
+          sirenService.unlockAudio();
+          if (currentActive.severity === 'yellow') {
+            sirenService.startWarningChime();
+          } else {
+            sirenService.startEmergencySiren();
+          }
+
+          if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+            try {
+              navigator.vibrate([1000, 300, 1000, 300, 1000]);
+            } catch {
+              // ignore
+            }
+          }
+        } else {
+          // Keep silent on admin dashboard
+          sirenService.stopAllAlarms();
+        }
+
+        // Trigger push notification if this is a newly received active alert from another device
+        const isYellow = currentActive.severity === 'yellow';
+        const userVillage = authState.user?.village || 'Dzenje Village';
+        const locationSummary = currentActive.riverName && currentActive.village
+          ? `${currentActive.riverName}, ${currentActive.village}`
+          : userVillage;
+
+        NotificationService.sendFloodPushNotification(
+          isYellow ? `⚠️ HIGH FLOOD RISK: ${locationSummary}` : `🚨 CRITICAL FLOOD WARNING: ${locationSummary}`,
+          isYellow
+            ? `River water is rising near ${locationSummary}. Please stay alert and prepare to move to high ground.`
+            : `CRITICAL FLOOD WARNING near ${locationSummary}! Move your family to safe high ground immediately!`,
+          {
+            village: currentActive.village || userVillage,
+            riverName: currentActive.riverName,
+            locationLabel: currentActive.locationLabel,
+            mapsUrl: currentActive.mapsUrl,
+            latitude: currentActive.latitude,
+            longitude: currentActive.longitude,
+            peakDelta: currentActive.peakDelta,
+            isTest: currentActive.source === 'simulated' || currentActive.source === 'manual_test',
+          }
+        );
+      }
+    });
+
+    return () => {
+      unsubAlerts();
+    };
+  }, [activeAlert, authState.user?.village]);
+
+  // 3. Motion & Acoustic Sensors Subscriptions & Trigger Callbacks
+  const handleFloodTrigger = useCallback(
+    async (
+      peakValue: number,
+      severity: FloodSeverity = 'red',
+      durationSec: number = 0.1,
+      source: 'hardware_sensor' | 'acoustic_sound_sensor' | 'manual_test' | 'simulated' = 'hardware_sensor'
+    ) => {
+      const userVillage = authState.user?.village || 'Dzenje Village';
+      const isYellow = severity === 'yellow';
+      const isAcoustic = source === 'acoustic_sound_sensor';
+
+      let title = isYellow
+        ? 'HIGH FLOOD RISK — Stay Alert'
+        : 'CRITICAL FLOOD WARNING — Move to Higher Ground Now';
+      let message = isYellow
+        ? `River water is rising fast near ${userVillage}. Stay alert, keep your phone ready, and prepare to move to safe high ground.`
+        : `Rapid flood water detected near ${userVillage}. Move your family, children, and animals to designated safe high ground immediately.`;
+
+      if (isAcoustic) {
+        title = isYellow
+          ? 'HIGH FLOOD RISK — Warning Bell Ringing'
+          : 'CRITICAL FLOOD WARNING — Move to Higher Ground Now';
+        message = isYellow
+          ? `Emergency flood warning bell ringing near ${userVillage}. Prepare to move to high ground.`
+          : `Continuous emergency warning bell ringing near ${userVillage}! Evacuate to designated safe high ground immediately!`;
+      }
+
+      await firebaseFloodService.recordFloodAlert({
+        timestamp: Date.now(),
+        formattedTime: new Date().toLocaleTimeString(),
+        peakDelta: peakValue,
+        durationSeconds: durationSec,
+        nodeId: config.nodeId,
+        nodeName: config.sensorName,
+        village: userVillage,
+        status: 'active',
+        source,
+        severity,
+        title,
+        message,
+        notes: isAcoustic
+          ? `Sound sensor: ${peakValue.toFixed(0)} dB bell warning (${severity.toUpperCase()})`
+          : `Vibration sensor: ${peakValue.toFixed(1)} m/s² motor movement (${severity.toUpperCase()})`,
+      });
+    },
+    [config.nodeId, config.sensorName, authState.user?.village]
+  );
+
+  // Subscribe to Motion Sensor Data
+  useEffect(() => {
+    if (!isAdmin) {
+      motionSensorService.stopListening();
+      return;
+    }
+
+    const unsubMotion = motionSensorService.onMotion((data, sustained, progress) => {
+      setMotion(data);
+      setSustainedDuration(sustained);
+      setTriggerProgress(progress);
+    });
+
+    const unsubTrigger = motionSensorService.onTrigger(handleFloodTrigger);
+
+    const unsubState = motionSensorService.onStateChange((newState) => {
+      setSensorState(newState);
+    });
+
+    return () => {
+      unsubMotion();
+      unsubTrigger();
+      unsubState();
+    };
+  }, [isAdmin, handleFloodTrigger]);
+
+  // Subscribe to Acoustic Sound Sensor Data
+  useEffect(() => {
+    if (!isAdmin) {
+      acousticSensorService.stopListening();
+      return;
+    }
+
+    const unsubSound = acousticSensorService.onSoundData((data) => {
+      setSoundData(data);
+    });
+
+    const unsubTrigger = acousticSensorService.onTrigger(handleFloodTrigger);
+
+    const unsubState = acousticSensorService.onStateChange((newState) => {
+      setAcousticState(newState);
+    });
+
+    return () => {
+      unsubSound();
+      unsubTrigger();
+      unsubState();
+    };
+  }, [isAdmin, handleFloodTrigger]);
+
+  // Handle arming / disarming (ADMIN ONLY) - Respects active detection mode
+  useEffect(() => {
+    if (isAdmin && isArmed) {
+      if (activeDetectionMode === 'motion') {
+        acousticSensorService.stopListening();
+        motionSensorService.startListening();
+      } else {
+        motionSensorService.stopListening();
+        acousticSensorService.startListening();
+      }
+
+      if (config.autoWakeLock) {
+        wakeLockService.request();
+      }
+    } else {
+      motionSensorService.stopListening();
+      acousticSensorService.stopListening();
+    }
+  }, [isAdmin, isArmed, activeDetectionMode, config.autoWakeLock]);
+
+  // Toggle Arm Handler
+  const handleToggleArm = () => {
+    setIsArmed((prev) => {
+      const next = !prev;
+      if (next) {
+        setIsPaused(false);
+      }
+      return next;
+    });
+  };
+
+  // Toggle Pause Handler (Routes to active sensor)
+  const handleTogglePause = () => {
+    if (activeDetectionMode === 'motion') {
+      const nextPaused = motionSensorService.togglePause();
+      setIsPaused(nextPaused);
+    } else {
+      const nextPaused = acousticSensorService.togglePause();
+      setIsPaused(nextPaused);
+    }
+  };
+
+  // Switch Detection Mode (Motion Vibration vs Sound & Resonance)
+  const handleSelectDetectionMode = (mode: SensorDetectionMode) => {
+    setActiveDetectionMode(mode);
+    setConfig((prev) => ({ ...prev, activeDetectionMode: mode }));
+    setIsPaused(false);
+  };
+
+  // Sound Config Update
+  const handleUpdateSoundConfig = (thresholdYellowDb: number, thresholdRedDb: number, sensitivity: number) => {
+    setConfig((prev) => ({
+      ...prev,
+      thresholdYellowDb,
+      thresholdRedDb,
+      soundResonanceSensitivity: sensitivity,
+    }));
+    acousticSensorService.setConfig(thresholdYellowDb, thresholdRedDb, sensitivity);
+  };
+
+  // Request Wake Lock manually
+  const handleRequestWakeLock = async () => {
+    await wakeLockService.request();
+  };
+
+  // Request Notification permission
+  const handleRequestNotificationPermission = async () => {
+    const perm = await NotificationService.requestPermission();
+    setNotificationPermission(perm);
+    if (perm === 'granted') {
+      NotificationService.sendFloodPushNotification(
+        '🌊 Flood Alerts Activated',
+        'Offline background notifications are active. You will be alerted even when the app is in the background.'
+      );
+    }
+  };
+
+  // Calibrate Zero Baseline
+  const handleCalibrateBaseline = async (): Promise<number> => {
+    const newBaseline = await motionSensorService.calibrateBaseline();
+    setConfig((prev) => ({ ...prev, baselineGravity: newBaseline }));
+    return newBaseline;
+  };
+
+  // Simulate Flood Test (Motion)
+  const handleSimulateTest = (severity: FloodSeverity = 'red') => {
+    motionSensorService.simulateFloodTest(severity);
+  };
+
+  // Simulate Sound Roar Test (Acoustic)
+  const handleSimulateSoundTest = (severity: FloodSeverity = 'red') => {
+    acousticSensorService.simulateSoundTest(severity);
+  };
+
+  // Manual Trigger Alert
+  const handleManualTriggerAlert = (severity: FloodSeverity = 'red') => {
+    if (activeDetectionMode === 'motion') {
+      const peak = severity === 'yellow' ? (config.thresholdYellow ?? 1.5) : (config.thresholdRed ?? 2.5);
+      handleFloodTrigger(peak, severity, 0.2, 'manual_test');
+    } else {
+      const peak = severity === 'yellow' ? (config.thresholdYellowDb ?? 68) : (config.thresholdRedDb ?? 82);
+      handleFloodTrigger(peak, severity, 0.2, 'acoustic_sound_sensor');
+    }
+  };
+
+  // Dismiss Active Alert from modal or log
+  const handleDismissAlert = async (alertId: string) => {
+    const author = authState.user?.name ? `${authState.user.name} (${authState.user.village})` : `Node Operator (${config.nodeId})`;
+    await firebaseFloodService.dismissAlert(alertId, author, isAdmin);
+    if (activeAlert && activeAlert.id === alertId) {
+      setActiveAlert(null);
+    }
+    sirenService.stopEmergencySiren();
+  };
+
+  // Delete Alert (Local hide for users, Firestore global deletion for admins)
+  const handleDeleteAlert = async (alertId: string) => {
+    if (isAdmin) {
+      if (window.confirm('Delete this flood alert from Firestore for everyone in the village?')) {
+        await firebaseFloodService.deleteAlert(alertId, true);
+        if (activeAlert && activeAlert.id === alertId) {
+          setActiveAlert(null);
+        }
+      }
+    } else {
+      await firebaseFloodService.deleteAlert(alertId, false);
+      if (activeAlert && activeAlert.id === alertId) {
+        setActiveAlert(null);
+      }
+    }
+  };
+
+  // One-Tap Turn Off Sensors & Dismiss Alert
+  const handleTurnOffSensorAndDismiss = async (alertId: string) => {
+    setIsArmed(false);
+    setIsPaused(false);
+    motionSensorService.stopListening();
+    acousticSensorService.stopListening();
+    sirenService.stopAllAlarms();
+    await handleDismissAlert(alertId);
+  };
+
+  // Clear Alerts Log (Local screen clearing for users, Firestore global wipe for admins)
+  const handleClearAlerts = async () => {
+    if (isAdmin) {
+      if (window.confirm('Permanently delete all flood alerts from Firestore database for all village users?')) {
+        await firebaseFloodService.clearAlerts(true);
+        setActiveAlert(null);
+        sirenService.stopEmergencySiren();
+      }
+    } else {
+      if (window.confirm('Clear all alerts from your screen? (Sensor data remains safely stored in the village database).')) {
+        await firebaseFloodService.clearAlerts(false);
+        setActiveAlert(null);
+        sirenService.stopEmergencySiren();
+      }
+    }
+  };
+
+  // Test Siren Blast
+  const handleTestSiren = () => {
+    sirenService.setVolume(config.sirenVolume);
+    sirenService.startEmergencySiren();
+    setTimeout(() => {
+      sirenService.stopEmergencySiren();
+    }, 1800);
+  };
+
+  const activeAlertCount = alerts.filter((a) => a.status === 'active').length;
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div
+      id="app-root-container"
+      className={`h-full h-[100dvh] w-full overflow-hidden flex flex-col transition-colors duration-200 font-sans ${
+        isDarkMode ? 'bg-[#0F172A] text-[#F8FAFC]' : 'bg-[#F8FAFC] text-[#0F172A]'
+      }`}
+    >
+      {/* 1. Top App Bar */}
       <TopBar
+        currentMode={currentMode}
+        onSelectMode={handleSelectMode}
+        isDarkMode={isDarkMode}
+        isArmed={isArmed}
+        isPaused={isPaused}
+        sensorState={sensorState}
+        wakeLockState={wakeLockState}
+        isFirebaseConnected={firebaseFloodService.getIsFirebaseConnected()}
+        onOpenFirebaseModal={() => setIsFirebaseModalOpen(true)}
         currentUser={authState.user}
-        isOnline={isOnline}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
-        onOpenAbout={() => setIsAboutModalOpen(true)}
+        isAdmin={isAdmin}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onOpenAboutModal={() => setIsAboutModalOpen(true)}
+        onOpenVoiceSOS={handleOpenDirectVoiceSOS}
+        activeAlertCount={activeAlertCount}
+        selectedVillage={selectedVillage}
         onRefresh={handleManualRefresh}
         isRefreshing={isRefreshing}
       />
-      <main className="flex-1 overflow-y-auto px-3 sm:px-4 py-3 pb-24">
-        {currentMode === 'village' && (
-          <VillageCommunityView
-            currentUser={authState.user}
-            selectedVillage={selectedVillage}
-            onSelectVillage={setSelectedVillage}
-            safetyReports={safetyReports}
-            alerts={alerts}
-            onOpenSafetyCheckIn={handleOpenNormalCheckIn}
-            onOpenVoiceSOS={handleOpenDirectVoiceSOS}
-          />
-        )}
-        {currentMode === 'receiver' && (
-          <ReceiverNodeView
-            alerts={alerts}
-            onDismissAlert={(id) => firebaseFloodService.dismissAlert(id)}
-            onClearAlerts={() => firebaseFloodService.clearAllAlerts()}
-            currentUser={authState.user}
-            isAdmin={isAdmin}
-            onOpenVoiceSOS={handleOpenDirectVoiceSOS}
-            onOpenFcmModal={() => setIsFcmModalOpen(true)}
-            onOpenSoundModal={() => setIsAlertSoundModalOpen(true)}
-            onOpenSmsModal={() => setIsSmsModalOpen(true)}
-          />
-        )}
-        {currentMode === 'sensor' && isAdmin && (
-          <SensorNodeView
-            motion={motion}
-            sensorState={sensorState}
-            soundData={soundData}
-            acousticState={acousticState}
-            activeDetectionMode={activeDetectionMode}
-            isArmed={isArmed}
-            sustainedDuration={sustainedDuration}
-            triggerProgress={triggerProgress}
-            onSelectDetectionMode={(mode) => {
-              setActiveDetectionMode(mode);
-              setConfig((c) => ({ ...c, activeDetectionMode: mode }));
-            }}
-            onToggleArm={() => setIsArmed((v) => !v)}
-          />
-        )}
-        {currentMode === 'admin' && isAdmin && (
-          <AdminSafetyDashboardView
-            alerts={alerts}
-            safetyReports={safetyReports}
-            currentUser={authState.user}
-          />
-        )}
+
+      {/* Floating Real-time Firebase Sync Notification Toast */}
+      {refreshToast && (
+        <div
+          id="firebase-refresh-toast-banner"
+          className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full shadow-lg text-xs font-bold flex items-center gap-2 border animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-md max-w-[90vw] truncate select-none bg-emerald-600 text-white border-emerald-400"
+        >
+          <span className="w-2 h-2 rounded-full bg-white animate-ping shrink-0" />
+          <span className="truncate">{refreshToast.message}</span>
+        </div>
+      )}
+
+      {/* 2. Fluid Responsive Content Screen */}
+      <main
+        id="mobile-main-scroll-area"
+        className="flex-1 w-full overflow-y-auto min-h-0 overscroll-contain select-none"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-3.5 sm:py-5 pb-8 sm:pb-12">
+          {currentMode === 'admin' && (
+            <AdminSafetyDashboardView
+              safetyReports={safetyReports}
+              alerts={alerts}
+              activeAlert={activeAlert}
+              currentUser={authState.user}
+              isDarkMode={isDarkMode}
+              selectedVillage={selectedVillage}
+              onSelectVillage={setSelectedVillage}
+              onOpenCheckInModal={handleOpenNormalCheckIn}
+              onOpenDirectVoiceSOS={handleOpenDirectVoiceSOS}
+              onOpenFcmModal={() => setIsFcmModalOpen(true)}
+              onOpenSmsModal={() => setIsSmsModalOpen(true)}
+              onTurnOffSensorAndDismiss={handleTurnOffSensorAndDismiss}
+              onDismissAlert={handleDismissAlert}
+              onRefresh={handleManualRefresh}
+              isRefreshing={isRefreshing}
+            />
+          )}
+
+          {currentMode === 'sensor' && (
+            <SensorNodeView
+              motion={motion}
+              sensorState={sensorState}
+              soundData={soundData}
+              acousticState={acousticState}
+              activeDetectionMode={activeDetectionMode}
+              onSelectDetectionMode={handleSelectDetectionMode}
+              wakeLockState={wakeLockState}
+              config={config}
+              isArmed={isArmed}
+              isPaused={isPaused}
+              sustainedDuration={sustainedDuration}
+              triggerProgress={triggerProgress}
+              isDarkMode={isDarkMode}
+              isAdmin={isAdmin}
+              currentUser={authState.user}
+              onToggleArm={handleToggleArm}
+              onTogglePause={handleTogglePause}
+              onCalibrate={handleCalibrateBaseline}
+              onSimulateTest={handleSimulateTest}
+              onSimulateSoundTest={handleSimulateSoundTest}
+              onGoToReceiver={() => handleSelectMode('receiver')}
+              onGoToAdmin={() => handleSelectMode('admin')}
+            />
+          )}
+
+          {currentMode === 'receiver' && (
+            <ReceiverNodeView
+              alerts={alerts}
+              notificationPermission={notificationPermission}
+              onRequestNotificationPermission={handleRequestNotificationPermission}
+              onDismissAlert={handleDismissAlert}
+              onDeleteAlert={handleDeleteAlert}
+              onClearAlerts={handleClearAlerts}
+              isFirebaseConnected={firebaseFloodService.getIsFirebaseConnected()}
+              onOpenFirebaseModal={() => setIsFirebaseModalOpen(true)}
+              isDarkMode={isDarkMode}
+              isOnline={isOnline}
+              currentUser={authState.user}
+              isAdmin={isAdmin}
+              onOpenVoiceSOS={handleOpenDirectVoiceSOS}
+              onOpenFcmModal={() => setIsFcmModalOpen(true)}
+              onOpenSoundModal={() => setIsAlertSoundModalOpen(true)}
+              onOpenSmsModal={() => setIsSmsModalOpen(true)}
+            />
+          )}
+
+          {currentMode === 'village' && (
+            <VillageCommunityView
+              currentUser={authState.user}
+              alerts={alerts}
+              safetyReports={safetyReports}
+              isDarkMode={isDarkMode}
+              selectedVillage={selectedVillage}
+              onSelectVillage={setSelectedVillage}
+              onOpenAuthModal={() => setIsAuthModalOpen(true)}
+              onOpenDirectVoiceSOS={handleOpenDirectVoiceSOS}
+              onOpenCheckInModal={handleOpenNormalCheckIn}
+              onOpenAboutModal={() => setIsAboutModalOpen(true)}
+            />
+          )}
+        </div>
       </main>
+
+      {/* 3. Native Mobile Bottom Navigation Dock */}
       <MobileBottomNav
         currentMode={currentMode}
         onSelectMode={handleSelectMode}
+        activeAlertCount={activeAlertCount}
+        isArmed={isArmed}
+        isPaused={isPaused}
+        isDarkMode={isDarkMode}
         isAdmin={isAdmin}
       />
-      <MobileAuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        currentUser={authState.user}
-        onSignedIn={(admin) => {
-          if (admin) setCurrentMode('admin');
-          else setCurrentMode('village');
-        }}
-      />
-      <AboutLegalModal
-        isOpen={isAboutModalOpen}
-        onClose={() => setIsAboutModalOpen(false)}
-      />
+
+      {/* 5. Critical Alarm Full-Screen Modal Overlay */}
       <CriticalAlarmModal
-        alert={activeAlert}
-        onDismiss={() => {
-          if (activeAlert) firebaseFloodService.dismissAlert(activeAlert.id);
-          setActiveAlert(null);
-          sirenService.stopAllAlarms();
-        }}
+        activeAlert={activeAlert}
+        onDismiss={handleDismissAlert}
+        onTurnOffSensorAndDismiss={handleTurnOffSensorAndDismiss}
+        isSoundEnabled={config.soundAlarmOnDevice}
+        onOpenCheckIn={handleOpenNormalCheckIn}
+        onOpenVoiceSOS={handleOpenDirectVoiceSOS}
+        onOpenSmsModal={() => setIsSmsModalOpen(true)}
+        isAdmin={isAdmin}
       />
-      <SafetyCheckInModal
-        isOpen={isSafetyModalOpen}
-        onClose={() => setIsSafetyModalOpen(false)}
-        currentUser={authState.user}
-        autoStartVoice={isSafetyModalAutoVoice}
-      />
+
+      {/* 6. Direct Fast Voice Emergency SOS Modal */}
       <DirectVoiceSOSModal
         isOpen={isDirectVoiceSOSOpen}
         onClose={() => setIsDirectVoiceSOSOpen(false)}
         currentUser={authState.user}
+        isDarkMode={isDarkMode}
       />
+
+      {/* 7. Detailed Safety Status Check-In Modal */}
+      <SafetyCheckInModal
+        isOpen={isSafetyModalOpen}
+        onClose={() => {
+          setIsSafetyModalOpen(false);
+          setIsSafetyModalAutoVoice(false);
+        }}
+        currentUser={authState.user}
+        isDarkMode={isDarkMode}
+        autoStartVoice={isSafetyModalAutoVoice}
+      />
+
+      {/* 8. Mobile Authentication & Profile Modal */}
+      <MobileAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        currentUser={authState.user}
+        isDarkMode={isDarkMode}
+        onSignedIn={(isAdminUser) => {
+          if (isAdminUser) {
+            setCurrentMode('admin');
+          } else {
+            setCurrentMode('village');
+          }
+        }}
+      />
+
+      {/* 9. Firebase Modular Web SDK Config Modal */}
       <FirebaseConfigModal
         isOpen={isFirebaseModalOpen}
         onClose={() => setIsFirebaseModalOpen(false)}
+        isDarkMode={isDarkMode}
       />
+
+      {/* 10. Firebase Cloud Messaging (FCM) Push Gateway Modal */}
       <FcmGatewayModal
         isOpen={isFcmModalOpen}
         onClose={() => setIsFcmModalOpen(false)}
+        isAdmin={isAdmin}
       />
+
+      {/* 11. Alert Sound & Custom Ringtone Settings Modal */}
       <AlertSoundModal
         isOpen={isAlertSoundModalOpen}
         onClose={() => setIsAlertSoundModalOpen(false)}
       />
+
+      {/* 12. Textbee SMS Gateway Settings Modal */}
       <SmsGatewayModal
         isOpen={isSmsModalOpen}
         onClose={() => setIsSmsModalOpen(false)}
+      />
+
+      {/* 13. About Project & Legal Notice Modal */}
+      <AboutLegalModal
+        isOpen={isAboutModalOpen}
+        onClose={() => setIsAboutModalOpen(false)}
       />
     </div>
   );

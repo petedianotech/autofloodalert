@@ -13,7 +13,6 @@ import {
   Lock,
   ExternalLink,
   Smartphone,
-  Download,
   Copy,
   Check,
   CheckCircle2,
@@ -24,12 +23,11 @@ import {
   MapPin,
   HelpCircle,
 } from 'lucide-react';
-import { apkService, ApkConfig } from '../services/apkService';
 
 interface AboutLegalModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: 'about' | 'privacy' | 'terms' | 'download';
+  initialTab?: 'about' | 'privacy' | 'terms';
 }
 
 export const AboutLegalModal: React.FC<AboutLegalModalProps> = ({
@@ -37,9 +35,7 @@ export const AboutLegalModal: React.FC<AboutLegalModalProps> = ({
   onClose,
   initialTab = 'about',
 }) => {
-  const [activeTab, setActiveTab] = useState<'about' | 'privacy' | 'terms' | 'download'>(initialTab);
-  const [apkConfig, setApkConfig] = useState<ApkConfig>(() => apkService.getConfig());
-  const [copiedLink, setCopiedLink] = useState(false);
+  const [activeTab, setActiveTab] = useState<'about' | 'privacy' | 'terms'>(initialTab);
   const [clearDataSuccess, setClearDataSuccess] = useState(false);
 
   useEffect(() => {
@@ -47,28 +43,6 @@ export const AboutLegalModal: React.FC<AboutLegalModalProps> = ({
       setActiveTab(initialTab);
     }
   }, [initialTab, isOpen]);
-
-  useEffect(() => {
-    return apkService.subscribe((cfg) => {
-      setApkConfig(cfg);
-    });
-  }, []);
-
-  const handleDownloadApk = () => {
-    const url = apkConfig.downloadUrl || 'https://github.com/dzenje-stem-club/flood-alert/releases';
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
-
-  const handleCopyApkLink = async () => {
-    const url = apkConfig.downloadUrl || 'https://github.com/dzenje-stem-club/flood-alert/releases';
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2500);
-    } catch {
-      // fallback
-    }
-  };
 
   const handleClearCachedData = () => {
     if (window.confirm('Clear cached flood alerts and offline settings on this device? Your account profile in Firebase will remain safe.')) {
@@ -109,7 +83,6 @@ export const AboutLegalModal: React.FC<AboutLegalModalProps> = ({
               {activeTab === 'about' && 'About Project'}
               {activeTab === 'privacy' && 'Privacy & Data Protection'}
               {activeTab === 'terms' && 'Terms of Use'}
-              {activeTab === 'download' && 'Download Android App (APK)'}
             </h1>
             <p className="text-xs text-slate-500 font-medium truncate">
               Dzenje CDSS ADDA STEM Club Innovation &bull; Mulanje, Malawi
@@ -118,15 +91,6 @@ export const AboutLegalModal: React.FC<AboutLegalModalProps> = ({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={handleDownloadApk}
-            className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition active:scale-95 cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Download APK</span>
-          </button>
-
           <button
             type="button"
             onClick={onClose}
@@ -164,19 +128,6 @@ export const AboutLegalModal: React.FC<AboutLegalModalProps> = ({
           >
             <Lock className="w-4 h-4" />
             <span>Privacy &amp; Security</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('download')}
-            className={`px-4 py-2 rounded-xl font-bold text-xs transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
-              activeTab === 'download'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`}
-          >
-            <Download className="w-4 h-4" />
-            <span>Download APK</span>
           </button>
 
           <button
@@ -239,7 +190,7 @@ export const AboutLegalModal: React.FC<AboutLegalModalProps> = ({
                       Real-World Deployment
                     </h3>
                     <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                      Tested with river vibration sensors, acoustic warning chimes, emergency SMS broadcasts in Chichewa and English, and real-time community headcounts across Dzenje and Machokola villages.
+                      Tested with river vibration sensors, acoustic warning chimes, emergency SMS broadcasts, and real-time community headcounts across Dzenje and Machokola villages.
                     </p>
                   </div>
                 </div>
@@ -377,7 +328,7 @@ export const AboutLegalModal: React.FC<AboutLegalModalProps> = ({
                       <strong>Name &amp; Village:</strong> Used to display in the community roll-call so village elders, disaster committees, and neighbors know which households are accounted for.
                     </p>
                     <p>
-                      <strong>Phone Number (Optional):</strong> Used strictly to dispatch emergency Chichewa or English flood alert SMS messages via the Textbee SMS gateway when rivers swell.
+                      <strong>Phone Number (Optional):</strong> Used strictly to dispatch emergency flood alert SMS messages via the Textbee SMS gateway when rivers swell.
                     </p>
                     <p>
                       <strong>Safety Check-In Status:</strong> Such as &ldquo;I am Safe&rdquo;, &ldquo;Evacuated to Shelter&rdquo;, or &ldquo;Trapped / Need Rescue&rdquo;.
@@ -453,117 +404,7 @@ export const AboutLegalModal: React.FC<AboutLegalModalProps> = ({
             </div>
           )}
 
-          {/* =========================================================================
-             TAB 3: DOWNLOAD APK (SIMPLIFIED & ELEGANT)
-             ========================================================================= */}
-          {activeTab === 'download' && (
-            <div className="space-y-5">
-              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-5">
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div className="flex items-start gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md">
-                      <Smartphone className="w-7 h-7" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h2 className="text-xl font-bold text-slate-900">
-                          Official Android Native App (APK)
-                        </h2>
-                        <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
-                          {apkConfig.version}
-                        </span>
-                      </div>
-                      <p className="text-xs sm:text-sm text-slate-600 font-medium mt-1 leading-relaxed">
-                        Free direct download for Android phones. Plays loud emergency sirens even when locked, inactive, or offline.
-                      </p>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Primary Simplified Download Button */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <button
-                      type="button"
-                      id="btn-full-download-apk"
-                      onClick={handleDownloadApk}
-                      className="flex-1 py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-extrabold text-sm flex items-center justify-center gap-2.5 shadow-md transition cursor-pointer"
-                    >
-                      <Download className="w-5 h-5" />
-                      <span>Download Android APK ({apkConfig.fileSize || '8.5 MB'})</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleCopyApkLink}
-                      className="py-3.5 px-5 rounded-2xl bg-white border border-slate-200 hover:bg-slate-100 active:scale-98 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer"
-                    >
-                      {copiedLink ? (
-                        <>
-                          <Check className="w-4 h-4 text-emerald-600" />
-                          <span className="text-emerald-700">Link Copied!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-4 h-4 text-slate-500" />
-                          <span>Copy Link</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  <p className="text-[11px] text-slate-500 text-center font-medium">
-                    Verified Release &bull; Package: <code className="font-mono text-slate-700">com.dzenjecdsstem.floodalert</code>
-                  </p>
-                </div>
-
-                {/* 3 Simple Install Steps */}
-                <div className="space-y-3 pt-2">
-                  <h3 className="font-bold text-xs uppercase text-slate-500 tracking-wider">
-                    How to Install in 3 Easy Steps:
-                  </h3>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-start gap-2.5">
-                      <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
-                        1
-                      </span>
-                      <div>
-                        <h4 className="font-bold text-xs text-slate-900">Download</h4>
-                        <p className="text-xs text-slate-600 mt-0.5">
-                          Tap the blue download button above to save the APK file.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-start gap-2.5">
-                      <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
-                        2
-                      </span>
-                      <div>
-                        <h4 className="font-bold text-xs text-slate-900">Open &amp; Allow</h4>
-                        <p className="text-xs text-slate-600 mt-0.5">
-                          Open your phone's notification or Downloads and choose &ldquo;Install&rdquo;.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-start gap-2.5">
-                      <span className="w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
-                        3
-                      </span>
-                      <div>
-                        <h4 className="font-bold text-xs text-slate-900">Ready for Alerts</h4>
-                        <p className="text-xs text-slate-600 mt-0.5">
-                          Open the app once to enable loud sirens and background alarms.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* =========================================================================
              TAB 4: TERMS OF USE

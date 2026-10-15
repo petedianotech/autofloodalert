@@ -1,4 +1,4 @@
-package com.petediano.autofloodalert;
+package com.dzenjecdsstem.floodalert;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -17,10 +17,19 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.FirebaseOptions;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 import java.util.Map;
 
+/**
+ * Native Android Background Firebase Messaging Service
+ * 
+ * Ensures flood emergency siren notifications are delivered, sound loudly at full volume,
+ * vibrate, and wake up the screen even when the app is in the background, minimized,
+ * or not running as soon as the phone has an active internet connection.
+ */
 public class FloodFirebaseMessagingService extends FirebaseMessagingService {
 
     private static final String TAG = "FloodFcmService";
@@ -38,7 +47,7 @@ public class FloodFirebaseMessagingService extends FirebaseMessagingService {
         try {
             Log.d(TAG, "FCM Remote Message Received in Background: " + remoteMessage.getData());
 
-            String title = "CRITICAL FLOOD WARNING";
+            String title = "🚨 CRITICAL FLOOD WARNING";
             String body = "Continuous water vibration detected! Check sensor node immediately.";
 
             if (remoteMessage.getNotification() != null) {
@@ -71,11 +80,13 @@ public class FloodFirebaseMessagingService extends FirebaseMessagingService {
             Context context = getApplicationContext();
             if (context == null) return;
 
+            // 1. Boost volume to 100% for STREAM_ALARM & STREAM_MUSIC
             try {
                 AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
                 if (audioManager != null) {
                     int maxAlarm = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM);
                     audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxAlarm, 0);
+
                     int maxMusic = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
                     audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxMusic, 0);
                 }
@@ -83,6 +94,7 @@ public class FloodFirebaseMessagingService extends FirebaseMessagingService {
                 Log.w(TAG, "Volume boost error", e);
             }
 
+            // 2. Wake up the screen if device is asleep
             try {
                 PowerManager powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
                 if (powerManager != null) {
@@ -90,14 +102,16 @@ public class FloodFirebaseMessagingService extends FirebaseMessagingService {
                         PowerManager.FULL_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP | PowerManager.ON_AFTER_RELEASE,
                         "floodalert:background_fcm_alarm"
                     );
-                    wakeLock.acquire(10000);
+                    wakeLock.acquire(10000); // 10s wake lock
                 }
             } catch (Throwable e) {
                 Log.w(TAG, "WakeLock acquire error", e);
             }
 
+            // 3. Ensure Notification Channel exists
             createNotificationChannel(context);
 
+            // 4. Build Intent to launch or bring MainActivity to front
             Intent intent = new Intent(context, MainActivity.class);
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
             if (data != null) {
@@ -139,12 +153,14 @@ public class FloodFirebaseMessagingService extends FirebaseMessagingService {
                 builder.setSound(alarmSound);
             }
 
+            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(context);
             try {
-                NotificationManagerCompat.from(context).notify((int) System.currentTimeMillis(), builder.build());
+                notificationManager.notify((int) System.currentTimeMillis(), builder.build());
             } catch (Throwable se) {
                 Log.w(TAG, "Notification post failed", se);
             }
 
+            // 5. Hardware vibration trigger
             try {
                 Vibrator vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
                 if (vibrator != null && vibrator.hasVibrator()) {

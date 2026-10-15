@@ -1,48 +1,38 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.petediano.autofloodalert"
+    namespace = "autofloodalert"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.petediano.autofloodalert"
+        applicationId "autofloodalert"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 26
-        versionName "1.2.2"
+        versionCode 25
+        versionName "1.2.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
-
-    // Must be declared BEFORE buildTypes so signingConfigs.release exists when referenced
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
     signingConfigs {
         release {
-            def keystorePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
-            def keystoreFile = file("../release.jks")
-            if (keystorePassword != null && !keystorePassword.isEmpty() && keystoreFile.exists()) {
-                storeFile keystoreFile
-                storePassword keystorePassword
+            if (System.getenv("RELEASE_KEYSTORE_PASSWORD")) {
+                storeFile file('../release.jks')
+                storePassword System.getenv("RELEASE_KEYSTORE_PASSWORD")
                 keyAlias System.getenv("RELEASE_KEY_ALIAS")
                 keyPassword System.getenv("RELEASE_KEY_PASSWORD")
             }
         }
     }
-
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            // Only attach signing config when keystore was actually configured
-            if (signingConfigs.release.storeFile != null) {
-                signingConfig signingConfigs.release
-            }
-        }
-        debug {
-            // Debug builds use the default debug keystore
-        }
-    }
-
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_21
         targetCompatibility JavaVersion.VERSION_21
@@ -50,7 +40,7 @@ android {
 }
 
 repositories {
-    flatDir {
+    flatDir{
         dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
     }
 }
@@ -75,6 +65,6 @@ try {
     if (servicesJSON.text) {
         apply plugin: 'com.google.gms.google-services'
     }
-} catch (Exception e) {
+} catch(Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
 }

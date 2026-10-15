@@ -19,6 +19,19 @@ class SirenAudioService {
   private soundTypeKey = 'flood_alert_sound_type_v1';
   private isPlayingWarning: boolean = false;
   private warningIntervalId: number | null = null;
+  private bgAudioEl: HTMLAudioElement | null = null;
+
+  private ensureBgAudioElement(): HTMLAudioElement | null {
+    if (typeof window === 'undefined') return null;
+    if (!this.bgAudioEl) {
+      this.bgAudioEl = new Audio(
+        'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
+      );
+      this.bgAudioEl.loop = true;
+      this.bgAudioEl.volume = 0.01;
+    }
+    return this.bgAudioEl;
+  }
 
   public getSoundType(): AlertSoundType {
     try {
@@ -84,8 +97,76 @@ class SirenAudioService {
       // ignore
     }
 
+    // Hardware vibration
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate([1000, 300, 1000, 300, 2000, 500, 2500]);
+      } catch {
+        // ignore
+      }
+    }
+
     const soundType = this.getSoundType();
     this.startSynthesizedSound(soundType);
+    this.updateLockscreenMediaSession(
+      '🚨 CRITICAL FLOOD SIREN ACTIVE',
+      'Ruo River water level dangerous! Evacuate to high ground immediately.'
+    );
+  }
+
+  private updateLockscreenMediaSession(title: string, body: string) {
+    // Keep background audio active on mobile lockscreen
+    try {
+      const bg = this.ensureBgAudioElement();
+      if (bg) {
+        bg.play().catch(() => {});
+      }
+    } catch {
+      // ignore
+    }
+
+    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title,
+          artist: '🚨 Automatic Flood Alert System',
+          album: body,
+          artwork: [
+            { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+            { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+          ],
+        });
+        navigator.mediaSession.playbackState = 'playing';
+
+        navigator.mediaSession.setActionHandler('stop', () => {
+          this.stopAllAlarms();
+        });
+        navigator.mediaSession.setActionHandler('pause', () => {
+          this.stopAllAlarms();
+        });
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  private clearLockscreenMediaSession() {
+    try {
+      if (this.bgAudioEl) {
+        this.bgAudioEl.pause();
+        this.bgAudioEl.currentTime = 0;
+      }
+    } catch {
+      // ignore
+    }
+
+    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.playbackState = 'none';
+      } catch {
+        // ignore
+      }
+    }
   }
 
   private startSynthesizedSound(type: 'siren' | 'bell' | 'horn') {
@@ -294,6 +375,7 @@ class SirenAudioService {
   public stopAllAlarms() {
     this.stopEmergencySiren();
     this.stopWarningChime();
+    this.clearLockscreenMediaSession();
   }
 
   public playBeep(freq = 880, durationMs = 120) {

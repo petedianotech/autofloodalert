@@ -12,40 +12,46 @@ import {
   AcousticData,
   AcousticSensorState,
   SensorDetectionMode,
+  WakeLockState,
   SensorConfig,
+  UserProfile,
 } from '../types';
 
 interface SensorNodeViewProps {
-  isArmed: boolean;
   motion: MotionData;
   sensorState: MotionSensorState;
-  sustainedDuration: number;
-  triggerProgress: number;
   soundData: AcousticData;
   acousticState: AcousticSensorState;
   activeDetectionMode: SensorDetectionMode;
-  config: SensorConfig;
   onSelectDetectionMode: (mode: SensorDetectionMode) => void;
+  wakeLockState?: WakeLockState;
+  config?: SensorConfig;
+  isArmed: boolean;
+  isPaused: boolean;
+  sustainedDuration?: number;
+  triggerProgress?: number;
+  isDarkMode?: boolean;
+  isAdmin?: boolean;
+  currentUser?: UserProfile | null;
   onToggleArm: () => void;
+  onTogglePause?: () => void;
+  onCalibrate?: () => Promise<number>;
+  onSimulateTest?: (severity?: 'yellow' | 'red') => void;
+  onSimulateSoundTest?: (severity?: 'yellow' | 'red') => void;
+  onGoToReceiver?: () => void;
+  onGoToAdmin?: () => void;
 }
 
 export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
-  isArmed,
   motion,
-  sensorState,
-  sustainedDuration,
-  triggerProgress,
   soundData,
-  acousticState,
-  activeDetectionMode = 'sound',
-  config,
+  activeDetectionMode = 'bell',
   onSelectDetectionMode,
+  isArmed,
   onToggleArm,
 }) => {
   const isSensorOn = isArmed;
-  const isBoth = activeDetectionMode === 'both';
-  const activeSensorType =
-    activeDetectionMode === 'motion' ? 'vibration' : activeDetectionMode === 'both' ? 'both' : 'bell';
+  const activeSensorType = activeDetectionMode === 'motion' ? 'vibration' : 'bell';
 
   // Live calculation helpers
   const decibels = Math.round(soundData.decibels || (isSensorOn ? 46 : 0));
@@ -63,10 +69,10 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-2xl bg-[#1F71E8] text-white flex items-center justify-center shadow-xs shrink-0 font-bold">
-                  {activeSensorType === 'vibration' ? (
-                    <Activity className="w-6 h-6" />
-                  ) : (
+                  {activeSensorType === 'bell' ? (
                     <Bell className="w-6 h-6" />
+                  ) : (
+                    <Activity className="w-6 h-6" />
                   )}
                 </div>
                 <div>
@@ -91,135 +97,151 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
                     isSensorOn ? 'bg-emerald-600 animate-pulse' : 'bg-slate-400'
                   }`}
                 />
-                {isSensorOn ? 'ARMED' : 'OFF'}
+                <span>{isSensorOn ? 'Live (On)' : 'Sensor Off'}</span>
               </span>
             </div>
 
-            <p className="text-xs text-[#49454F] leading-relaxed font-medium">
+            <p className="text-xs text-[#49454F] font-medium leading-relaxed">
               Checks for vibration and bell sound in the system when flood is detected. Sends an automatic warning alert to the village.
             </p>
+          </div>
 
-            {/* Mode selector: Bell | Vibration | Both */}
-            <div className="grid grid-cols-3 gap-2 pt-1">
+          {/* ================= 2. Active Sensor Mode & Controls ================= */}
+          <div className="bg-[#F3F3FA] rounded-[24px] p-4.5 border border-slate-100 space-y-3.5 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#49454F] uppercase tracking-wider block">
+                Select Sensor Detection Mode
+              </span>
+              <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full">
+                {activeSensorType === 'bell' ? 'Bell Sound Mode' : 'Vibration Sensor Mode'}
+              </span>
+            </div>
+
+            {/* Material 3 Segmented Toggle */}
+            <div className="bg-[#E7E0EC] p-1 rounded-full flex gap-1">
               <button
                 type="button"
                 onClick={() => onSelectDetectionMode('sound')}
-                className={`py-2.5 px-2 rounded-xl text-[11px] font-bold flex flex-col items-center gap-1 transition cursor-pointer min-h-[52px] border ${
+                className={`flex-1 py-2.5 px-3 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${
                   activeSensorType === 'bell'
-                    ? 'bg-[#1F71E8] text-white border-[#1F71E8] shadow-xs'
-                    : 'bg-white text-[#49454F] border-slate-200 hover:border-[#1F71E8]'
+                    ? 'bg-[#1F71E8] text-white shadow-xs'
+                    : 'text-[#49454F] hover:text-[#1C1B1F]'
                 }`}
               >
                 <Bell className="w-4 h-4" />
-                <span>Bell</span>
+                <span>Bell Sound Sensor</span>
               </button>
+
               <button
                 type="button"
                 onClick={() => onSelectDetectionMode('motion')}
-                className={`py-2.5 px-2 rounded-xl text-[11px] font-bold flex flex-col items-center gap-1 transition cursor-pointer min-h-[52px] border ${
+                className={`flex-1 py-2.5 px-3 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${
                   activeSensorType === 'vibration'
-                    ? 'bg-[#1F71E8] text-white border-[#1F71E8] shadow-xs'
-                    : 'bg-white text-[#49454F] border-slate-200 hover:border-[#1F71E8]'
+                    ? 'bg-[#1F71E8] text-white shadow-xs'
+                    : 'text-[#49454F] hover:text-[#1C1B1F]'
                 }`}
               >
                 <Activity className="w-4 h-4" />
-                <span>Vibration</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onSelectDetectionMode('both')}
-                className={`py-2.5 px-2 rounded-xl text-[11px] font-bold flex flex-col items-center gap-1 transition cursor-pointer min-h-[52px] border ${
-                  activeSensorType === 'both'
-                    ? 'bg-[#1F71E8] text-white border-[#1F71E8] shadow-xs'
-                    : 'bg-white text-[#49454F] border-slate-200 hover:border-[#1F71E8]'
-                }`}
-              >
-                <Volume2 className="w-4 h-4" />
-                <span>Both</span>
+                <span>Vibration Sensor</span>
               </button>
             </div>
 
-            {/* Arm / Disarm */}
+            {/* Power Toggle Button */}
             <button
               type="button"
               onClick={onToggleArm}
-              className={`w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition cursor-pointer min-h-[48px] active:scale-98 ${
+              className={`w-full py-3.5 px-4 rounded-full text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-xs transition active:scale-98 cursor-pointer ${
                 isSensorOn
                   ? 'bg-red-600 hover:bg-red-700 text-white'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  : 'bg-[#1F71E8] hover:bg-blue-700 text-white'
               }`}
             >
               {isSensorOn ? (
                 <>
-                  <Square className="w-4 h-4" />
-                  Disarm Sensors
+                  <Square className="w-4 h-4 fill-current" />
+                  <span>Turn Off Sensor Station</span>
                 </>
               ) : (
                 <>
-                  <Play className="w-4 h-4" />
-                  Arm Sensors
+                  <Play className="w-4 h-4 fill-current" />
+                  <span>Turn On Sensor Station (Arm System)</span>
                 </>
               )}
             </button>
-
-            <p className="text-[11px] text-[#49454F] font-medium leading-relaxed">
-              {activeSensorType === 'both'
-                ? 'Listens for warning bell sound and vibration at the same time. Either sensor can trigger a flood alert.'
-                : activeSensorType === 'bell'
-                ? 'Listens for warning bell sound in the system and ignores talking voices.'
-                : 'Listens for continuous vibration from flood water movement.'}
-            </p>
-
-            {/* Live Metric Cards — 2 for single mode, 4 for both */}
-            <div className={`grid gap-2 ${isBoth ? 'grid-cols-2' : 'grid-cols-2'}`}>
-              {(activeSensorType === 'bell' || isBoth) && (
-                <>
-                  <div className="bg-white rounded-xl p-3 border border-slate-100 space-y-1">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase">Sound Level</p>
-                    <p className="text-xl font-black text-slate-900 tabular-nums">
-                      {isSensorOn ? `${decibels} dB` : '--'}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-xl p-3 border border-slate-100 space-y-1">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase">Bell Score</p>
-                    <p className="text-xl font-black text-slate-900 tabular-nums">
-                      {isSensorOn ? bellScore : '--'}
-                    </p>
-                  </div>
-                </>
-              )}
-              {(activeSensorType === 'vibration' || isBoth) && (
-                <>
-                  <div className="bg-white rounded-xl p-3 border border-slate-100 space-y-1">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase">Vibration Δ</p>
-                    <p className="text-xl font-black text-slate-900 tabular-nums">
-                      {isSensorOn ? vibrationDelta : '--'}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-xl p-3 border border-slate-100 space-y-1">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase">Total G</p>
-                    <p className="text-xl font-black text-slate-900 tabular-nums">
-                      {isSensorOn ? totalGravity : '--'}
-                    </p>
-                  </div>
-                </>
-              )}
-            </div>
           </div>
         </div>
 
-        {/* Right column placeholder for meters if needed */}
+        {/* Right Column: Live Sensor Readouts Meter */}
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs">
-            <h3 className="font-bold text-sm text-slate-900 mb-2">Live Status</h3>
-            <p className="text-xs text-slate-600">
-              Mode: <strong>{activeSensorType}</strong> · Armed: <strong>{isSensorOn ? 'Yes' : 'No'}</strong>
-            </p>
-            {isBoth && (
-              <p className="text-xs text-slate-500 mt-2">
-                Both sensors active — 4 live metrics shown above.
+          <div className="bg-[#F3F3FA] rounded-[24px] p-4.5 sm:p-5 border border-slate-100 space-y-3.5 shadow-xs h-full flex flex-col justify-between">
+            <div className="space-y-3.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Volume2 className="w-4 h-4 text-[#1F71E8]" />
+                  <h4 className="font-bold text-sm text-[#1C1B1F]">
+                    {activeSensorType === 'bell'
+                      ? 'Bell Sound Sensor Live Readout'
+                      : 'Vibration Sensor Live Readout'}
+                  </h4>
+                </div>
+                <span className="text-[11px] font-bold text-[#49454F] bg-white px-2.5 py-0.5 rounded-full border border-slate-200">
+                  {isSensorOn ? 'Sensor Active' : 'Sensor Off'}
+                </span>
+              </div>
+
+              <p className="text-xs text-[#49454F] font-medium leading-relaxed">
+                {activeSensorType === 'bell'
+                  ? 'Listens for warning bell sound in the system and ignores talking voices.'
+                  : 'Checks for vibration in the system when flood is detected.'}
               </p>
-            )}
+
+              {/* 2 Live Metric Cards */}
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="bg-white rounded-2xl p-4 text-center border border-slate-100 shadow-2xs space-y-1">
+                  <span className="text-xs text-[#49454F] font-bold block">
+                    {activeSensorType === 'bell' ? 'Bell Tone Match' : 'Vibration Delta'}
+                  </span>
+                  <span className="text-2xl sm:text-3xl font-bold text-[#1C1B1F] block">
+                    {isSensorOn
+                      ? activeSensorType === 'bell'
+                        ? `${bellScore}%`
+                        : `${vibrationDelta} m/s²`
+                      : '--'}
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-medium block">
+                    {isSensorOn ? (activeSensorType === 'bell' ? 'Target: >75%' : 'Alert Threshold: 2.20') : 'Offline'}
+                  </span>
+                </div>
+
+                <div className="bg-white rounded-2xl p-4 text-center border border-slate-100 shadow-2xs space-y-1">
+                  <span className="text-xs text-[#49454F] font-bold block">
+                    {activeSensorType === 'bell' ? 'Sound Level' : 'Total Force'}
+                  </span>
+                  <span className="text-2xl sm:text-3xl font-bold text-[#1C1B1F] block">
+                    {isSensorOn
+                      ? activeSensorType === 'bell'
+                        ? `${decibels} dB`
+                        : `${totalGravity} m/s²`
+                      : '--'}
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-medium block">
+                    {isSensorOn ? (activeSensorType === 'bell' ? 'Normal: <55 dB' : 'Stationary gravity') : 'Offline'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Status Indicators Footer */}
+            <div className="bg-white rounded-2xl p-3 border border-slate-100 flex items-center justify-between text-xs font-semibold text-[#49454F] mt-3">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>Voice Filter: Safe (Ignored)</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-blue-700">
+                <Bell className="w-3.5 h-3.5" />
+                <span>Bell Frequency: Monitored</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

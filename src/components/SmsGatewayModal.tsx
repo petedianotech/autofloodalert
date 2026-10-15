@@ -38,7 +38,7 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
     return unsub;
   }, [isOpen]);
 
-  const [activeTab, setActiveTab] = useState<'all' | 'chichewa' | 'english' | 'marked'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'marked'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isRefreshingContacts, setIsRefreshingContacts] = useState(false);
@@ -47,8 +47,6 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
     success: boolean;
     sentCount: number;
     failedCount: number;
-    chichewaCount?: number;
-    englishCount?: number;
     error?: string;
   } | null>(null);
 
@@ -83,13 +81,8 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
     setConfig(smsGatewayService.getConfig());
   };
 
-  const handleChangeLanguage = (id: string, language: 'en' | 'ny') => {
-    smsGatewayService.updateRecipientLanguage(id, language);
-    setConfig(smsGatewayService.getConfig());
-  };
-
-  const handleMarkAll = (enabled: boolean, langFilter?: 'en' | 'ny') => {
-    smsGatewayService.setAllRecipientsEnabled(enabled, langFilter);
+  const handleMarkAll = (enabled: boolean) => {
+    smsGatewayService.setAllRecipientsEnabled(enabled);
     setConfig(smsGatewayService.getConfig());
   };
 
@@ -105,18 +98,8 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
   const recipients = config.recipients || [];
   const activeRecipients = recipients.filter((r) => r.enabled && r.phone.trim().length >= 6);
 
-  // Chichewa vs English breakdowns
-  const chichewaAll = recipients.filter((r) => (r.language || 'ny') === 'ny');
-  const chichewaMarked = chichewaAll.filter((r) => r.enabled);
-
-  const englishAll = recipients.filter((r) => r.language === 'en');
-  const englishMarked = englishAll.filter((r) => r.enabled);
-
   // Filtered recipients according to search query and active tab
   const filteredRecipients = recipients.filter((rec) => {
-    const recLang = rec.language || 'ny';
-    if (activeTab === 'chichewa' && recLang !== 'ny') return false;
-    if (activeTab === 'english' && recLang !== 'en') return false;
     if (activeTab === 'marked' && !rec.enabled) return false;
 
     if (searchQuery.trim()) {
@@ -151,7 +134,7 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
               SMS Flood Alert Gateway
             </h1>
             <p className="text-xs text-[#49454F] font-medium truncate">
-              Chichewa &amp; English Emergency Broadcast Network
+              Village Emergency SMS Broadcast Network
             </p>
           </div>
         </div>
@@ -222,79 +205,30 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
             </span>
           </div>
 
-          {/* Chichewa & English Status Cards */}
-          <div className="grid grid-cols-2 gap-2">
-            {/* Chichewa Card */}
-            <div
-              onClick={() => setActiveTab(activeTab === 'chichewa' ? 'all' : 'chichewa')}
-              className={`p-3 rounded-2xl border transition cursor-pointer flex flex-col justify-between ${
-                activeTab === 'chichewa'
-                  ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-300'
-                  : 'bg-slate-50 border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-emerald-950 flex items-center gap-1">
-                  <span>🇲🇼</span>
-                  <span>Chichewa SMS</span>
-                </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-200">
-                  {chichewaMarked.length} marked
-                </span>
-              </div>
-              <p className="mt-2 text-[11px] font-semibold text-emerald-900">
-                {chichewaMarked.length} of {chichewaAll.length} accounts marked
+          {/* Active Recipients Summary Card */}
+          <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200 flex items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-bold text-blue-950 block">
+                SMS Alert Recipients
+              </span>
+              <p className="text-[11px] text-blue-800 font-medium mt-0.5">
+                {activeRecipients.length} of {recipients.length} phone numbers marked to receive instant flood alerts
               </p>
             </div>
-
-            {/* English Card */}
-            <div
-              onClick={() => setActiveTab(activeTab === 'english' ? 'all' : 'english')}
-              className={`p-3 rounded-2xl border transition cursor-pointer flex flex-col justify-between ${
-                activeTab === 'english'
-                  ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-300'
-                  : 'bg-slate-50 border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-blue-950 flex items-center gap-1">
-                  <span>🇬🇧</span>
-                  <span>English SMS</span>
-                </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-900 border border-blue-200">
-                  {englishMarked.length} marked
-                </span>
-              </div>
-              <p className="mt-2 text-[11px] font-semibold text-blue-900">
-                {englishMarked.length} of {englishAll.length} accounts marked
-              </p>
-            </div>
-          </div>
-
-          {/* Quick Mark Buttons */}
-          <div className="flex items-center justify-between gap-1 text-[11px] pt-1 border-t border-slate-100">
-            <span className="font-bold text-[#49454F]">Quick:</span>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <button
-                type="button"
-                onClick={() => handleMarkAll(true, 'ny')}
-                className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 font-bold transition cursor-pointer"
-              >
-                Mark All Chichewa (🇲🇼)
-              </button>
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={() => handleMarkAll(true)}
-                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold transition cursor-pointer"
+                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition cursor-pointer"
               >
                 Mark All
               </button>
               <button
                 type="button"
                 onClick={() => handleMarkAll(false)}
-                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition cursor-pointer"
+                className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs transition cursor-pointer"
               >
-                Unmark All
+                Clear
               </button>
             </div>
           </div>
@@ -328,7 +262,6 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
               </div>
             ) : (
               filteredRecipients.map((rec) => {
-                const isChichewa = (rec.language || 'ny') === 'ny';
                 return (
                   <div
                     key={rec.id}
@@ -380,25 +313,9 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
                       </button>
                     </div>
 
-                    {/* Language Badge & Status */}
+                    {/* Status */}
                     <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 text-[11px]">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-slate-500 text-[10px]">Gets:</span>
-                        <button
-                          type="button"
-                          onClick={() => handleChangeLanguage(rec.id, isChichewa ? 'en' : 'ny')}
-                          className={`px-2 py-0.5 rounded-full font-bold border transition cursor-pointer flex items-center gap-1 ${
-                            isChichewa
-                              ? 'bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100'
-                              : 'bg-blue-50 text-blue-900 border-blue-200 hover:bg-blue-100'
-                          }`}
-                          title="Click to switch language"
-                        >
-                          <span>{isChichewa ? '🇲🇼 Chichewa SMS' : '🇬🇧 English SMS'}</span>
-                          <span className="text-[9px] text-slate-400 underline">switch</span>
-                        </button>
-                      </div>
-
+                      <span className="text-slate-500 text-[10px]">Alert Message: Emergency Flood SMS</span>
                       <div>
                         {rec.enabled ? (
                           <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
@@ -454,7 +371,7 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
               )}
               <span className="leading-snug">
                 {sendResult.success
-                  ? `Success! Emergency text sent to ${sendResult.sentCount} marked phone${sendResult.sentCount === 1 ? '' : 's'} (${sendResult.chichewaCount || 0} Chichewa, ${sendResult.englishCount || 0} English).`
+                  ? `Success! Emergency text sent to ${sendResult.sentCount} marked phone${sendResult.sentCount === 1 ? '' : 's'}.`
                   : sendResult.error || 'Failed to send text message.'}
               </span>
             </div>

@@ -15,25 +15,13 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
-            android:exported="true"
-            android:showWhenLocked="true"
-            android:turnScreenOn="true">
+            android:exported="true">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Open app when user taps a flood push notification (background / killed) -->
-            <intent-filter>
-                <action android:name="FLDT_ALARM_OPEN" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-
-            <intent-filter>
-                <action android:name="FCM_PLUGIN_ACTIVITY" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
         </activity>
 
         <provider
@@ -46,38 +34,29 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
 
-        <!-- Default channel so system tray notifications work when app is killed -->
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="dzenje_flood_alarm_channel_v1" />
-
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@mipmap/ic_launcher" />
-
-        <!-- Firebase Cloud Messaging — handles data messages when app is background/killed -->
+        <!-- Firebase Cloud Messaging Background Service for Native Flood Alerts -->
         <service
             android:name=".FloodFirebaseMessagingService"
-            android:exported="false"
-            android:directBootAware="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
 
-        <!-- Native AlarmManager for local exact flood alarms + boot restore -->
+        <!-- Native AlarmManager BroadcastReceiver for exact flood alerts & wake lock -->
         <receiver
             android:name=".FloodAlarmReceiver"
-            android:exported="false"
-            android:enabled="true">
+            android:exported="false">
             <intent-filter>
-                <action android:name="com.petediano.autofloodalert.ACTION_TRIGGER_FLOOD_ALARM" />
+                <action android:name="com.dzenjecdsstem.floodalert.ACTION_TRIGGER_FLOOD_ALARM" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
     </application>
+
+    <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -92,6 +71,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- Android AlarmManager Exact Timing & Lockscreen Permissions -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />

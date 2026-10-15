@@ -39,7 +39,6 @@ import { ResidentSafetyReport, FloodAlert, UserProfile, isAppAdmin } from '../ty
 import { firebaseFloodService } from '../services/firebaseService';
 import { GoogleMapsGPSViewer, MapMarkerItem } from './GoogleMapsGPSViewer';
 import { useTranslation } from '../services/i18n';
-import { apkService, ApkConfig } from '../services/apkService';
 
 interface AdminSafetyDashboardViewProps {
   safetyReports: ResidentSafetyReport[];
@@ -75,7 +74,7 @@ export const AdminSafetyDashboardView: React.FC<AdminSafetyDashboardViewProps> =
   onRefresh,
   isRefreshing = false,
 }) => {
-  const { t, isChichewa } = useTranslation();
+  const { t } = useTranslation();
   const [filterCategory, setFilterCategory] = useState<'all' | 'sightings' | 'safe' | 'shelters' | 'help'>('all');
   const [villageFilter, setVillageFilter] = useState<string>('all');
   const [isVillageDropdownOpen, setIsVillageDropdownOpen] = useState(false);
@@ -90,45 +89,6 @@ export const AdminSafetyDashboardView: React.FC<AdminSafetyDashboardViewProps> =
   const [isBroadcastingId, setIsBroadcastingId] = useState<string | null>(null);
   const [userManagementMsg, setUserManagementMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isProcessingUserId, setIsProcessingUserId] = useState<string | null>(null);
-
-  // APK distribution management state
-  const [apkConfig, setApkConfig] = useState<ApkConfig>(() => apkService.getConfig());
-  const [apkInputUrl, setApkInputUrl] = useState(apkConfig.downloadUrl);
-  const [apkInputVersion, setApkInputVersion] = useState(apkConfig.version);
-  const [apkInputNotes, setApkInputNotes] = useState(apkConfig.notes);
-  const [apkSaveSuccess, setApkSaveSuccess] = useState<string | null>(null);
-  const [isSavingApk, setIsSavingApk] = useState(false);
-
-  useEffect(() => {
-    return apkService.subscribe((cfg) => {
-      setApkConfig(cfg);
-      setApkInputUrl(cfg.downloadUrl);
-      setApkInputVersion(cfg.version);
-      setApkInputNotes(cfg.notes);
-    });
-  }, []);
-
-  const handleSaveApkLink = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!apkInputUrl.trim()) return;
-
-    setIsSavingApk(true);
-    setApkSaveSuccess(null);
-    try {
-      await apkService.updateDownloadUrl(
-        apkInputUrl,
-        apkInputVersion,
-        apkInputNotes,
-        currentUser?.name || 'Admin'
-      );
-      setApkSaveSuccess(t.apkLinkSavedSuccess);
-      setTimeout(() => setApkSaveSuccess(null), 5000);
-    } catch (err: any) {
-      alert(err.message || 'Failed to save APK download link');
-    } finally {
-      setIsSavingApk(false);
-    }
-  };
 
   useEffect(() => {
     const unsub = firebaseFloodService.subscribeUsers((usersList) => {
@@ -597,114 +557,7 @@ export const AdminSafetyDashboardView: React.FC<AdminSafetyDashboardViewProps> =
         </div>
       </div>
 
-      {/* ================= 1.6 ANDROID APK DISTRIBUTION CONFIGURATION (PASTE DOWNLOAD LINK) ================= */}
-      <div
-        id="admin-apk-distribution-config-card"
-        className="bg-[#F3F3FA] rounded-[24px] p-4.5 border border-slate-200/80 shadow-xs space-y-3.5"
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-[#1F71E8] text-white flex items-center justify-center shrink-0 shadow-xs font-bold">
-              <Smartphone className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-bold text-base sm:text-lg text-[#1C1B1F] leading-snug">
-                  {t.apkDistributionCardTitle}
-                </h3>
-                <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-blue-100 text-[#1F71E8] border border-blue-200">
-                  {apkConfig.version}
-                </span>
-              </div>
-              <p className="text-xs text-[#49454F] font-medium mt-0.5 leading-normal">
-                {t.apkDistributionCardDesc}
-              </p>
-            </div>
-          </div>
 
-          <a
-            href={apkConfig.downloadUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-3.5 py-1.5 rounded-xl bg-white border border-blue-200 hover:bg-blue-50 text-[#1F71E8] font-bold text-xs flex items-center gap-1.5 shadow-2xs self-start sm:self-center transition"
-          >
-            <Download className="w-3.5 h-3.5 text-[#1F71E8]" />
-            <span>Test APK Link</span>
-          </a>
-        </div>
-
-        {/* Success confirmation toast */}
-        {apkSaveSuccess && (
-          <div className="p-3 bg-emerald-50 text-emerald-900 rounded-2xl border border-emerald-200 text-xs font-bold flex items-center gap-2 animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{apkSaveSuccess}</span>
-          </div>
-        )}
-
-        {/* Edit Form */}
-        <form onSubmit={handleSaveApkLink} className="space-y-3 pt-1">
-          <div className="space-y-1">
-            <label className="text-[11px] font-bold text-[#49454F] uppercase tracking-wider block">
-              {t.pasteApkDownloadLink}
-            </label>
-            <div className="relative">
-              <input
-                type="url"
-                required
-                placeholder="https://github.com/.../app.apk or https://drive.google.com/..."
-                value={apkInputUrl}
-                onChange={(e) => setApkInputUrl(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-mono text-[#1C1B1F] focus:outline-none focus:ring-2 focus:ring-[#1F71E8]"
-              />
-              <LinkIcon className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <div className="space-y-1">
-              <label className="text-[11px] font-bold text-[#49454F] uppercase tracking-wider block">
-                {isChichewa ? 'Mtundu wa Pulogalamu (Version Tag)' : 'Version Tag'}
-              </label>
-              <input
-                type="text"
-                placeholder="v1.2.0 (Build 24)"
-                value={apkInputVersion}
-                onChange={(e) => setApkInputVersion(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-medium text-[#1C1B1F] focus:outline-none focus:ring-2 focus:ring-[#1F71E8]"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[11px] font-bold text-[#49454F] uppercase tracking-wider block">
-                {isChichewa ? 'Zofotokozera za Mtunduwu' : 'Release Summary'}
-              </label>
-              <input
-                type="text"
-                placeholder="Dzenje & Machokola Villages Offline Siren"
-                value={apkInputNotes}
-                onChange={(e) => setApkInputNotes(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-medium text-[#1C1B1F] focus:outline-none focus:ring-2 focus:ring-[#1F71E8]"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-1 gap-2 flex-wrap">
-            <span className="text-[11px] text-[#49454F] font-medium">
-              {isChichewa ? 'Zosungidwa posachedwa ndi:' : 'Last updated by:'}{' '}
-              <strong className="text-slate-800">{apkConfig.updatedBy}</strong>
-            </span>
-
-            <button
-              type="submit"
-              disabled={isSavingApk}
-              className="py-2 px-4 rounded-xl bg-[#1F71E8] hover:bg-blue-700 active:scale-98 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60"
-            >
-              <Save className="w-3.5 h-3.5" />
-              <span>{isSavingApk ? 'Saving...' : t.saveApkLinkBtn}</span>
-            </button>
-          </div>
-        </form>
-      </div>
 
       {/* ================= 1.75 VILLAGE FLOOD SIGHTINGS & CITIZEN REPORTS (DEDICATED ADMIN SECTION) ================= */}
       <div

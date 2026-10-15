@@ -1,4 +1,4 @@
-package com.petediano.autofloodalert;
+package com.dzenjecdsstem.floodalert;
 
 import android.app.PendingIntent;
 import android.content.Context;
@@ -41,6 +41,7 @@ public class NativePowerHelperPlugin extends Plugin {
             ret.put("isIgnoringBatteryOptimizations", true);
             call.resolve(ret);
         } catch (Throwable e) {
+            Log.w(TAG, "isBatteryOptimized error", e);
             JSObject ret = new JSObject();
             ret.put("isIgnoringBatteryOptimizations", true);
             call.resolve(ret);
@@ -54,7 +55,8 @@ public class NativePowerHelperPlugin extends Plugin {
             if (context != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
                 if (pm != null && !pm.isIgnoringBatteryOptimizations(context.getPackageName())) {
-                    Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    Intent intent = new Intent();
+                    intent.setAction(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
                     intent.setData(Uri.parse("package:" + context.getPackageName()));
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     context.startActivity(intent);
@@ -79,7 +81,9 @@ public class NativePowerHelperPlugin extends Plugin {
                     call.resolve(ret);
                     return;
                 }
-            } catch (Throwable ignored) {}
+            } catch (Throwable ex) {
+                Log.w(TAG, "requestDisableBatteryOptimization error", ex);
+            }
             call.reject("Could not open battery settings");
         }
     }
@@ -132,8 +136,12 @@ public class NativePowerHelperPlugin extends Plugin {
             if (context != null) {
                 AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
                 if (audioManager != null) {
-                    audioManager.setStreamVolume(AudioManager.STREAM_ALARM, audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0);
-                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC), 0);
+                    int maxAlarmVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM);
+                    audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxAlarmVolume, 0);
+
+                    int maxMusicVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxMusicVolume, 0);
+
                     JSObject ret = new JSObject();
                     ret.put("boosted", true);
                     call.resolve(ret);
@@ -156,39 +164,48 @@ public class NativePowerHelperPlugin extends Plugin {
                 call.reject("Null context");
                 return;
             }
-            String title = call.getString("title", "FLOOD WARNING ALERT");
+
+            String title = call.getString("title", "🚨 FLOOD WARNING ALERT");
             String body = call.getString("body", "Continuous river rise detected! Evacuate to high ground immediately.");
+
+            // 1. Boost volume to 100% (STREAM_ALARM & STREAM_MUSIC)
             try {
                 AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
                 if (audioManager != null) {
-                    audioManager.setStreamVolume(AudioManager.STREAM_ALARM, audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0);
-                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC), 0);
+                    int maxAlarm = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM);
+                    audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxAlarm, 0);
+                    int maxMusic = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxMusic, 0);
                 }
             } catch (Throwable ignored) {}
 
             Intent intent = new Intent(context, MainActivity.class);
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             PendingIntent pendingIntent = PendingIntent.getActivity(
-                    context, 0, intent,
-                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                            ? PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
-                            : PendingIntent.FLAG_UPDATE_CURRENT);
+                context, 0, intent,
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT : PendingIntent.FLAG_UPDATE_CURRENT
+            );
 
             Uri alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
-            if (alarmSound == null) alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            if (alarmSound == null) {
+                alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            }
 
             NotificationCompat.Builder builder = new NotificationCompat.Builder(context, MainActivity.FLOOD_CHANNEL_ID)
-                    .setSmallIcon(R.mipmap.ic_launcher)
-                    .setContentTitle(title)
-                    .setContentText(body)
-                    .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
-                    .setPriority(NotificationCompat.PRIORITY_MAX)
-                    .setCategory(NotificationCompat.CATEGORY_ALARM)
-                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                    .setContentIntent(pendingIntent)
-                    .setAutoCancel(true)
-                    .setVibrate(new long[]{0, 1000, 300, 1000, 300, 1000});
-            if (alarmSound != null) builder.setSound(alarmSound);
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .setVibrate(new long[]{0, 1000, 300, 1000, 300, 1000});
+
+            if (alarmSound != null) {
+                builder.setSound(alarmSound);
+            }
 
             try {
                 NotificationManagerCompat.from(context).notify((int) System.currentTimeMillis(), builder.build());
@@ -196,6 +213,7 @@ public class NativePowerHelperPlugin extends Plugin {
                 Log.w(TAG, "Notification permission missing", se);
             }
 
+            // Hardware vibration trigger
             try {
                 Vibrator v = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
                 if (v != null && v.hasVibrator()) {
@@ -212,8 +230,9 @@ public class NativePowerHelperPlugin extends Plugin {
             call.resolve(ret);
         } catch (Throwable e) {
             Log.w(TAG, "showNativeFloodAlert error", e);
+            // PluginCall.reject accepts Exception, not Throwable
             call.reject("Failed to show native notification",
-                    e instanceof Exception ? (Exception) e : new Exception(e));
+                e instanceof Exception ? (Exception) e : new Exception(e));
         }
     }
 
@@ -230,6 +249,7 @@ public class NativePowerHelperPlugin extends Plugin {
             ret.put("canSchedule", canSchedule);
             call.resolve(ret);
         } catch (Throwable e) {
+            Log.w(TAG, "canScheduleExactAlarms error: " + e.getMessage());
             JSObject ret = new JSObject();
             ret.put("canSchedule", true);
             call.resolve(ret);
@@ -266,9 +286,10 @@ public class NativePowerHelperPlugin extends Plugin {
                 call.reject("Null context");
                 return;
             }
+
             int alarmId = call.getInt("alarmId", (int) (System.currentTimeMillis() % 100000));
             long triggerAtMillis = call.getLong("triggerAtMillis", System.currentTimeMillis() + 5000);
-            String title = call.getString("title", "CRITICAL FLOOD WARNING");
+            String title = call.getString("title", "🚨 CRITICAL FLOOD WARNING");
             String message = call.getString("message", "Continuous river rise detected! Evacuate immediately.");
             String village = call.getString("village", "Dzenje Village");
 
@@ -280,10 +301,16 @@ public class NativePowerHelperPlugin extends Plugin {
             intent.putExtra(FloodAlarmReceiver.EXTRA_VILLAGE, village);
 
             int pendingFlags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                    ? PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
-                    : PendingIntent.FLAG_UPDATE_CURRENT;
+                ? PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
+                : PendingIntent.FLAG_UPDATE_CURRENT;
 
-            PendingIntent pendingIntent = PendingIntent.getBroadcast(context, alarmId, intent, pendingFlags);
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                context,
+                alarmId,
+                intent,
+                pendingFlags
+            );
+
             android.app.AlarmManager alarmManager = (android.app.AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
             if (alarmManager == null) {
                 call.reject("AlarmManager service unavailable");
@@ -291,21 +318,39 @@ public class NativePowerHelperPlugin extends Plugin {
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent);
+                // Allows alarm to execute even when device is in deep Doze mode
+                alarmManager.setExactAndAllowWhileIdle(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                );
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                alarmManager.setExact(android.app.AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent);
+                alarmManager.setExact(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                );
             } else {
-                alarmManager.set(android.app.AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent);
+                alarmManager.set(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                );
             }
+
+            Log.i(TAG, "Exact flood alarm registered with AlarmManager: id=" + alarmId + " at " + triggerAtMillis);
 
             JSObject ret = new JSObject();
             ret.put("scheduled", true);
             ret.put("alarmId", alarmId);
             ret.put("triggerAtMillis", triggerAtMillis);
             call.resolve(ret);
+
         } catch (SecurityException se) {
-            call.reject("SCHEDULE_EXACT_ALARM permission required: " + se.getMessage());
+            Log.e(TAG, "Exact alarm permission denied: " + se.getMessage());
+            call.reject("SCHEDULE_EXACT_ALARM permission required by Android: " + se.getMessage());
         } catch (Throwable t) {
+            Log.e(TAG, "scheduleExactFloodAlarm failed: " + t.getMessage(), t);
             call.reject("Failed to schedule alarm: " + t.getMessage());
         }
     }
@@ -318,22 +363,36 @@ public class NativePowerHelperPlugin extends Plugin {
                 call.reject("Null context");
                 return;
             }
+
             int alarmId = call.getInt("alarmId", 0);
             Intent intent = new Intent(context, FloodAlarmReceiver.class);
             intent.setAction(FloodAlarmReceiver.ACTION_TRIGGER_FLOOD_ALARM);
+
             int pendingFlags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                    ? PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_NO_CREATE
-                    : PendingIntent.FLAG_NO_CREATE;
-            PendingIntent pendingIntent = PendingIntent.getBroadcast(context, alarmId, intent, pendingFlags);
+                ? PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_NO_CREATE
+                : PendingIntent.FLAG_NO_CREATE;
+
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                context,
+                alarmId,
+                intent,
+                pendingFlags
+            );
+
             if (pendingIntent != null) {
                 android.app.AlarmManager alarmManager = (android.app.AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-                if (alarmManager != null) alarmManager.cancel(pendingIntent);
+                if (alarmManager != null) {
+                    alarmManager.cancel(pendingIntent);
+                }
                 pendingIntent.cancel();
+                Log.i(TAG, "Cancelled exact flood alarm: id=" + alarmId);
             }
+
             JSObject ret = new JSObject();
             ret.put("cancelled", true);
             call.resolve(ret);
         } catch (Throwable t) {
+            Log.w(TAG, "cancelExactFloodAlarm error: " + t.getMessage());
             call.reject("Error cancelling alarm: " + t.getMessage());
         }
     }
