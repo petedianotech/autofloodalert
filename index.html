@@ -78,9 +78,10 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
-          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+          // Single unified worker: offline PWA shell + FCM background push
+          navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' })
             .then(function (reg) {
-              console.log('[PWA] Service Worker active with scope:', reg.scope);
+              console.log('[PWA] Service Worker active:', reg.scope);
               setInterval(function () {
                 try { reg.update(); } catch (e) {}
               }, 30 * 60 * 1000);
@@ -89,13 +90,14 @@
                 if (!nw) return;
                 nw.addEventListener('statechange', function () {
                   if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-                    console.log('[PWA] New version available');
+                    console.log('[PWA] Update ready');
                   }
                 });
               });
             })
             .catch(function (err) {
-              console.warn('[PWA] Service Worker registration:', err);
+              console.warn('[PWA] SW registration failed, trying offline fallback:', err);
+              navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function () {});
             });
         });
       }
