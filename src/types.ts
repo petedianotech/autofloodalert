@@ -108,7 +108,7 @@ export interface FloodAlert {
   notes?: string;
 }
 
-export type SensorDetectionMode = 'motion' | 'sound';
+export type SensorDetectionMode = 'motion' | 'sound' | 'both';
 
 export interface AcousticData {
   decibels: number; // Approximate SPL decibel level (30 - 110 dB)

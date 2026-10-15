@@ -176,39 +176,7 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
     };
   };
 
-  // Lockscreen Wakeup Test State & Alert Audio Playback
-  const [lockscreenTestCountdown, setLockscreenTestCountdown] = useState<number | null>(null);
-  const [lockscreenTestActive, setLockscreenTestActive] = useState(false);
   const [playingAlertId, setPlayingAlertId] = useState<string | null>(null);
-
-  const handleTestLockscreenWakeup = async () => {
-    setLockscreenTestCountdown(5);
-    let count = 5;
-    const interval = window.setInterval(async () => {
-      count -= 1;
-      if (count <= 0) {
-        clearInterval(interval);
-        setLockscreenTestCountdown(null);
-        setLockscreenTestActive(true);
-
-        // Sound emergency siren + Lockscreen MediaSession
-        sirenService.startEmergencySiren();
-
-        // High importance notification with vibration
-        await NotificationService.sendFloodPushNotification(
-          '🚨 CRITICAL FLOOD WARNING (Lockscreen Wakeup Test)',
-          'Loud siren active! Ruo River rising. This demonstrates free lockscreen wakeup on your device.',
-          { isTest: true }
-        );
-
-        setTimeout(() => {
-          setLockscreenTestActive(false);
-        }, 8000);
-      } else {
-        setLockscreenTestCountdown(count);
-      }
-    }, 1000);
-  };
 
   const handleToggleAlertSound = (alert: FloodAlert) => {
     if (playingAlertId === alert.id) {
@@ -250,7 +218,7 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
           <NotificationEnableCard isDarkMode={false} />
           <BatteryOptimizationCard />
 
-          {isAdmin ? (
+          {isAdmin && (
             /* Admin Emergency Siren Command Box */
             <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3 shadow-xs">
               <div className="flex items-center justify-between">
@@ -325,59 +293,6 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
                   >
                     <MessageSquare className="w-4 h-4 text-emerald-600" />
                     <span>SMS</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : (
-            /* Villager / Resident Emergency Fast Card */
-            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-red-200 space-y-3 shadow-xs">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center shadow-xs shrink-0">
-                    <ShieldAlert className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-base text-slate-900 leading-tight">
-                      {t.emergencyRescueStation}
-                    </h3>
-                    <p className="text-xs text-slate-500 font-medium mt-0.5">
-                      {t.villageFloodWarningNetwork}
-                    </p>
-                  </div>
-                </div>
-
-                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-red-50 text-red-800 border border-red-200">
-                  Rescue
-                </span>
-              </div>
-
-              <p className="text-xs text-slate-600 leading-relaxed">
-                If you are cut off by flood water or need emergency assistance, transmit an instant voice message with your phone's GPS location.
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                {onOpenVoiceSOS && (
-                  <button
-                    type="button"
-                    id="btn-alerts-voice-sos"
-                    onClick={onOpenVoiceSOS}
-                    className="flex-1 py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 active:scale-98 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition cursor-pointer min-h-[44px]"
-                  >
-                    <ShieldAlert className="w-4 h-4" />
-                    <span>Send Emergency Voice SOS</span>
-                  </button>
-                )}
-
-                {onOpenSoundModal && (
-                  <button
-                    type="button"
-                    onClick={onOpenSoundModal}
-                    className="py-3 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 active:scale-98 text-slate-800 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer min-h-[44px]"
-                    title="Change Alert Sound"
-                  >
-                    <Music className="w-4 h-4 text-slate-600" />
-                    <span>Sound</span>
                   </button>
                 )}
               </div>
@@ -470,46 +385,7 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
               </div>
             )}
 
-            {/* Free Lockscreen Wakeup & Bedside Watchdog System Card */}
-            <div className="p-3.5 rounded-2xl bg-slate-900 text-white shadow-xs border border-slate-800 space-y-2.5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-red-600 flex items-center justify-center text-white shrink-0 shadow-xs">
-                    <Radio className="w-4 h-4 animate-pulse" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-white leading-tight">
-                      Free Lockscreen Wakeup Engine Active
-                    </h4>
-                    <p className="text-[11px] text-slate-300 font-medium mt-0.5">
-                      MediaSession lockscreen widget, loud audio alarms &amp; high-priority notifications wake your phone.
-                    </p>
-                  </div>
-                </div>
 
-                <button
-                  type="button"
-                  id="btn-test-lockscreen-wakeup"
-                  onClick={handleTestLockscreenWakeup}
-                  disabled={lockscreenTestCountdown !== null}
-                  className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs shrink-0 transition cursor-pointer shadow-xs disabled:opacity-50"
-                  title="Test locking your screen to verify audio alarm rings on lockscreen"
-                >
-                  {lockscreenTestCountdown !== null
-                    ? `Lock Phone! (${lockscreenTestCountdown}s)`
-                    : lockscreenTestActive
-                    ? 'Siren Sounding!'
-                    : 'Test Lockscreen Alert'}
-                </button>
-              </div>
-
-              {lockscreenTestCountdown !== null && (
-                <div className="p-2.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-200 text-xs font-bold flex items-center gap-2 animate-pulse">
-                  <Clock className="w-4 h-4 text-amber-300 shrink-0" />
-                  <span>Press your phone's power/lock button now! Siren will trigger in {lockscreenTestCountdown} seconds.</span>
-                </div>
-              )}
-            </div>
 
             {/* Individual Alert Buttons Feed (Each alert displayed individually on its own button, never stacked) */}
             <div className="space-y-3 pt-1">
@@ -614,21 +490,23 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
 
                       {/* Interactive Buttons for THIS Alert (Each alert has its own action buttons) */}
                       <div className="pt-2 border-t border-slate-200/80 flex items-center gap-2 flex-wrap">
-                        <button
-                          type="button"
-                          id={`btn-sound-alert-${alert.id}`}
-                          onClick={() => handleToggleAlertSound(alert)}
-                          className={`py-1.5 px-3 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs ${
-                            isPlayingThis
-                              ? 'bg-amber-600 hover:bg-amber-700 text-white animate-pulse'
-                              : friendly.isRed
-                              ? 'bg-red-600 hover:bg-red-700 text-white'
-                              : 'bg-white hover:bg-slate-100 border border-slate-200 text-slate-800'
-                          }`}
-                        >
-                          {isPlayingThis ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                          <span>{isPlayingThis ? 'Stop Alarm' : 'Sound Siren'}</span>
-                        </button>
+                        {(!friendly.isResolved && alert.status === 'active') && (
+                          <button
+                            type="button"
+                            id={`btn-sound-alert-${alert.id}`}
+                            onClick={() => handleToggleAlertSound(alert)}
+                            className={`py-1.5 px-3 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                              isPlayingThis
+                                ? 'bg-amber-600 hover:bg-amber-700 text-white animate-pulse'
+                                : friendly.isRed
+                                ? 'bg-red-600 hover:bg-red-700 text-white'
+                                : 'bg-white hover:bg-slate-100 border border-slate-200 text-slate-800'
+                            }`}
+                          >
+                            {isPlayingThis ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                            <span>{isPlayingThis ? 'Stop Alarm' : 'Sound Siren'}</span>
+                          </button>
+                        )}
 
                         {(alert.mapsUrl || (alert.latitude && alert.longitude)) && (
                           <a

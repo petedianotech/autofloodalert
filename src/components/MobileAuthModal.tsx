@@ -249,44 +249,41 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
 
   return (
     <div
-      id="screen-mobile-auth"
-      className="fixed inset-0 z-50 bg-slate-50 flex flex-col h-full w-full overflow-hidden select-none animate-in fade-in duration-200"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Authentication & Profile"
+      className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-200 select-none"
     >
-      {/* Full-Screen Top Header Bar */}
-      <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 py-3 flex items-center justify-between shadow-xs">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 max-w-lg w-full max-h-[88vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+        
+        {/* Professional Modal Header */}
+        <header className="px-5 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+              <User className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight truncate">
+                {currentUser ? 'Your Profile & Settings' : 'Sign In to Flood Alert'}
+              </h2>
+              <p className="text-xs text-slate-500 font-medium truncate">
+                {currentUser ? 'Dzenje CDSS STEM Club Network' : 'Dzenje Early Warning Community'}
+              </p>
+            </div>
+          </div>
+
           <button
-            id="btn-close-auth-modal"
             type="button"
             onClick={currentUser ? onClose : handleContinueAsGuest}
-            className="w-10 h-10 rounded-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 transition active:scale-95 cursor-pointer shrink-0"
-            title="Back"
+            className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition active:scale-95 cursor-pointer shrink-0"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
+        </header>
 
-          <div className="min-w-0">
-            <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-tight truncate">
-              {currentUser ? 'Your Profile & Settings' : 'Sign In to Flood Alert'}
-            </h1>
-            <p className="text-xs text-slate-500 font-medium truncate">
-              {currentUser ? 'Dzenje CDSS STEM Club Network' : 'Dzenje Early Warning Community'}
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={currentUser ? onClose : handleContinueAsGuest}
-          className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition active:scale-95 cursor-pointer"
-        >
-          {currentUser ? 'Done' : 'Guest'}
-        </button>
-      </header>
-
-      {/* Main Full-Screen Area */}
-      <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 pb-24">
-        <div className="max-w-xl mx-auto w-full bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+        {/* Scrollable Modal Body */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
 
         {/* Content Area */}
         {currentUser ? (
@@ -670,7 +667,7 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
           </div>
         )}
         </div>
-      </main>
+      </div>
     </div>
   );
 };

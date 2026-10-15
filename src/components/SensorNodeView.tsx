@@ -51,7 +51,8 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
   onToggleArm,
 }) => {
   const isSensorOn = isArmed;
-  const activeSensorType = activeDetectionMode === 'motion' ? 'vibration' : 'bell';
+  const isBoth = activeDetectionMode === 'both';
+  const activeSensorType = activeDetectionMode === 'motion' ? 'vibration' : activeDetectionMode === 'sound' ? 'bell' : 'both';
 
   // Live calculation helpers
   const decibels = Math.round(soundData.decibels || (isSensorOn ? 46 : 0));
@@ -97,7 +98,7 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
                     isSensorOn ? 'bg-emerald-600 animate-pulse' : 'bg-slate-400'
                   }`}
                 />
-                <span>{isSensorOn ? 'Live (On)' : 'Sensor Off'}</span>
+                <span>{isSensorOn ? (isBoth ? 'Both Sensors Active' : 'Live (On)') : 'Sensor Off'}</span>
               </span>
             </div>
 
@@ -113,7 +114,7 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
                 Select Sensor Detection Mode
               </span>
               <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full">
-                {activeSensorType === 'bell' ? 'Bell Sound Mode' : 'Vibration Sensor Mode'}
+                {isBoth ? 'Both Sensors (Motion & Sound)' : activeSensorType === 'bell' ? 'Bell Sound Mode' : 'Vibration Sensor Mode'}
               </span>
             </div>
 
@@ -122,27 +123,39 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
               <button
                 type="button"
                 onClick={() => onSelectDetectionMode('sound')}
-                className={`flex-1 py-2.5 px-3 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                  activeSensorType === 'bell'
+                className={`flex-1 py-2 px-2 rounded-full text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1 transition cursor-pointer ${
+                  activeDetectionMode === 'sound'
                     ? 'bg-[#1F71E8] text-white shadow-xs'
                     : 'text-[#49454F] hover:text-[#1C1B1F]'
                 }`}
               >
-                <Bell className="w-4 h-4" />
-                <span>Bell Sound Sensor</span>
+                <Bell className="w-3.5 h-3.5" />
+                <span>Bell</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => onSelectDetectionMode('motion')}
-                className={`flex-1 py-2.5 px-3 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                  activeSensorType === 'vibration'
+                className={`flex-1 py-2 px-2 rounded-full text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1 transition cursor-pointer ${
+                  activeDetectionMode === 'motion'
                     ? 'bg-[#1F71E8] text-white shadow-xs'
                     : 'text-[#49454F] hover:text-[#1C1B1F]'
                 }`}
               >
-                <Activity className="w-4 h-4" />
-                <span>Vibration Sensor</span>
+                <Activity className="w-3.5 h-3.5" />
+                <span>Vibration</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onSelectDetectionMode('both' as any)}
+                className={`flex-1 py-2 px-2 rounded-full text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1 transition cursor-pointer ${
+                  activeDetectionMode === 'both'
+                    ? 'bg-[#1F71E8] text-white shadow-xs'
+                    : 'text-[#49454F] hover:text-[#1C1B1F]'
+                }`}
+              >
+                <span>Both</span>
               </button>
             </div>
 
