@@ -28,8 +28,8 @@ export interface UserProfile {
   village: string;
   phone?: string;
   smsAlertsEnabled?: boolean;
-  swipeGesturesEnabled?: boolean; // Off by default (false). Can be turned on in user's profile
-  alertLanguage?: 'en' | 'ny'; // 'en' = Simple English ("Go to high ground"), 'ny' = Chichewa ("Pitani kumalo okwera")
+  swipeGesturesEnabled?: boolean;
+  alertLanguage?: 'en' | 'ny';
   email?: string;
   photoURL?: string;
   authProvider: 'name_village' | 'google';
@@ -51,8 +51,8 @@ export interface MotionData {
   x: number;
   y: number;
   z: number;
-  totalMagnitude: number; // A = sqrt(x^2 + y^2 + z^2)
-  delta: number; // |A - 9.81| (or calibrated baseline offset)
+  totalMagnitude: number;
+  delta: number;
   timestamp: number;
 }
 
@@ -61,18 +61,18 @@ export type FloodSeverity = 'yellow' | 'red';
 export interface GeoLocationCoordinates {
   latitude: number;
   longitude: number;
-  accuracy: number; // in meters
+  accuracy: number;
   altitude?: number | null;
   timestamp: number;
 }
 
 export interface SensorLocation {
-  riverName: string; // e.g. "Ruo River"
-  village: string; // e.g. "Dzenje Village"
-  traditionalAuthority: string; // e.g. "T/A Mabuka"
-  district: string; // e.g. "Mulanje"
-  region: string; // e.g. "Southern Region, Malawi"
-  fullAddress: string; // e.g. "Ruo River, Dzenje Village, T/A Mabuka, Mulanje District, Southern Region, Malawi"
+  riverName: string;
+  village: string;
+  traditionalAuthority: string;
+  district: string;
+  region: string;
+  fullAddress: string;
   coordinates?: GeoLocationCoordinates | null;
   isGpsLive?: boolean;
   gpsAccuracy?: number;
@@ -99,7 +99,7 @@ export interface FloodAlert {
   mapsUrl?: string;
   userId?: string;
   status: 'active' | 'resolved' | 'dismissed';
-  severity?: FloodSeverity; // 'yellow' = Warning/Advisory, 'red' = Critical/Evacuate
+  severity?: FloodSeverity;
   title?: string;
   message?: string;
   dismissedBy?: string;
@@ -108,28 +108,26 @@ export interface FloodAlert {
   notes?: string;
 }
 
-export type SensorDetectionMode = 'motion' | 'sound';
+export type SensorDetectionMode = 'motion' | 'sound' | 'both';
 
 export interface AcousticData {
-  decibels: number; // Approximate SPL decibel level (30 - 110 dB)
-  rms: number; // Root-mean-square amplitude (0.0 - 1.0)
-  peakRms: number; // Peak amplitude
-  resonanceScore: number; // 0 - 100% low-frequency turbulent water roar / rumble
-  frequencyData: number[]; // Normalized frequency bins for visualizer (0 - 255)
+  decibels: number;
+  rms: number;
+  peakRms: number;
+  resonanceScore: number;
+  frequencyData: number[];
   isWaterRoarDetected: boolean;
   sustainedDurationSec: number;
-  triggerProgress: number; // 0.0 - 1.0
+  triggerProgress: number;
   timestamp: number;
-
-  // Continuous Motor-Driven Bicycle Bell Detection & Rejection Metrics
-  bellDetectionScore: number; // 0 - 100% match with metallic bicycle bell profile
-  isBellRingingDetected: boolean; // True when motor-rotated bell is actively detected
+  bellDetectionScore: number;
+  isBellRingingDetected: boolean;
   soundClassification: 'bell_ringing' | 'human_voice' | 'whistle' | 'ambient_noise' | 'water_roar' | 'quiet';
-  voiceRejectionActive: boolean; // True when speech is detected and filtered out
-  whistleRejectionActive: boolean; // True when whistling is filtered out
-  motorCadenceHz: number; // Estimated repetitive motor strike frequency (Hz)
-  bellBandDb: number; // Sound level in 2.4kHz - 4.8kHz bell band
-  speechBandDb: number; // Sound level in 100Hz - 1.4kHz human voice band
+  voiceRejectionActive: boolean;
+  whistleRejectionActive: boolean;
+  motorCadenceHz: number;
+  bellBandDb: number;
+  speechBandDb: number;
 }
 
 export interface AcousticSensorState {
@@ -138,29 +136,29 @@ export interface AcousticSensorState {
   permissionStatus: 'prompt' | 'granted' | 'denied' | 'unsupported';
   isPaused: boolean;
   error?: string;
-  thresholdYellowDb: number; // Default: 68 dB
-  thresholdRedDb: number; // Default: 82 dB
-  resonanceThreshold: number; // Default: 65%
+  thresholdYellowDb: number;
+  thresholdRedDb: number;
+  resonanceThreshold: number;
 }
 
 export interface SensorConfig {
-  thresholdYellow: number; // Default: 0.8 m/s^2 (Advisory Warning)
-  thresholdRed: number; // Default: 1.6 m/s^2 (Critical Evacuation)
-  thresholdDelta: number; // Default: 1.6 m/s^2 (Reference)
-  thresholdYellowDb?: number; // Sound Advisory dB (Default: 68 dB)
-  thresholdRedDb?: number; // Sound Critical dB (Default: 82 dB)
-  soundResonanceSensitivity?: number; // 1.0 - 2.5x (Default: 1.2)
+  thresholdYellow: number;
+  thresholdRed: number;
+  thresholdDelta: number;
+  thresholdYellowDb?: number;
+  thresholdRedDb?: number;
+  soundResonanceSensitivity?: number;
   activeDetectionMode?: SensorDetectionMode;
-  continuousDurationSec: number; // Reference duration
+  continuousDurationSec: number;
   sensorName: string;
   nodeId: string;
   location?: SensorLocation;
-  sirenVolume: number; // 0.0 - 1.0
+  sirenVolume: number;
   autoWakeLock: boolean;
   pushEnabled: boolean;
   soundAlarmOnDevice: boolean;
   highContrastAlert: boolean;
-  baselineGravity: number; // Default 9.81 m/s^2 or calibrated
+  baselineGravity: number;
 }
 
 export interface WakeLockState {
