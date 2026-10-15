@@ -154,15 +154,15 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
   const groupedAlerts = useMemo(() => {
     const groups = new Map<string, AlertGroup>();
     for (const alert of filteredAlerts) {
-      const locKey = `${alert.riverName || 'Ruo River'}-${alert.village || 'Dzenje'}`.toLowerCase();
+      const locKey = `${alert.riverName || 'River'}-${alert.village || 'Community'}`.toLowerCase();
       if (!groups.has(locKey)) {
         groups.set(locKey, {
           id: locKey,
           locationLabel:
             alert.locationLabel ||
-            `${alert.riverName || 'Ruo River'}, ${alert.village || 'Dzenje'}`,
-          riverName: alert.riverName || 'Ruo River',
-          village: alert.village || 'Dzenje',
+            `${alert.riverName || 'River'}, ${alert.village || 'Community'}`,
+          riverName: alert.riverName || 'River',
+          village: alert.village || 'Community',
           hasActive: alert.status === 'active',
           highestSeverity:
             alert.severity === 'red' ? 'red' : alert.severity === 'yellow' ? 'yellow' : 'green',
@@ -188,14 +188,11 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
 
   return (
     <div className="space-y-4 pb-20 select-none">
-      {/* Always show: enable notifications + battery exemption so phone wakes when closed */}
       <NotificationEnableCard isDarkMode={false} />
       <BatteryOptimizationCard />
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5">
-        {/* Left column */}
         <div className="lg:col-span-5 space-y-4">
-          {/* Resident SOS card — always available */}
           <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3.5 shadow-xs">
             <div className="flex items-center gap-2.5">
               <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
@@ -230,7 +227,6 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
             )}
           </div>
 
-          {/* Admin-only: siren broadcast + gateway tools (sending alerts is admin role) */}
           {isAdmin && (
             <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3.5 shadow-xs">
               <div className="flex items-center gap-2.5">
@@ -318,7 +314,6 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
           </div>
         </div>
 
-        {/* Right column: Alerts feed (receive-only for residents) */}
         <div className="lg:col-span-7 space-y-3.5">
           <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3 shadow-xs">
             <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -421,17 +416,16 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
                             <button
                               type="button"
                               onClick={() => onDismissAlert(group.latestAlert.id)}
-                              className="text-[11px] font-bold text-slate-600 hover:text-slate-900 px-2 py-1 rounded-lg bg-white border border-slate-200 cursor-pointer"
+                              className="text-[11px] font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
                             >
-                              {t.clearMyView}
+                              Dismiss
                             </button>
                           )}
-                          {isAdmin && (
+                          {(isAdmin || onDeleteAlert) && (
                             <button
                               type="button"
                               onClick={() => handleItemDelete(group.latestAlert.id)}
-                              className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-red-600 hover:bg-red-50 cursor-pointer"
-                              title="Delete"
+                              className="w-7 h-7 rounded-lg flex items-center justify-center text-red-500 hover:bg-red-50 cursor-pointer"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -440,45 +434,31 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
                       </div>
 
                       {isExpanded && group.allAlerts.length > 1 && (
-                        <div className="pt-2 border-t border-slate-200/80 space-y-1.5">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                            {t.recentUpdatesAtStation}:
-                          </span>
-                          {group.allAlerts.map((subAlert, idx) => {
-                            const subFriendly = getResidentFriendlyAlert(subAlert);
-                            return (
-                              <div
-                                key={subAlert.id || idx}
-                                className="flex items-center justify-between text-xs py-1 border-b border-slate-100 last:border-0"
-                              >
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <span
-                                    className={`w-2 h-2 rounded-full shrink-0 ${
-                                      subAlert.severity === 'red'
-                                        ? 'bg-red-600'
-                                        : subAlert.severity === 'yellow'
-                                        ? 'bg-amber-600'
-                                        : 'bg-emerald-600'
-                                    }`}
-                                  />
-                                  <span className="font-semibold text-slate-800 truncate">{subFriendly.stateLabel}</span>
+                        <div className="pt-2 border-t border-slate-200/60 space-y-2">
+                          {group.allAlerts
+                            .filter((a) => a.id !== group.latestAlert.id)
+                            .map((a) => {
+                              const f = getResidentFriendlyAlert(a);
+                              return (
+                                <div key={a.id} className="pl-2 border-l-2 border-slate-200 text-[11px] space-y-0.5">
+                                  <p className="font-bold text-slate-800">{f.displayTitle}</p>
+                                  <p className="text-slate-600">{f.displayMessage}</p>
+                                  <p className="text-slate-400">
+                                    {a.formattedTime || new Date(a.timestamp).toLocaleTimeString()}
+                                  </p>
                                 </div>
-                                <span className="text-[11px] text-slate-500 font-medium shrink-0 ml-2">
-                                  {subAlert.formattedTime || new Date(subAlert.timestamp).toLocaleTimeString()}
-                                </span>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
                         </div>
                       )}
                     </div>
                   );
                 })
               ) : (
-                <div className="bg-slate-50 rounded-xl p-6 text-center space-y-2 border border-slate-200">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                  <p className="text-xs font-bold text-slate-900">{t.riverChannelsClear}</p>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">{t.alertMsgMonitoring}</p>
+                <div className="text-center py-10 text-slate-400">
+                  <Layers className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm font-medium">No alerts yet</p>
+                  <p className="text-xs mt-1">Flood warnings will appear here when sensors detect rising water</p>
                 </div>
               )}
             </div>
