@@ -601,12 +601,23 @@ class FirebaseFloodService {
           const userEmail = fbUser.email || data.email;
           const cleanName = (data.name || fbUser.displayName || '').toLowerCase().trim().replace(/\s+/g, ' ');
           const cleanVillage = (data.village || '').toLowerCase().trim().replace(/\s+/g, ' ');
+          const isMatchAdminName =
+            cleanName === 'mr skinner' ||
+            cleanName === 'mr. skinner' ||
+            cleanName.includes('mr skinner');
+          const isMatchAdminVillage =
+            cleanVillage.includes('dsenje adda') ||
+            cleanVillage.includes('dzenje adda') ||
+            cleanVillage.includes('dsenje') ||
+            cleanVillage.includes('dzenje');
+          const isClubAccount = cleanName.includes('dzenje cdss adda stem club');
           const isAdminUser =
-            (userEmail && userEmail.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase()) ||
-            (cleanName === 'dzenje cdss adda stem club' && cleanVillage === 'dzenje village');
+            !isClubAccount &&
+            ((userEmail && userEmail.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase()) ||
+              (isMatchAdminName && isMatchAdminVillage));
           profile = {
             uid: fbUser.uid,
-            name: data.name || fbUser.displayName || (isAdminUser ? 'Dzenje CDSS ADDA STEM CLUB' : 'Resident'),
+            name: data.name || fbUser.displayName || (isAdminUser ? 'Mr Skinner' : 'Resident'),
             village: data.village || 'Dzenje Village',
             phone: data.phone || undefined,
             smsAlertsEnabled: data.smsAlertsEnabled !== false,
@@ -745,14 +756,17 @@ class FirebaseFloodService {
 
       const cleanName = trimmedName.toLowerCase().replace(/\s+/g, ' ');
       const cleanVillage = trimmedVillage.toLowerCase().replace(/\s+/g, ' ');
+      const isClubAccount = cleanName.includes('dzenje cdss adda stem club');
       const isMatchAdminName =
-        cleanName === 'dzenje cdss adda stem club' ||
-        cleanName === 'dzenje cdss' ||
-        cleanName === 'adda stem club' ||
-        cleanName.includes('adda stem');
+        cleanName === 'mr skinner' ||
+        cleanName === 'mr. skinner' ||
+        cleanName.includes('mr skinner');
       const isMatchAdminVillage =
-        cleanVillage === 'dzenje village' || cleanVillage === 'dzenje';
-      const isAdminLogin = isMatchAdminName && isMatchAdminVillage;
+        cleanVillage.includes('dsenje adda') ||
+        cleanVillage.includes('dzenje adda') ||
+        cleanVillage.includes('dsenje') ||
+        cleanVillage.includes('dzenje');
+      const isAdminLogin = !isClubAccount && isMatchAdminName && isMatchAdminVillage;
 
       const profile: UserProfile = {
         uid,
@@ -967,9 +981,20 @@ class FirebaseFloodService {
 
     const cleanName = newName.toLowerCase().replace(/\s+/g, ' ');
     const cleanVillage = newVillage.toLowerCase().replace(/\s+/g, ' ');
+    const isMatchAdminName =
+      cleanName === 'mr skinner' ||
+      cleanName === 'mr. skinner' ||
+      cleanName.includes('mr skinner');
+    const isMatchAdminVillage =
+      cleanVillage.includes('dsenje adda') ||
+      cleanVillage.includes('dzenje adda') ||
+      cleanVillage.includes('dsenje') ||
+      cleanVillage.includes('dzenje');
+    const isClubAccount = cleanName.includes('dzenje cdss adda stem club');
     const isAdminUser =
-      (current.email && current.email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase()) ||
-      (cleanName === 'dzenje cdss adda stem club' && cleanVillage === 'dzenje village');
+      !isClubAccount &&
+      ((current.email && current.email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase()) ||
+        (isMatchAdminName && isMatchAdminVillage));
 
     const updatedProfile: UserProfile = {
       ...current,

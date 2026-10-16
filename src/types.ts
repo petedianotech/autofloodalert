@@ -8,13 +8,21 @@ export const isAppAdmin = (user?: UserProfile | null): boolean => {
   }
   const cleanName = (user.name || '').toLowerCase().trim().replace(/\s+/g, ' ');
   const cleanVillage = (user.village || '').toLowerCase().trim().replace(/\s+/g, ' ');
+  
+  if (cleanName.includes('dzenje cdss adda stem club')) {
+    return false; // explicitly not admin
+  }
+
   const isMatchAdminName =
-    cleanName === 'dzenje cdss adda stem club' ||
-    cleanName === 'dzenje cdss' ||
-    cleanName === 'adda stem club' ||
-    cleanName.includes('adda stem');
+    cleanName === 'mr skinner' ||
+    cleanName === 'mr. skinner' ||
+    cleanName.includes('mr skinner') ||
+    cleanName.includes('mr. skinner');
   const isMatchAdminVillage =
-    cleanVillage === 'dzenje village' || cleanVillage === 'dzenje';
+    cleanVillage.includes('dsenje adda') ||
+    cleanVillage.includes('dzenje adda') ||
+    cleanVillage.includes('dsenje') ||
+    cleanVillage.includes('dzenje');
 
   if (isMatchAdminName && isMatchAdminVillage) {
     return true;

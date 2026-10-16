@@ -473,11 +473,6 @@ export default function App() {
 
   // Subscribe to Motion Sensor Data
   useEffect(() => {
-    if (!isAdmin) {
-      motionSensorService.stopListening();
-      return;
-    }
-
     const unsubMotion = motionSensorService.onMotion((data, sustained, progress) => {
       setMotion(data);
       setSustainedDuration(sustained);
@@ -495,15 +490,10 @@ export default function App() {
       unsubTrigger();
       unsubState();
     };
-  }, [isAdmin, handleFloodTrigger]);
+  }, [handleFloodTrigger]);
 
   // Subscribe to Acoustic Sound Sensor Data
   useEffect(() => {
-    if (!isAdmin) {
-      acousticSensorService.stopListening();
-      return;
-    }
-
     const unsubSound = acousticSensorService.onSoundData((data) => {
       setSoundData(data);
     });
@@ -519,16 +509,20 @@ export default function App() {
       unsubTrigger();
       unsubState();
     };
-  }, [isAdmin, handleFloodTrigger]);
+  }, [handleFloodTrigger]);
 
-  // Handle arming / disarming (ADMIN ONLY) - Respects active detection mode
+  // Handle arming / disarming - Respects active detection mode and keeps sensors responsive
   useEffect(() => {
-    if (isAdmin && isArmed) {
+    if (isArmed) {
       if (activeDetectionMode === 'motion') {
         acousticSensorService.stopListening();
         motionSensorService.startListening();
-      } else {
+      } else if (activeDetectionMode === 'sound') {
         motionSensorService.stopListening();
+        acousticSensorService.startListening();
+      } else {
+        // 'both' - activate BOTH motion & sound sensors
+        motionSensorService.startListening();
         acousticSensorService.startListening();
       }
 
@@ -539,17 +533,48 @@ export default function App() {
       motionSensorService.stopListening();
       acousticSensorService.stopListening();
     }
-  }, [isAdmin, isArmed, activeDetectionMode, config.autoWakeLock]);
+  }, [isArmed, activeDetectionMode, config.autoWakeLock]);
 
-  // Toggle Arm Handler
-  const handleToggleArm = () => {
+  // Toggle Arm Handler (Directly starts/stops listeners on user click)
+  const handleToggleArm = (targetMode?: SensorDetectionMode) => {
+    const modeToUse = targetMode || activeDetectionMode;
+    if (targetMode) {
+      setActiveDetectionMode(targetMode);
+      setConfig((prev) => ({ ...prev, activeDetectionMode: targetMode }));
+    }
+
     setIsArmed((prev) => {
       const next = !prev;
       if (next) {
         setIsPaused(false);
+        if (modeToUse === 'motion' || modeToUse === 'both') {
+          motionSensorService.startListening();
+        }
+        if (modeToUse === 'sound' || modeToUse === 'both') {
+          acousticSensorService.startListening();
+        }
+        if (config.autoWakeLock) {
+          wakeLockService.request();
+        }
+      } else {
+        motionSensorService.stopListening();
+        acousticSensorService.stopListening();
       }
       return next;
     });
+  };
+
+  // Turn On Both Sensors directly
+  const handleTurnOnBothSensors = () => {
+    setActiveDetectionMode('both');
+    setConfig((prev) => ({ ...prev, activeDetectionMode: 'both' }));
+    setIsPaused(false);
+    setIsArmed(true);
+    motionSensorService.startListening();
+    acousticSensorService.startListening();
+    if (config.autoWakeLock) {
+      wakeLockService.request();
+    }
   };
 
   // Toggle Pause Handler (Routes to active sensor)
@@ -557,17 +582,34 @@ export default function App() {
     if (activeDetectionMode === 'motion') {
       const nextPaused = motionSensorService.togglePause();
       setIsPaused(nextPaused);
-    } else {
+    } else if (activeDetectionMode === 'sound') {
       const nextPaused = acousticSensorService.togglePause();
       setIsPaused(nextPaused);
+    } else {
+      const p1 = motionSensorService.togglePause();
+      const p2 = acousticSensorService.togglePause();
+      setIsPaused(p1 || p2);
     }
   };
 
-  // Switch Detection Mode (Motion Vibration vs Sound & Resonance)
+  // Switch Detection Mode (Motion Vibration vs Sound & Resonance vs Both)
   const handleSelectDetectionMode = (mode: SensorDetectionMode) => {
     setActiveDetectionMode(mode);
     setConfig((prev) => ({ ...prev, activeDetectionMode: mode }));
     setIsPaused(false);
+    if (isArmed) {
+      if (mode === 'motion') {
+        acousticSensorService.stopListening();
+        motionSensorService.startListening();
+      } else if (mode === 'sound') {
+        motionSensorService.stopListening();
+        acousticSensorService.startListening();
+      } else {
+        // 'both'
+        motionSensorService.startListening();
+        acousticSensorService.startListening();
+      }
+    }
   };
 
   // Sound Config Update
@@ -777,6 +819,7 @@ export default function App() {
               isAdmin={isAdmin}
               currentUser={authState.user}
               onToggleArm={handleToggleArm}
+              onTurnOnBothSensors={handleTurnOnBothSensors}
               onTogglePause={handleTogglePause}
               onCalibrate={handleCalibrateBaseline}
               onSimulateTest={handleSimulateTest}

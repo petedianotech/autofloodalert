@@ -422,7 +422,7 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="e.g. 0999123456 or +265999123456"
+                  placeholder="099..."
                   className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-900 outline-none focus:border-[#1F71E8] focus:ring-1 focus:ring-[#1F71E8]"
                 />
               </div>
@@ -628,7 +628,7 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="e.g. 0999 123 456"
+                    placeholder="099..."
                     className="w-full pl-9.5 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium text-slate-900 outline-none focus:border-[#1F71E8] focus:bg-white focus:ring-1 focus:ring-[#1F71E8]"
                   />
                 </div>

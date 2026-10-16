@@ -349,18 +349,35 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
                 </button>
               </div>
 
-              {/* Emergency Voice SOS Button (Clear, prominent, red) */}
+              {/* Emergency Voice SOS Rescue Card */}
               {onOpenDirectVoiceSOS && (
-                <button
-                  type="button"
-                  id="btn-village-voice-sos"
-                  onClick={onOpenDirectVoiceSOS}
-                  className="w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 active:scale-98 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition cursor-pointer min-h-[44px]"
-                  title="Send Emergency Voice SOS"
-                >
-                  <Mic className="w-4 h-4 shrink-0" />
-                  <span>Emergency Voice SOS (Rescue Line)</span>
-                </button>
+                <div className="p-3.5 rounded-2xl bg-red-50/70 border border-red-200/90 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-7 h-7 rounded-lg bg-red-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                        <Mic className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-red-950 block truncate">Emergency Rescue SOS</span>
+                        <span className="text-[10px] text-red-700 font-medium block truncate">Instant voice &amp; GPS dispatch to rescue team</span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-200 shrink-0">
+                      Live GPS
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    id="btn-village-voice-sos"
+                    onClick={onOpenDirectVoiceSOS}
+                    className="w-full py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 active:scale-98 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition cursor-pointer min-h-[40px]"
+                    title="Send Emergency Voice SOS"
+                  >
+                    <Mic className="w-4 h-4 shrink-0" />
+                    <span>Record &amp; Send Voice SOS</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>

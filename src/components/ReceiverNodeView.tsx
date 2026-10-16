@@ -211,98 +211,9 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
   }, [alerts, statusFilter]);
 
   return (
-    <div className="space-y-4 pb-20 select-none">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left Column: Readiness, Quick Siren Station (Admin) or Fast Help Card (Resident) */}
-        <div className="lg:col-span-5 space-y-4">
-          <NotificationEnableCard isDarkMode={false} />
-          <BatteryOptimizationCard />
-
-          {isAdmin && (
-            /* Admin Emergency Siren Command Box */
-            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3 shadow-xs">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-red-700 shrink-0 shadow-2xs">
-                    <ShieldAlert className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-base text-slate-900 leading-tight">
-                      Village Siren Broadcast
-                    </h3>
-                    <p className="text-xs text-slate-500 font-medium mt-0.5">
-                      Dzenje CDSS STEM Station Warning
-                    </p>
-                  </div>
-                </div>
-
-                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                  Admin
-                </span>
-              </div>
-
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Manually sound or silence the evacuation sirens on connected community devices.
-              </p>
-
-              <div className="pt-1 flex flex-col sm:flex-row gap-2 flex-wrap">
-                <button
-                  type="button"
-                  id="btn-admin-toggle-siren"
-                  onClick={toggleEmergencySiren}
-                  className={`flex-1 font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-xs transition active:scale-98 cursor-pointer min-h-[44px] ${
-                    isSirenActive
-                      ? 'bg-amber-600 hover:bg-amber-700 text-white animate-pulse'
-                      : 'bg-red-600 hover:bg-red-700 text-white'
-                  }`}
-                >
-                  {isSirenActive ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                  <span>{isSirenActive ? 'Stop Emergency Siren' : 'Sound Emergency Siren'}</span>
-                </button>
-
-                {onOpenSoundModal && (
-                  <button
-                    type="button"
-                    onClick={onOpenSoundModal}
-                    className="py-3 px-3.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 active:scale-98 text-slate-800 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer min-h-[44px]"
-                    title="Change Alert Sound"
-                  >
-                    <Music className="w-4 h-4 text-blue-600" />
-                    <span>Sound</span>
-                  </button>
-                )}
-
-                {onOpenFcmModal && (
-                  <button
-                    type="button"
-                    onClick={onOpenFcmModal}
-                    className="py-3 px-3.5 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 active:scale-98 text-blue-800 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer min-h-[44px]"
-                    title="Push Alerts Settings"
-                  >
-                    <BellRing className="w-4 h-4 text-blue-600" />
-                    <span>Push</span>
-                  </button>
-                )}
-
-                {onOpenSmsModal && (
-                  <button
-                    type="button"
-                    onClick={onOpenSmsModal}
-                    className="py-3 px-3.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 active:scale-98 text-emerald-800 text-xs font-bold flex items-center justify-center gap-1.5 transition cursor-pointer min-h-[44px]"
-                    title="SMS Gateway Broadcast"
-                  >
-                    <MessageSquare className="w-4 h-4 text-emerald-600" />
-                    <span>SMS</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Right Column: River Flood Alerts Feed */}
-        <div className="lg:col-span-7 space-y-3.5">
-          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3.5 shadow-xs">
+    <div className="max-w-4xl mx-auto space-y-4 pb-20 select-none">
+      <div className="space-y-3.5">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3.5 shadow-xs">
             {/* Header with Counter and Clear View Action */}
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 flex-wrap gap-2">
               <div className="flex items-center gap-2">
@@ -488,26 +399,8 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
                         </div>
                       </div>
 
-                      {/* Interactive Buttons for THIS Alert (Each alert has its own action buttons) */}
+                      {/* Action Buttons for Alert (Map & Dismiss/Delete) */}
                       <div className="pt-2 border-t border-slate-200/80 flex items-center gap-2 flex-wrap">
-                        {(!friendly.isResolved && alert.status === 'active') && (
-                          <button
-                            type="button"
-                            id={`btn-sound-alert-${alert.id}`}
-                            onClick={() => handleToggleAlertSound(alert)}
-                            className={`py-1.5 px-3 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs ${
-                              isPlayingThis
-                                ? 'bg-amber-600 hover:bg-amber-700 text-white animate-pulse'
-                                : friendly.isRed
-                                ? 'bg-red-600 hover:bg-red-700 text-white'
-                                : 'bg-white hover:bg-slate-100 border border-slate-200 text-slate-800'
-                            }`}
-                          >
-                            {isPlayingThis ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                            <span>{isPlayingThis ? 'Stop Alarm' : 'Sound Siren'}</span>
-                          </button>
-                        )}
-
                         {(alert.mapsUrl || (alert.latitude && alert.longitude)) && (
                           <a
                             href={
@@ -526,7 +419,7 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
                         <button
                           type="button"
                           onClick={() => handleItemDelete(alert.id)}
-                          className="py-1.5 px-3 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold transition flex items-center gap-1.5 ml-auto"
+                          className="py-1.5 px-3 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold transition flex items-center gap-1.5 ml-auto cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>{isAdmin ? 'Delete' : 'Dismiss'}</span>
@@ -547,7 +440,6 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
             </div>
           </div>
         </div>
-      </div>
     </div>
   );
 };

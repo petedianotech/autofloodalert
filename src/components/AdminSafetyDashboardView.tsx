@@ -470,19 +470,6 @@ export const AdminSafetyDashboardView: React.FC<AdminSafetyDashboardViewProps> =
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {onOpenFcmModal && (
-              <button
-                type="button"
-                id="btn-admin-fcm-gateway"
-                onClick={onOpenFcmModal}
-                className="flex items-center gap-1.5 bg-[#4F378B] hover:bg-[#38236B] active:scale-95 text-white px-3 py-1 rounded-full text-xs font-bold transition cursor-pointer shadow-2xs"
-                title="Push Notification Settings"
-              >
-                <BellRing className="w-3.5 h-3.5" />
-                <span>Push Alerts</span>
-              </button>
-            )}
-
             <button
               type="button"
               onClick={() => setShowOverviewMap(true)}

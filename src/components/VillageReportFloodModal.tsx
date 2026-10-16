@@ -301,43 +301,40 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
 
   return (
     <div
-      id="screen-village-report-flood"
-      className="fixed inset-0 z-50 bg-slate-50 flex flex-col h-full w-full overflow-hidden select-none animate-in fade-in duration-200"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Report Flooding to Admin"
+      className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-200 select-none"
     >
-      {/* Full-Screen Top Header Bar */}
-      <header className="sticky top-0 z-20 bg-blue-600 text-white px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-xs">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+        {/* Professional Modal Header */}
+        <header className="px-5 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+              <Droplets className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight truncate">
+                Report Flooding to Admin
+              </h2>
+              <p className="text-xs text-slate-500 font-medium truncate">
+                Attach river sighting &amp; GPS for village rescue
+              </p>
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={handleCloseModal}
-            className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition active:scale-95 cursor-pointer shrink-0"
-            title="Back"
+            className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition active:scale-95 cursor-pointer shrink-0"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
+        </header>
 
-          <div className="min-w-0">
-            <h1 className="text-base sm:text-lg font-bold leading-tight truncate">
-              Report Flooding to Admin
-            </h1>
-            <p className="text-xs text-blue-100 font-medium truncate">
-              Attach river sightings &amp; live GPS for village rescue
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleCloseModal}
-          className="px-3.5 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition active:scale-95 cursor-pointer"
-        >
-          Cancel
-        </button>
-      </header>
-
-      {/* Main Full-Screen Area */}
-      <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 pb-24">
-        <div className="max-w-2xl mx-auto w-full bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden p-5 sm:p-7 text-[#1C1B1F] space-y-5">
+        {/* Scrollable Modal Body */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
           {submittedSuccess ? (
             <div className="py-8 text-center space-y-4">
               <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-sm">
@@ -643,7 +640,7 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
                     <Phone className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
                     <input
                       type="tel"
-                      placeholder="Phone number (e.g. 0991234567)"
+                      placeholder="099..."
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       className="w-full pl-9 pr-3 py-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs font-medium text-[#1C1B1F] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1F71E8]"
@@ -751,7 +748,7 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
             </form>
           )}
         </div>
-      </main>
+      </div>
     </div>
   );
 };

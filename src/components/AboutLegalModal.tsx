@@ -5,7 +5,6 @@ import {
   GraduationCap,
   FileText,
   Lock,
-  Heart,
   ShieldCheck,
   Building,
   Users,
@@ -82,7 +81,6 @@ export const AboutLegalModal: React.FC<AboutLegalModalProps> = ({
                   : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
               }`}
             >
-              <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
               <span>Thanks</span>
             </button>
 
@@ -133,12 +131,12 @@ export const AboutLegalModal: React.FC<AboutLegalModalProps> = ({
           {/* TAB 1: THANKS & CREDITS */}
           {activeTab === 'thanks' && (
             <div className="space-y-4 text-xs sm:text-sm text-slate-700 leading-relaxed">
-              <div className="p-4 rounded-2xl bg-rose-50/70 border border-rose-200 space-y-2">
-                <h3 className="font-bold text-rose-950 text-sm flex items-center gap-2">
-                  <Heart className="w-4 h-4 text-rose-600 fill-rose-600" />
+              <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-200/80 space-y-2">
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <Award className="w-4 h-4 text-blue-600 shrink-0" />
                   <span>Special Acknowledgments &amp; Dedication</span>
                 </h3>
-                <p className="text-xs text-rose-900 font-medium">
+                <p className="text-xs text-slate-600 font-medium leading-relaxed">
                   We express our sincere gratitude to everyone who supported and guided our STEM innovation for community flood safety along the Ruo River.
                 </p>
               </div>

@@ -306,44 +306,40 @@ export const DirectVoiceSOSModal: React.FC<DirectVoiceSOSModalProps> = ({
 
   return (
     <div
-      id="screen-direct-voice-sos"
-      className="fixed inset-0 z-50 bg-slate-900 text-white flex flex-col h-full w-full overflow-hidden select-none animate-in fade-in duration-200"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Emergency Voice SOS"
+      className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-200 select-none"
     >
-      {/* Full-Screen Top Header Bar */}
-      <header className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-md border-b border-white/10 px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-xs">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200/90 max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+        {/* Professional Modal Header */}
+        <header className="px-5 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-red-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+              <Mic className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight truncate">
+                Emergency Voice SOS
+              </h2>
+              <p className="text-xs text-slate-500 font-medium truncate">
+                Direct Line to Village Rescue &bull; Dzenje CDSS ADDA STEM
+              </p>
+            </div>
+          </div>
+
           <button
             type="button"
-            id="btn-close-direct-voice-sos"
             onClick={onClose}
-            className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 text-white transition active:scale-95 cursor-pointer shrink-0"
-            title="Back"
+            className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition active:scale-95 cursor-pointer shrink-0"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
+        </header>
 
-          <div className="min-w-0">
-            <h1 className="text-base sm:text-lg font-bold text-white leading-tight truncate">
-              Emergency Voice SOS
-            </h1>
-            <p className="text-xs text-red-300 font-medium truncate">
-              Direct Line to Village Rescue &bull; Dzenje CDSS ADDA STEM
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition active:scale-95 cursor-pointer"
-        >
-          Cancel
-        </button>
-      </header>
-
-      {/* Main Full-Screen Area */}
-      <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 pb-24 flex flex-col justify-center">
-        <div className="max-w-xl mx-auto w-full bg-slate-800/90 rounded-3xl border border-white/10 shadow-2xl overflow-hidden p-5 sm:p-7 text-white">
+        {/* Scrollable Modal Body */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 text-slate-900">
 
         {/* Confirmed Delivery State */}
         {deliveryStatus === 'confirmed' ? (
@@ -541,7 +537,7 @@ export const DirectVoiceSOSModal: React.FC<DirectVoiceSOSModalProps> = ({
           </div>
         )}
         </div>
-      </main>
+      </div>
     </div>
   );
 };
