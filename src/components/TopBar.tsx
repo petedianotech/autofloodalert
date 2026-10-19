@@ -24,6 +24,34 @@ interface TopBarProps {
   isRefreshing?: boolean;
 }
 
+/** Simple inline Malawi flag (black / red / green horizontal bands + sun) */
+const MalawiFlagIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
+  <svg
+    viewBox="0 0 36 24"
+    className={className}
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+  >
+    <rect width="36" height="8" y="0" fill="#000000" />
+    <rect width="36" height="8" y="8" fill="#CE1126" />
+    <rect width="36" height="8" y="16" fill="#339E35" />
+    {/* Simplified rising sun in the red band */}
+    <circle cx="18" cy="12" r="3.2" fill="#000000" />
+    <g fill="#CE1126">
+      {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
+        <rect
+          key={deg}
+          x="17.2"
+          y="6.5"
+          width="1.6"
+          height="3.5"
+          transform={`rotate(${deg} 18 12)`}
+        />
+      ))}
+    </g>
+  </svg>
+);
+
 export const TopBar: React.FC<TopBarProps> = ({
   currentUser,
   isAdmin = false,
@@ -34,7 +62,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onRefresh,
   isRefreshing = false,
 }) => {
-  const { t } = useTranslation();
+  const { t, toggleLanguage, isChichewa, language } = useTranslation();
 
   const getInitials = () => {
     if (!currentUser?.name) return 'U';
@@ -108,7 +136,9 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <Icon className="w-4 h-4" />
                   <span>{tab.label}</span>
                   {tab.id === 'receiver' && activeAlertCount > 0 && (
-                     <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{activeAlertCount}</span>
+                    <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                      {activeAlertCount}
+                    </span>
                   )}
                 </button>
               );
@@ -116,23 +146,35 @@ export const TopBar: React.FC<TopBarProps> = ({
           </nav>
         )}
 
-        {/* Right: User / Refresh */}
+        {/* Right: Malawi flag language toggle (before refresh) + Refresh + User */}
         <div className="flex items-center gap-2">
-           <button
-              type="button"
-              onClick={onRefresh}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-              title="Refresh Data"
-            >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            </button>
-            <button
-              type="button"
-              onClick={onOpenAuthModal}
-              className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs transition cursor-pointer hover:bg-blue-700"
-            >
-              {getInitials()}
-            </button>
+          {/* Malawi flag button — toggles Chichewa ↔ English */}
+          <button
+            type="button"
+            id="btn-toggle-language"
+            onClick={toggleLanguage}
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-100 transition cursor-pointer border border-slate-200"
+            title={isChichewa ? t.switchToEnglish : t.switchToChichewa}
+            aria-label={isChichewa ? 'Switch to English' : 'Switch to Chichewa'}
+          >
+            <MalawiFlagIcon className="w-6 h-4 rounded-sm shadow-sm" />
+          </button>
+
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+            title="Refresh Data"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            type="button"
+            onClick={onOpenAuthModal}
+            className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs transition cursor-pointer hover:bg-blue-700"
+          >
+            {getInitials()}
+          </button>
         </div>
       </div>
     </header>
