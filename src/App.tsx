@@ -1,8 +1,7 @@
 /**
- * Automatic Flood Alert System — App shell
- * Profile hosts About / Privacy / Terms / Thanks (not TopBar).
+ * Automatic Flood Alert System
  */
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { TopBar } from './components/TopBar';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { MobileAuthModal } from './components/MobileAuthModal';
@@ -20,9 +19,18 @@ import { FcmGatewayModal } from './components/FcmGatewayModal';
 import { CriticalAlarmModal } from './components/CriticalAlarmModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { firebaseFloodService } from './services/firebaseService';
-import { UserProfile, NodeMode, FloodAlert, ResidentSafetyReport, isAppAdmin } from './types';
-
-const STORAGE_KEY_SETTINGS = 'flood_alert_settings_v1';
+import {
+  NodeMode,
+  FloodAlert,
+  ResidentSafetyReport,
+  isAppAdmin,
+  AuthState,
+  MotionData,
+  MotionSensorState,
+  AcousticData,
+  AcousticSensorState,
+  SensorDetectionMode,
+} from './types';
 
 export default function App() {
   const [currentMode, setCurrentMode] = useState<NodeMode>('village');
@@ -37,25 +45,38 @@ export default function App() {
   const [isSafetyModalOpen, setIsSafetyModalOpen] = useState(false);
   const [isSafetyModalAutoVoice, setIsSafetyModalAutoVoice] = useState(false);
   const [isVoiceSosOpen, setIsVoiceSosOpen] = useState(false);
-  const [authState, setAuthState] = useState<{ user: UserProfile | null }>({ user: null });
-  const [alerts, setAlerts] = useState<FloodAlert[]>([]);
-  const [safetyReports, setSafetyReports] = useState<ResidentSafetyReport[]>([]);
+  const [authState, setAuthState] = useState<AuthState>(() => firebaseFloodService.getAuthState());
+  const [alerts, setAlerts] = useState<FloodAlert[]>(() => firebaseFloodService.getLocalAlerts());
+  const [safetyReports, setSafetyReports] = useState<ResidentSafetyReport[]>(() =>
+    firebaseFloodService.getLocalSafetyReports()
+  );
   const [selectedVillage, setSelectedVillage] = useState('Dzenje Village');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshToast, setRefreshToast] = useState<{ message: string } | null>(null);
   const [isArmed, setIsArmed] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [sensorState] = useState<any>(null);
-  const [wakeLockState] = useState<any>(null);
+  const [activeDetectionMode, setActiveDetectionMode] = useState<SensorDetectionMode>('both');
+  const [motion] = useState<MotionData>({
+    x: 0, y: 0, z: 0, delta: 0, totalMagnitude: 9.81, timestamp: Date.now(),
+  });
+  const [sensorState] = useState<MotionSensorState>({
+    isListening: false, permission: 'prompt', baseline: 9.81, lastPeak: 0,
+  } as any);
+  const [soundData] = useState<AcousticData>({
+    decibels: 0, bellDetectionScore: 0, timestamp: Date.now(),
+  } as any);
+  const [acousticState] = useState<AcousticSensorState>({
+    isListening: false, permission: 'prompt',
+  } as any);
 
   const isAdmin = isAppAdmin(authState.user);
   const activeAlertCount = alerts.filter((a) => a.status === 'active').length;
   const activeAlert = alerts.find((a) => a.status === 'active') || null;
 
   useEffect(() => {
-    const unsubAuth = firebaseFloodService.subscribeAuth((user) => {
-      setAuthState({ user });
-      if (user?.village) setSelectedVillage(user.village);
+    const unsubAuth = firebaseFloodService.subscribeAuth((state) => {
+      setAuthState(state);
+      if (state.user?.village) setSelectedVillage(state.user.village);
     });
     const unsubAlerts = firebaseFloodService.subscribeAlerts((list) => setAlerts(list || []));
     const unsubReports = firebaseFloodService.subscribeSafetyReports((list) => setSafetyReports(list || []));
@@ -67,9 +88,14 @@ export default function App() {
   }, []);
 
   const handleSelectMode = useCallback((mode: NodeMode) => setCurrentMode(mode), []);
-  const handleManualRefresh = useCallback(() => {
+  const handleManualRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    setRefreshToast({ message: 'Synced' });
+    try {
+      await firebaseFloodService.manualRefreshAll();
+      setRefreshToast({ message: 'Synced' });
+    } catch {
+      setRefreshToast({ message: 'Sync failed' });
+    }
     setTimeout(() => {
       setIsRefreshing(false);
       setRefreshToast(null);
@@ -79,6 +105,12 @@ export default function App() {
   const handleOpenNormalCheckIn = () => {
     setIsSafetyModalAutoVoice(false);
     setIsSafetyModalOpen(true);
+  };
+  const handleToggleArm = () => setIsArmed((v) => !v);
+  const handleSelectDetectionMode = (mode: SensorDetectionMode) => setActiveDetectionMode(mode);
+  const handleTurnOnBothSensors = () => {
+    setActiveDetectionMode('both');
+    setIsArmed(true);
   };
 
   return (
@@ -90,9 +122,7 @@ export default function App() {
           isDarkMode={isDarkMode}
           isArmed={isArmed}
           isPaused={isPaused}
-          sensorState={sensorState}
-          wakeLockState={wakeLockState}
-          isFirebaseConnected={firebaseFloodService.getIsFirebaseConnected?.() ?? true}
+          isFirebaseConnected={firebaseFloodService.getIsFirebaseConnected()}
           onOpenFirebaseModal={() => setIsFirebaseModalOpen(true)}
           currentUser={authState.user}
           isAdmin={isAdmin}
@@ -131,11 +161,19 @@ export default function App() {
             )}
             {currentMode === 'sensor' && (
               <SensorNodeView
-                isDarkMode={isDarkMode}
+                motion={motion}
+                sensorState={sensorState}
+                soundData={soundData}
+                acousticState={acousticState}
+                activeDetectionMode={activeDetectionMode}
+                onSelectDetectionMode={handleSelectDetectionMode}
+                onTurnOnBothSensors={handleTurnOnBothSensors}
                 isArmed={isArmed}
-                onArmChange={setIsArmed}
                 isPaused={isPaused}
-                onPauseChange={setIsPaused}
+                isDarkMode={isDarkMode}
+                isAdmin={isAdmin}
+                currentUser={authState.user}
+                onToggleArm={handleToggleArm}
               />
             )}
             {currentMode === 'receiver' && (
