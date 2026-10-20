@@ -35,7 +35,6 @@ const MalawiFlagIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5
     <rect width="36" height="8" y="0" fill="#000000" />
     <rect width="36" height="8" y="8" fill="#CE1126" />
     <rect width="36" height="8" y="16" fill="#339E35" />
-    {/* Simplified rising sun in the red band */}
     <circle cx="18" cy="12" r="3.2" fill="#000000" />
     <g fill="#CE1126">
       {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
@@ -62,7 +61,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onRefresh,
   isRefreshing = false,
 }) => {
-  const { t, toggleLanguage, isChichewa, language } = useTranslation();
+  const { t, toggleLanguage, isChichewa } = useTranslation();
 
   const getInitials = () => {
     if (!currentUser?.name) return 'U';
@@ -146,9 +145,8 @@ export const TopBar: React.FC<TopBarProps> = ({
           </nav>
         )}
 
-        {/* Right: Malawi flag language toggle (before refresh) + Refresh + User */}
+        {/* Right: language + refresh + Sign In / Profile */}
         <div className="flex items-center gap-2">
-          {/* Malawi flag button — toggles Chichewa ↔ English */}
           <button
             type="button"
             id="btn-toggle-language"
@@ -168,12 +166,30 @@ export const TopBar: React.FC<TopBarProps> = ({
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
+
           <button
             type="button"
+            id="btn-topbar-user-profile"
             onClick={onOpenAuthModal}
-            className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs transition cursor-pointer hover:bg-blue-700"
+            className={`h-9 px-3 rounded-lg flex items-center gap-2 text-sm font-semibold transition active:scale-[0.98] cursor-pointer border ${
+              currentUser
+                ? 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100'
+                : 'bg-[#1F71E8] text-white border-transparent hover:bg-[#1a63cc]'
+            }`}
+            title={currentUser ? `Signed in as ${currentUser.name}` : (t.signIn || 'Sign In')}
           >
-            {getInitials()}
+            {currentUser ? (
+              <>
+                <div className="w-6 h-6 rounded-full bg-slate-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                  {getInitials()}
+                </div>
+                <span className="max-w-[100px] truncate hidden sm:inline">
+                  {currentUser.name.split(' ')[0]}
+                </span>
+              </>
+            ) : (
+              <span id="btn-topbar-sign-in">{t.signIn || 'Sign In'}</span>
+            )}
           </button>
         </div>
       </div>
