@@ -1,1 +1,1 @@
-// See full content in artifacts - method added
+RESTORE_PENDING_FULL_CONTENT
