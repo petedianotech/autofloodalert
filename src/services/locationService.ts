@@ -4,7 +4,6 @@
  * - Reverse-geocoding support (OpenStreetMap Nominatim + smart offline fallback)
  * - Multi-sensor river station metadata management
  * - Custom preset river stations in Malawi (Ruo River, Dzenje Village, T/A Mabuka, Mulanje)
- * - Mobile browser / PWA: only call getCurrentPosition from a direct user tap (no blocked popup)
  */
 
 import { GeoLocationCoordinates, SensorLocation } from '../types';
@@ -98,30 +97,17 @@ class LocationService {
   }
 
   /**
-   * Acquire real GPS hardware coordinates from the mobile device.
-   * Must be called from a direct user gesture (button click) so the browser
-   * permission bubble is allowed — never from timers or background code.
+   * Acquire real GPS hardware coordinates from the mobile device
+   * Supports native Capacitor Geolocation (APK) with multi-tier fallback to standard web browser API.
    */
-  public async getDeviceGpsCoordinates(options?: {
-    enableHighAccuracy?: boolean;
-    timeout?: number;
-  }): Promise<GeoLocationCoordinates> {
+  public async getDeviceGpsCoordinates(options?: { enableHighAccuracy?: boolean; timeout?: number }): Promise<GeoLocationCoordinates> {
     const enableHighAccuracy = options?.enableHighAccuracy ?? true;
-    const timeout = options?.timeout ?? 15000;
+    const timeout = options?.timeout ?? 12000;
 
-    // Secure context required for geolocation on modern mobile browsers / PWA
-    if (typeof window !== 'undefined' && !window.isSecureContext) {
-      const err: any = new Error(
-        'GPS requires HTTPS (or localhost). Open the app from a secure link, not plain http.'
-      );
-      err.code = 1;
-      throw err;
-    }
-
-    // 1. Native Capacitor (Android APK)
+    // 1. Check if we are running on a native Capacitor platform (Android APK)
     if (Capacitor.isNativePlatform()) {
       try {
-        console.log('[GPS] Native Capacitor — checking permissions...');
+        console.log('[GPS] Detecting native Capacitor platform - checking permissions...');
         const perm = await CapGeolocation.checkPermissions();
         if (perm.location !== 'granted' && perm.coarseLocation !== 'granted') {
           const req = await CapGeolocation.requestPermissions();
@@ -151,7 +137,8 @@ class LocationService {
           err.code = 1;
           throw err;
         }
-        console.warn('[GPS] Native failed, falling back to Web API:', nativeErr);
+        console.warn('[GPS] Native Geolocation attempt failed, falling back to Web API:', nativeErr);
+        // Fall through to standard web geolocation below
       }
     }
 
@@ -161,28 +148,8 @@ class LocationService {
       throw err;
     }
 
-    // Permissions API (when available) — does not open a popup by itself
-    try {
-      if (navigator.permissions && navigator.permissions.query) {
-        const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-        if (status.state === 'denied') {
-          const err: any = new Error(
-            'Location is blocked for this site. Open browser site settings → allow Location, then try again.'
-          );
-          err.code = 1;
-          throw err;
-        }
-      }
-    } catch (permErr: any) {
-      if (permErr?.code === 1) throw permErr;
-      // Permissions API not supported — continue to getCurrentPosition (shows system bubble)
-    }
-
-    const acquirePosition = (
-      highAcc: boolean,
-      tOut: number,
-      maxAge: number
-    ): Promise<GeoLocationCoordinates> => {
+    // Helper promise wrapper for navigator.geolocation
+    const acquirePosition = (highAcc: boolean, tOut: number, maxAge: number): Promise<GeoLocationCoordinates> => {
       return new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(
           (pos) => {
@@ -208,21 +175,22 @@ class LocationService {
       });
     };
 
+    // 2. First attempt: High Accuracy GPS (Satellites + Wi-Fi)
     try {
       return await acquirePosition(enableHighAccuracy, timeout, 0);
     } catch (primaryErr: any) {
+      // If user specifically denied permission (code 1), do not try fallback, report immediately
       if (primaryErr.code === 1 || primaryErr.message?.toLowerCase().includes('denied')) {
-        const err: any = new Error(
-          'Location permission not granted. Tap Allow on the browser permission bubble, or enable Location in site settings.'
-        );
+        const err: any = new Error('Location permission denied in browser. Please tap "Allow" when prompted.');
         err.code = 1;
         throw err;
       }
 
-      console.warn('[GPS] High-accuracy timed out. Trying network coarse fallback...', primaryErr);
+      console.warn('[GPS] High-accuracy lock timed out or unavailable. Trying network coarse fallback...', primaryErr);
 
+      // 3. Second attempt: Coarse Network Location (Cell Tower + Cached Wi-Fi, 60s maxAge)
       try {
-        return await acquirePosition(false, 10000, 60000);
+        return await acquirePosition(false, 8000, 60000);
       } catch (fallbackErr: any) {
         if (fallbackErr.code === 1) {
           const err: any = new Error('Location permission denied in browser.');
@@ -232,8 +200,8 @@ class LocationService {
 
         const msg =
           fallbackErr.code === 2
-            ? 'GPS signal unavailable. Turn ON Location / GPS in phone settings and try outdoors.'
-            : 'GPS fix timed out. Move outdoors or use village center coordinates.';
+            ? 'GPS location signal unavailable. Please ensure Phone Location / GPS is turned ON.'
+            : 'GPS satellite fix timed out. Please check signal or try again outdoors.';
         const finalErr: any = new Error(msg);
         finalErr.code = fallbackErr.code || 3;
         throw finalErr;
@@ -241,6 +209,9 @@ class LocationService {
     }
   }
 
+  /**
+   * Reverse-geocode coordinates to get human-readable location
+   */
   public async reverseGeocode(
     lat: number,
     lng: number
@@ -291,10 +262,14 @@ class LocationService {
         formattedAddress: data.display_name,
       };
     } catch {
+      // Fallback
       return {};
     }
   }
 
+  /**
+   * Build complete formatted address
+   */
   public formatFullAddress(loc: Partial<SensorLocation>): string {
     const parts = [
       loc.riverName ? `${loc.riverName}` : null,
@@ -307,6 +282,9 @@ class LocationService {
     return parts.join(', ');
   }
 
+  /**
+   * Generate Google Maps URL
+   */
   public getMapsUrl(lat?: number, lng?: number): string {
     if (lat === undefined || lng === undefined) return '';
     return `https://www.google.com/maps?q=${lat},${lng}`;

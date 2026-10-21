@@ -62,7 +62,7 @@ const VILLAGES_DATA: VillageData[] = [
     safeAreas: [
       {
         name: 'Chikulumuzu Hill',
-        capacity: '500+ people',
+        capacity: '400+ people',
       },
       {
         name: 'Mayero Church',
@@ -86,6 +86,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
   const isAdmin = isAppAdmin(currentUser);
   const currentVillageName = selectedVillage || currentUser?.village || 'Dzenje Village';
 
+  // Find active village data or fallback to Dzenje Village
   const activeVillageData =
     VILLAGES_DATA.find(
       (v) => v.name.toLowerCase() === currentVillageName.toLowerCase()
@@ -102,6 +103,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
     }
   };
 
+  // Real-time Firestore dynamic stats calculation
   const allReports = safetyReports || [];
   const activeVillageReports = allReports.filter(
     (r) =>
@@ -118,6 +120,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
     0
   );
 
+  // Check if there is an active flood warning for this village
   const activeVillageAlert = alerts.find(
     (a) =>
       a.status === 'active' &&
@@ -126,11 +129,13 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
         activeVillageData.name.toLowerCase().includes(a.village.toLowerCase()))
   );
 
+  // ================= ADMIN VIEW =================
   if (isAdmin) {
     const totalAllPeople = allReports.reduce((sum, r) => sum + (r.peopleCount || 1), 0);
 
     return (
       <div className="space-y-4 pb-20 select-none">
+        {/* Admin Header */}
         <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3.5 shadow-xs">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0">
@@ -161,6 +166,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
           </div>
         </div>
 
+        {/* Responsive Grid of Villages */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {VILLAGES_DATA.map((v) => {
             const vReports = allReports.filter(
@@ -197,7 +203,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
 
                   <div className="space-y-2 pt-3">
                     <span className="text-xs font-bold text-slate-600 block">
-                      {t.safeAreas} ({v.safeAreas.length})
+                      Safe Areas ({v.safeAreas.length})
                     </span>
 
                     {v.safeAreas.map((area, aIdx) => (
@@ -207,7 +213,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <Home className="w-4 h-4 text-emerald-600 shrink-0" />
-                          <span className="font-semibold text-xs text-slate-800 truncate">{area.name === 'Dzenje CDSS Hall' ? t.dzenjeCdssHall : area.name}</span>
+                          <span className="font-semibold text-xs text-slate-800 truncate">{area.name}</span>
                         </div>
                         <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">
                           {area.capacity}
@@ -224,14 +230,21 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
     );
   }
 
+  // ================= VILLAGER / RESIDENT DASHBOARD =================
   return (
     <div className="space-y-4 pb-20 select-none">
+      {/* 0. Native System Enablement Prompts (Auto-hiding once configured) */}
       <NotificationEnableCard isDarkMode={false} />
       <BatteryOptimizationCard />
 
+      {/* Responsive layout: 2-column on desktop/tablets */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left Column: Village Safety Hub & Quick Actions */}
         <div className="lg:col-span-5 space-y-4">
+          
+          {/* ================= 1. PRIMARY VILLAGE DASHBOARD CARD ================= */}
           <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3.5 shadow-xs">
+            {/* Top Row: Selected Village & Quick Switch */}
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
@@ -239,10 +252,10 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-bold text-base text-slate-900 leading-tight truncate">
-                    {activeVillageData.id === 'dzenje' ? t.villageDzenje : activeVillageData.name}
+                    {activeVillageData.name}
                   </h3>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    {t.mulanjeRuoArea}
+                    Mulanje District &bull; Ruo River Area
                   </p>
                 </div>
               </div>
@@ -253,10 +266,11 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
                 className="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-full transition cursor-pointer shrink-0"
                 title="Switch selected village"
               >
-                {t.change}
+                Change
               </button>
             </div>
 
+            {/* Safety Status Banner */}
             {activeVillageAlert ? (
               <div
                 className={`p-3 rounded-xl border flex items-center gap-2.5 ${
@@ -285,29 +299,31 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
               <div className="p-3 rounded-xl bg-emerald-50/80 border border-emerald-200 text-emerald-950 flex items-center gap-2.5">
                 <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
                 <div className="min-w-0 text-xs">
-                  <span className="font-bold text-emerald-900 block">{t.normalMonitoringNoFloods}</span>
-                  <span className="font-medium text-slate-600">{t.riverSensorsWatching}</span>
+                  <span className="font-bold text-emerald-900 block">Normal Monitoring &bull; No Active Floods</span>
+                  <span className="font-medium text-slate-600">River sensors watching water levels continuously.</span>
                 </div>
               </div>
             )}
 
+            {/* Statistics Bar: Check-Ins / Safe / People */}
             <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-100">
               <div className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
-                <span className="text-[11px] text-slate-500 font-medium block">{t.checkIns}</span>
+                <span className="text-[11px] text-slate-500 font-medium block">Check-Ins</span>
                 <span className="text-base font-bold text-slate-900">{realTotalReportsCount}</span>
               </div>
 
               <div className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
-                <span className="text-[11px] text-slate-500 font-medium block">{t.safe}</span>
+                <span className="text-[11px] text-slate-500 font-medium block">Safe</span>
                 <span className="text-base font-bold text-emerald-600">{realSafeCount}</span>
               </div>
 
               <div className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
-                <span className="text-[11px] text-slate-500 font-medium block">{t.people}</span>
+                <span className="text-[11px] text-slate-500 font-medium block">People</span>
                 <span className="text-base font-bold text-blue-600">{realHeadcountSum}</span>
               </div>
             </div>
 
+            {/* Primary Safety Actions: Prioritize "Mark I Am Safe", "Report Floods", and "Voice SOS" */}
             <div className="pt-1 space-y-2">
               <div className="grid grid-cols-2 gap-2">
                 {onOpenCheckInModal && (
@@ -318,7 +334,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
                     className="py-3 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer min-h-[44px]"
                   >
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    <span>{t.markIAmSafe}</span>
+                    <span>Mark I Am Safe</span>
                   </button>
                 )}
 
@@ -329,10 +345,11 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
                   className="py-3 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-98 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer min-h-[44px]"
                 >
                   <Droplets className="w-4 h-4 shrink-0" />
-                  <span>{t.reportFloods}</span>
+                  <span>Report Floods</span>
                 </button>
               </div>
 
+              {/* Emergency Voice SOS Rescue Card */}
               {onOpenDirectVoiceSOS && (
                 <div className="p-3.5 rounded-2xl bg-red-50/70 border border-red-200/90 space-y-2.5">
                   <div className="flex items-center justify-between">
@@ -341,12 +358,12 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
                         <Mic className="w-3.5 h-3.5" />
                       </div>
                       <div className="min-w-0">
-                        <span className="text-xs font-bold text-red-950 block truncate">{t.emergencyRescueSos}</span>
-                        <span className="text-[10px] text-red-700 font-medium block truncate">{t.instantVoiceGps}</span>
+                        <span className="text-xs font-bold text-red-950 block truncate">Emergency Rescue SOS</span>
+                        <span className="text-[10px] text-red-700 font-medium block truncate">Instant voice &amp; GPS dispatch to rescue team</span>
                       </div>
                     </div>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-200 shrink-0">
-                      {t.liveGps}
+                      Live GPS
                     </span>
                   </div>
 
@@ -358,7 +375,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
                     title="Send Emergency Voice SOS"
                   >
                     <Mic className="w-4 h-4 shrink-0" />
-                    <span>{t.recordSendVoiceSos}</span>
+                    <span>Record &amp; Send Voice SOS</span>
                   </button>
                 </div>
               )}
@@ -366,7 +383,9 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
           </div>
         </div>
 
+        {/* Right Column: Safe Areas, Village Selection, & Safety Guide */}
         <div className="lg:col-span-7 space-y-3.5">
+          {/* Segmented Control Tabs */}
           <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200">
             <button
               type="button"
@@ -379,7 +398,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
               }`}
             >
               <Home className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{t.safeAreas} ({activeVillageData.safeAreas.length})</span>
+              <span>Safe Areas ({activeVillageData.safeAreas.length})</span>
             </button>
 
             <button
@@ -393,7 +412,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
               }`}
             >
               <MapPin className="w-3.5 h-3.5 text-blue-600" />
-              <span>{t.switchVillage}</span>
+              <span>Switch Village</span>
             </button>
 
             <button
@@ -407,23 +426,24 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
               }`}
             >
               <Info className="w-3.5 h-3.5 text-amber-600" />
-              <span>{t.safetyGuide}</span>
+              <span>Safety Guide</span>
             </button>
           </div>
 
+          {/* TAB 1: SAFE HIGH GROUND SHELTERS */}
           {activeTabSection === 'shelters' && (
             <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3 shadow-xs">
               <div className="flex items-center justify-between pb-1 border-b border-slate-100">
                 <div>
                   <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                    {t.safeHighGroundEvacuationAreas}
+                    Safe High Ground Evacuation Areas
                   </h4>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    {t.designatedSheltersForResidents}
+                    Designated shelters for residents in {activeVillageData.name}
                   </p>
                 </div>
                 <span className="text-xs bg-emerald-50 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full border border-emerald-200">
-                  {t.highGround}
+                  High Ground
                 </span>
               </div>
 
@@ -439,16 +459,16 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
                       </div>
                       <div className="min-w-0">
                         <h5 className="font-bold text-sm text-slate-900 leading-tight">
-                          {area.name === 'Dzenje CDSS Hall' ? t.dzenjeCdssHall : area.name}
+                          {area.name}
                         </h5>
                         <span className="text-xs text-emerald-700 font-medium block mt-0.5">
-                          {t.highGroundEvacuationShelter}
+                          High Ground Evacuation Shelter
                         </span>
                       </div>
                     </div>
 
                     <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-600">
-                      <span className="font-medium">{t.capacity}</span>
+                      <span className="font-medium">Capacity:</span>
                       <span className="font-bold text-slate-900">{area.capacity}</span>
                     </div>
                   </div>
@@ -457,12 +477,13 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
             </div>
           )}
 
+          {/* TAB 2: SWITCH VILLAGE */}
           {activeTabSection === 'villages' && (
             <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3 shadow-xs">
               <div className="flex items-center justify-between pb-1 border-b border-slate-100">
                 <div>
                   <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                    {t.selectVillage}
+                    Select Your Village
                   </h4>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
                     Tap to view flood status and shelters for another village
@@ -497,16 +518,18 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
                       <div className="flex items-start justify-between gap-2 w-full">
                         <div className="flex items-center gap-2">
                           <MapPin className={`w-4 h-4 ${isSelected ? 'text-blue-600' : 'text-slate-400'}`} />
-                          <span className="font-bold text-sm text-slate-900">
-                            {v.id === 'dzenje' ? t.villageDzenje : v.name}
-                          </span>
+                          <span className="font-bold text-sm text-slate-900">{v.name}</span>
                         </div>
                         {isSelected && (
-                          <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white">
+                            Active
+                          </span>
                         )}
                       </div>
-                      <div className="mt-2 text-xs text-slate-500 font-medium">
-                        {vPeopleCount} {t.people}
+
+                      <div className="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-500 w-full">
+                        <span>{v.safeAreas.length} Safe Area{v.safeAreas.length > 1 ? 's' : ''}</span>
+                        <span className="font-semibold text-slate-700">{vPeopleCount} checked in</span>
                       </div>
                     </button>
                   );
@@ -515,23 +538,67 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
             </div>
           )}
 
+          {/* TAB 3: SAFETY GUIDE */}
           {activeTabSection === 'guide' && (
             <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3 shadow-xs">
-              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider pb-1 border-b border-slate-100">
-                {t.safetyGuide}
-              </h4>
-              <div className="space-y-3 pt-1">
-                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                  <p className="text-xs font-bold text-emerald-900">{t.evacStep1Title}</p>
-                  <p className="text-xs text-slate-600 mt-1">{t.evacStep1Desc}</p>
+              <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    What To Do In A Flood Warning
+                  </h4>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Clear safety steps for families in the village
+                  </p>
                 </div>
-                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
-                  <p className="text-xs font-bold text-amber-900">{t.evacStep2Title}</p>
-                  <p className="text-xs text-slate-600 mt-1">{t.evacStep2Desc}</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-2.5">
+                  <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                    1
+                  </span>
+                  <div>
+                    <h5 className="font-bold text-xs text-slate-900">Move to High Ground Now</h5>
+                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                      Do not wait for water to reach your home. Walk to designated high ground right away.
+                    </p>
+                  </div>
                 </div>
-                <div className="p-3 rounded-xl bg-blue-50 border border-blue-200">
-                  <p className="text-xs font-bold text-blue-900">{t.evacStep3Title}</p>
-                  <p className="text-xs text-slate-600 mt-1">{t.evacStep3Desc}</p>
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-2.5">
+                  <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                    2
+                  </span>
+                  <div>
+                    <h5 className="font-bold text-xs text-slate-900">Never Cross Fast River Water</h5>
+                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                      Moving flood water can sweep away people and animals. Stay on dry land.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-2.5">
+                  <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                    3
+                  </span>
+                  <div>
+                    <h5 className="font-bold text-xs text-slate-900">Assist Neighbors &amp; Children</h5>
+                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                      Help children, the sick, and elderly family members reach high ground safely.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-2.5">
+                  <span className="w-6 h-6 rounded-full bg-red-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                    4
+                  </span>
+                  <div>
+                    <h5 className="font-bold text-xs text-slate-900">Send Voice SOS If Trapped</h5>
+                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                      Tap the red Emergency Voice SOS button to record where you are and call for rescue.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -539,14 +606,13 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
         </div>
       </div>
 
-      {isInternalReportModalOpen && (
-        <VillageReportFloodModal
-          isOpen={isInternalReportModalOpen}
-          onClose={() => setIsInternalReportModalOpen(false)}
-          currentUser={currentUser}
-          selectedVillage={activeVillageData.name}
-        />
-      )}
+      {/* Village Citizen Flood Reporting Modal */}
+      <VillageReportFloodModal
+        isOpen={isInternalReportModalOpen}
+        onClose={() => setIsInternalReportModalOpen(false)}
+        currentUser={currentUser}
+        selectedVillage={activeVillageData.name}
+      />
     </div>
   );
 };

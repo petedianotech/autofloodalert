@@ -49,6 +49,10 @@ const STORAGE_KEY_SAFETY_REPORTS = 'flood_alert_safety_reports_local';
 const STORAGE_KEY_CACHED_USERS = 'fldt_cached_users_v2';
 const BROADCAST_CHANNEL_NAME = 'flood_alert_system_sync';
 
+/**
+ * Utility to strip undefined keys recursively so Firestore addDoc/setDoc never throws
+ * "Unsupported field value: undefined" errors.
+ */
 function cleanFirestorePayload<T extends Record<string, any>>(obj: T): Record<string, any> {
   const result: Record<string, any> = {};
   for (const [key, value] of Object.entries(obj)) {
@@ -82,7 +86,10 @@ export interface FirestoreErrorInfo {
     emailVerified?: boolean | null;
     isAnonymous?: boolean | null;
     tenantId?: string | null;
-    providerInfo?: { providerId?: string | null; email?: string | null }[];
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
   };
 }
 
@@ -120,7 +127,9 @@ class FirebaseFloodService {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) return parsed;
       }
-    } catch {}
+    } catch {
+      // ignore
+    }
     return [];
   }
 
@@ -128,14 +137,19 @@ class FirebaseFloodService {
     try {
       this.cachedUsers = users;
       localStorage.setItem(STORAGE_KEY_CACHED_USERS, JSON.stringify(users));
-    } catch {}
+    } catch {
+      // ignore
+    }
   }
 
   private upsertCachedUser(profile: UserProfile) {
     const existing = [...this.cachedUsers];
     const index = existing.findIndex((u) => u.uid === profile.uid || (profile.email && u.email === profile.email));
-    if (index >= 0) existing[index] = { ...existing[index], ...profile };
-    else existing.unshift(profile);
+    if (index >= 0) {
+      existing[index] = { ...existing[index], ...profile };
+    } else {
+      existing.unshift(profile);
+    }
     this.saveCachedUsers(existing);
     this.notifyUsers(existing);
   }
@@ -150,7 +164,10 @@ class FirebaseFloodService {
         emailVerified: currentFbUser?.emailVerified,
         isAnonymous: currentFbUser?.isAnonymous,
         tenantId: currentFbUser?.tenantId,
-        providerInfo: currentFbUser?.providerData?.map((p) => ({ providerId: p.providerId, email: p.email })) || [],
+        providerInfo: currentFbUser?.providerData?.map((provider) => ({
+          providerId: provider.providerId,
+          email: provider.email,
+        })) || [],
       },
       operationType,
       path,
@@ -163,35 +180,87 @@ class FirebaseFloodService {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       try {
         this.broadcastChannel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
-      } catch {}
+        this.broadcastChannel.onmessage = (event) => {
+          if (event.data && event.data.type === 'NEW_ALERT') {
+            this.handleLocalAlertReceived(event.data.alert);
+          } else if (event.data && event.data.type === 'UPDATE_ALERT') {
+            this.handleLocalAlertUpdated(event.data.alert);
+          } else if (event.data && event.data.type === 'DELETE_ALERT') {
+            this.handleLocalAlertDeleted(event.data.alertId);
+          } else if (event.data && event.data.type === 'CLEAR_ALERTS') {
+            this.notifyAlerts([]);
+          } else if (event.data && event.data.type === 'NEW_SAFETY_REPORT') {
+            this.handleLocalSafetyReportReceived(event.data.report);
+          } else if (event.data && event.data.type === 'DELETE_SAFETY_REPORT') {
+            this.handleLocalSafetyReportDeleted(event.data.reportId);
+          } else if (event.data && event.data.type === 'CLEAR_SAFETY_REPORTS') {
+            this.notifySafetyReports([]);
+          } else if (event.data && (event.data.type === 'NEW_USER' || event.data.type === 'USER_SIGNED_IN')) {
+            if (event.data.user) {
+              this.upsertCachedUser(event.data.user);
+            }
+          }
+        };
+      } catch (err) {
+        console.warn('BroadcastChannel not available:', err);
+      }
     }
   }
 
   private async initFirebase() {
     try {
-      if (!getApps().length) this.app = initializeApp(firebaseConfigJson);
-      else this.app = getApp();
-      this.db = getFirestore(this.app, (firebaseConfigJson as any).firestoreDatabaseId);
+      if (!getApps().length) {
+        this.app = initializeApp(firebaseConfigJson);
+      } else {
+        this.app = getApp();
+      }
+
+      // CRITICAL: Initialize Firestore with configured databaseId
+      this.db = getFirestore(this.app, firebaseConfigJson.firestoreDatabaseId);
       this.auth = getAuth(this.app);
       this.isFirebaseActive = true;
+
+      // Validate connection to server
+      this.testConnection();
+
+      // Listen to Firebase Auth state
       onAuthStateChanged(this.auth, async (fbUser) => {
-        if (fbUser) await this.syncUserProfile(fbUser);
-        else {
-          const cached = this.getCachedProfile();
-          this.updateAuthState({
-            user: cached,
-            firebaseUid: cached?.uid || null,
-            isAuthenticated: !!cached,
-            isLoading: false,
-          });
+        if (fbUser) {
+          await this.syncUserProfile(fbUser);
+        } else {
+          // Check local cached profile
+          const cachedProfile = this.getCachedProfile();
+          if (cachedProfile) {
+            this.updateAuthState({
+              user: cachedProfile,
+              firebaseUid: cachedProfile.uid,
+              isAuthenticated: true,
+              isLoading: false,
+            });
+          } else {
+            this.updateAuthState({
+              user: null,
+              firebaseUid: null,
+              isAuthenticated: false,
+              isLoading: false,
+            });
+          }
         }
       });
+
       this.subscribeFirestoreAlerts();
       this.subscribeFirestoreSafetyReports();
       this.subscribeFirestoreUsers();
-      if (this.db) smsGatewayService.syncUsersFromFirestore(this.db);
+      if (this.db) {
+        smsGatewayService.syncUsersFromFirestore(this.db);
+      }
+
+      // Fast initial server pull in parallel to quickly render freshest Firestore data
+      this.fetchInitialDataFromServer().catch((pullErr) => {
+        console.warn('Initial server fetch note:', pullErr);
+      });
     } catch (err) {
-      console.warn('Firebase init error:', err);
+      console.warn('Firebase initialization error:', err);
       this.isFirebaseActive = false;
       const cached = this.getCachedProfile();
       this.updateAuthState({
@@ -203,227 +272,148 @@ class FirebaseFloodService {
     }
   }
 
-  public getAuthState(): AuthState {
-    return this.currentAuthState;
-  }
-
-  private updateAuthState(state: AuthState) {
-    this.currentAuthState = state;
-    this.authListeners.forEach((cb) => cb(state));
-  }
-
-  public subscribeAuth(cb: (state: AuthState) => void): () => void {
-    this.authListeners.add(cb);
-    cb(this.currentAuthState);
-    return () => this.authListeners.delete(cb);
-  }
-
-  public subscribeUsers(cb: (users: UserProfile[]) => void): () => void {
-    this.userListeners.add(cb);
-    cb(this.cachedUsers);
-    return () => this.userListeners.delete(cb);
-  }
-
-  private notifyUsers(users: UserProfile[]) {
-    this.userListeners.forEach((cb) => cb(users));
-  }
-
-  public subscribeAlerts(cb: (alerts: FloodAlert[]) => void): () => void {
-    this.alertListeners.add(cb);
-    cb(this.getLocalAlerts());
-    return () => this.alertListeners.delete(cb);
-  }
-
-  private notifyAlerts(alerts: FloodAlert[]) {
-    this.alertListeners.forEach((cb) => cb(alerts));
-  }
-
-  public subscribeSafetyReports(cb: (reports: ResidentSafetyReport[]) => void): () => void {
-    this.safetyListeners.add(cb);
-    cb(this.getLocalSafetyReports());
-    return () => this.safetyListeners.delete(cb);
-  }
-
-  private notifySafetyReports(reports: ResidentSafetyReport[]) {
-    this.safetyListeners.forEach((cb) => cb(reports));
-  }
-
-  private getCachedProfile(): UserProfile | null {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY_USER_PROFILE);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  private saveCachedProfile(profile: UserProfile) {
-    try {
-      localStorage.setItem(STORAGE_KEY_USER_PROFILE, JSON.stringify(profile));
-    } catch {}
-  }
-
-  public getLocalAlerts(): FloodAlert[] {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY_ALERTS);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private saveLocalAlerts(alerts: FloodAlert[]) {
-    try {
-      localStorage.setItem(STORAGE_KEY_ALERTS, JSON.stringify(alerts));
-    } catch {}
-  }
-
-  public getLocalSafetyReports(): ResidentSafetyReport[] {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY_SAFETY_REPORTS);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private saveLocalSafetyReports(reports: ResidentSafetyReport[]) {
-    try {
-      localStorage.setItem(STORAGE_KEY_SAFETY_REPORTS, JSON.stringify(reports));
-    } catch {}
-  }
-
-  private async syncUserProfile(fbUser: User) {
-    const cached = this.getCachedProfile();
-    if (cached) {
-      this.updateAuthState({
-        user: cached,
-        firebaseUid: fbUser.uid,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-    }
-  }
-
-  private subscribeFirestoreAlerts() {
+  /**
+   * Fast initial server query on app startup to guarantee freshest state immediately
+   */
+  private async fetchInitialDataFromServer(): Promise<void> {
     if (!this.db) return;
     try {
-      const q = query(collection(this.db, 'flood_alerts'), orderBy('timestamp', 'desc'), limit(50));
-      this.firestoreUnsubscribe = onSnapshot(q, (snap) => {
-        const alerts: FloodAlert[] = [];
-        snap.forEach((d) => {
-          const data = d.data();
-          alerts.push({ id: d.id, ...(data as any) });
-        });
-        this.saveLocalAlerts(alerts);
-        this.notifyAlerts(alerts);
-      });
-    } catch (err) {
-      console.warn('alerts subscribe:', err);
-    }
-  }
-
-  private subscribeFirestoreSafetyReports() {
-    if (!this.db) return;
-    try {
-      const q = query(collection(this.db, 'safety_reports'), orderBy('timestamp', 'desc'), limit(100));
-      this.safetyFirestoreUnsubscribe = onSnapshot(q, (snap) => {
-        const reports: ResidentSafetyReport[] = [];
-        snap.forEach((d) => {
-          const data = d.data();
-          reports.push({ id: d.id, ...(data as any) });
-        });
-        this.saveLocalSafetyReports(reports);
-        this.notifySafetyReports(reports);
-      });
-    } catch (err) {
-      console.warn('safety subscribe:', err);
-    }
-  }
-
-  private subscribeFirestoreUsers() {
-    if (!this.db) return;
-    try {
-      this.userFirestoreUnsubscribe = onSnapshot(collection(this.db, 'users'), (snap) => {
+      // 1. Fetch live users
+      const usersSnap = await getDocs(collection(this.db, 'users'));
+      if (!usersSnap.empty) {
         const users: UserProfile[] = [];
-        snap.forEach((d) => {
-          const data = d.data();
+        usersSnap.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
           users.push({
-            uid: d.id,
+            uid: docSnapshot.id,
             name: data.name || 'Community Member',
             village: data.village || 'Dzenje Village',
             phone: data.phone,
             email: data.email,
             smsAlertsEnabled: data.smsAlertsEnabled !== false,
-            alertLanguage: data.alertLanguage || 'en',
+            alertLanguage: data.alertLanguage || 'ny',
             authProvider: data.authProvider || 'name_village',
             role: data.role || 'resident',
             createdAt: data.createdAt,
             updatedAt: data.updatedAt,
           });
         });
-        this.saveCachedUsers(users);
-        this.notifyUsers(users);
-      });
-    } catch (err) {
-      console.warn('users subscribe:', err);
-    }
-  }
-
-  public async updateUserSmsAlerts(userId: string, enabled: boolean): Promise<void> {
-    const updatedAt = new Date().toISOString();
-    if (this.db) {
-      try {
-        await setDoc(doc(this.db, 'users', userId), { smsAlertsEnabled: enabled, updatedAt }, { merge: true });
-        try {
-          await setDoc(doc(this.db, 'sms_recipients', userId), { enabled, updatedAt }, { merge: true });
-        } catch {}
-      } catch (err) {
-        this.handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
+        if (users.length > 0) {
+          this.saveCachedUsers(users);
+          this.notifyUsers(users);
+        }
       }
-    }
-    this.cachedUsers = this.cachedUsers.map((u) =>
-      u.uid === userId ? { ...u, smsAlertsEnabled: enabled, updatedAt } : u
-    );
-    this.notifyUsers(this.cachedUsers);
-    const target = this.cachedUsers.find((u) => u.uid === userId);
-    if (target?.phone) {
-      smsGatewayService.addOrUpdateUserRecipient({
-        uid: target.uid,
-        name: target.name,
-        phone: target.phone,
-        village: target.village,
-        role: target.role === 'admin' ? 'Village Admin' : 'Registered Resident',
-        enabled,
-      });
-      smsGatewayService.toggleRecipient(userId, enabled);
+
+      // 2. Fetch live alerts
+      const alertsSnap = await getDocs(
+        query(collection(this.db, 'flood_alerts'), orderBy('timestamp', 'desc'), limit(50))
+      );
+      if (!alertsSnap.empty) {
+        const alerts: FloodAlert[] = [];
+        alertsSnap.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
+          alerts.push({
+            id: docSnapshot.id,
+            timestamp: data.timestamp || Date.now(),
+            formattedTime: data.formattedTime || new Date(data.timestamp || Date.now()).toLocaleTimeString(),
+            peakDelta: data.peakDelta || 0,
+            durationSeconds: data.durationSeconds || 0,
+            nodeId: data.nodeId || 'node-unknown',
+            nodeName: data.nodeName || 'Sensor Node',
+            village: data.village || data.location?.village || 'Dzenje',
+            location: data.location,
+            locationLabel: data.locationLabel || (data.location ? `${data.location.riverName}, ${data.location.village}` : undefined),
+            riverName: data.riverName || data.location?.riverName,
+            traditionalAuthority: data.traditionalAuthority || data.location?.traditionalAuthority,
+            district: data.district || data.location?.district,
+            region: data.region || data.location?.region,
+            latitude: data.latitude ?? data.location?.coordinates?.latitude,
+            longitude: data.longitude ?? data.location?.coordinates?.longitude,
+            mapsUrl: data.mapsUrl || data.location?.mapsUrl,
+            userId: data.userId,
+            status: data.status || 'active',
+            severity: data.severity || (data.peakDelta >= 1.5 ? 'red' : 'yellow'),
+            title: data.title,
+            message: data.message,
+            dismissedBy: data.dismissedBy,
+            dismissedAt: data.dismissedAt,
+            source: data.source || 'hardware_sensor',
+            notes: data.notes,
+          });
+        });
+        if (alerts.length > 0) {
+          this.saveLocalAlerts(alerts);
+          this.notifyAlerts(alerts);
+        }
+      }
+
+      // 3. Fetch live safety reports
+      const safetySnap = await getDocs(
+        query(collection(this.db, 'safety_reports'), orderBy('timestamp', 'desc'), limit(100))
+      );
+      if (!safetySnap.empty) {
+        const reports: ResidentSafetyReport[] = [];
+        safetySnap.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
+          reports.push({
+            id: docSnapshot.id,
+            userId: data.userId || 'anonymous',
+            userName: data.userName || 'Resident',
+            village: data.village || 'Dzenje Village',
+            status: data.status || 'safe',
+            statusLabel: data.statusLabel,
+            peopleCount: data.peopleCount,
+            phone: data.phone,
+            message: data.message,
+            timestamp: data.timestamp || Date.now(),
+            formattedTime: data.formattedTime || new Date(data.timestamp || Date.now()).toLocaleTimeString(),
+            latitude: data.latitude,
+            longitude: data.longitude,
+            mapsUrl: data.mapsUrl,
+            voiceAudioBase64: data.voiceAudioBase64,
+            voiceDurationSec: data.voiceDurationSec,
+            hasVoiceNote: data.hasVoiceNote || !!data.voiceAudioBase64,
+            updatedAt: data.updatedAt,
+          });
+        });
+        if (reports.length > 0) {
+          this.saveLocalSafetyReports(reports);
+          this.notifySafetyReports(reports);
+        }
+      }
+    } catch (err) {
+      console.warn('fetchInitialDataFromServer warning:', err);
     }
   }
 
-  public async updateUserRole(userId: string, newRole: 'admin' | 'resident'): Promise<void> {
-    const updatedAt = new Date().toISOString();
-    if (this.db) {
-      await setDoc(doc(this.db, 'users', userId), { role: newRole, updatedAt }, { merge: true });
+  public async testConnection(): Promise<boolean> {
+    if (!this.db) return false;
+    try {
+      await getDocFromServer(doc(this.db, 'test', 'connection'));
+      return true;
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('the client is offline')) {
+        console.warn('Firebase client is offline, check configuration.');
+      }
+      return false;
     }
-    this.cachedUsers = this.cachedUsers.map((u) =>
-      u.uid === userId ? { ...u, role: newRole, updatedAt } : u
-    );
-    this.notifyUsers(this.cachedUsers);
   }
 
-  public async deleteUser(userId: string): Promise<void> {
-    if (this.db) {
-      await deleteDoc(doc(this.db, 'users', userId));
-      try {
-        await deleteDoc(doc(this.db, 'sms_recipients', userId));
-      } catch {}
-    }
-    this.cachedUsers = this.cachedUsers.filter((u) => u.uid !== userId);
-    this.notifyUsers(this.cachedUsers);
-    smsGatewayService.removeRecipient(userId);
-  }
-
-  public async manualRefreshAll(): Promise<any> {
+  /**
+   * Real, Authentic Manual Refresh:
+   * Direct server query to Firestore (bypasses stale client caches).
+   * Immediately retrieves newly registered users, alerts, and reports.
+   * Syncs new phone numbers into SMS Gateway recipients immediately.
+   */
+  public async manualRefreshAll(): Promise<{
+    success: boolean;
+    usersCount: number;
+    alertsCount: number;
+    reportsCount: number;
+    newUsersCount: number;
+    newUsers: UserProfile[];
+    timestamp: number;
+  }> {
     if (!this.db) {
       return {
         success: false,
@@ -435,37 +425,157 @@ class FirebaseFloodService {
         timestamp: Date.now(),
       };
     }
+
     try {
-      const usersSnap = await getDocsFromServer(collection(this.db, 'users'));
+      console.log('[Firebase] Executing authentic manual full sync directly from server...');
+      const previousUsers = [...this.cachedUsers];
+      const previousUids = new Set(previousUsers.map((u) => u.uid));
+
+      // 1. Force server query for Users collection
+      let usersSnap;
+      try {
+        usersSnap = await getDocsFromServer(collection(this.db, 'users'));
+      } catch {
+        usersSnap = await getDocs(collection(this.db, 'users'));
+      }
+
       const freshUsers: UserProfile[] = [];
-      usersSnap.forEach((d) => {
-        const data = d.data();
+      usersSnap.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
         freshUsers.push({
-          uid: d.id,
+          uid: docSnapshot.id,
           name: data.name || 'Community Member',
           village: data.village || 'Dzenje Village',
           phone: data.phone,
           email: data.email,
           smsAlertsEnabled: data.smsAlertsEnabled !== false,
-          alertLanguage: data.alertLanguage || 'en',
+          alertLanguage: data.alertLanguage || 'ny',
           authProvider: data.authProvider || 'name_village',
           role: data.role || 'resident',
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
         });
       });
-      this.saveCachedUsers(freshUsers);
-      this.notifyUsers(freshUsers);
-      if (this.db) smsGatewayService.syncUsersFromFirestore(this.db);
+
+      // Find any newly added users
+      const newUsers = freshUsers.filter((u) => !previousUids.has(u.uid));
+
+      if (freshUsers.length > 0) {
+        this.saveCachedUsers(freshUsers);
+        this.notifyUsers(freshUsers);
+      }
+
+      // 2. Force server query for Flood Alerts collection
+      let alertsSnap;
+      try {
+        const qAlerts = query(collection(this.db, 'flood_alerts'), orderBy('timestamp', 'desc'), limit(50));
+        alertsSnap = await getDocsFromServer(qAlerts);
+      } catch {
+        const qAlerts = query(collection(this.db, 'flood_alerts'), orderBy('timestamp', 'desc'), limit(50));
+        alertsSnap = await getDocs(qAlerts);
+      }
+
+      const freshAlerts: FloodAlert[] = [];
+      alertsSnap.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        freshAlerts.push({
+          id: docSnapshot.id,
+          timestamp: data.timestamp || Date.now(),
+          formattedTime: data.formattedTime || new Date(data.timestamp || Date.now()).toLocaleTimeString(),
+          peakDelta: data.peakDelta || 0,
+          durationSeconds: data.durationSeconds || 0,
+          nodeId: data.nodeId || 'node-unknown',
+          nodeName: data.nodeName || 'Sensor Node',
+          village: data.village || data.location?.village || 'Dzenje',
+          location: data.location,
+          locationLabel: data.locationLabel || (data.location ? `${data.location.riverName}, ${data.location.village}` : undefined),
+          riverName: data.riverName || data.location?.riverName,
+          traditionalAuthority: data.traditionalAuthority || data.location?.traditionalAuthority,
+          district: data.district || data.location?.district,
+          region: data.region || data.location?.region,
+          latitude: data.latitude ?? data.location?.coordinates?.latitude,
+          longitude: data.longitude ?? data.location?.coordinates?.longitude,
+          mapsUrl: data.mapsUrl || data.location?.mapsUrl,
+          userId: data.userId,
+          status: data.status || 'active',
+          severity: data.severity || (data.peakDelta >= 1.5 ? 'red' : 'yellow'),
+          title: data.title,
+          message: data.message,
+          dismissedBy: data.dismissedBy,
+          dismissedAt: data.dismissedAt,
+          source: data.source || 'hardware_sensor',
+          notes: data.notes,
+        });
+      });
+
+      if (freshAlerts.length > 0) {
+        this.saveLocalAlerts(freshAlerts);
+        this.notifyAlerts(freshAlerts);
+      }
+
+      // 3. Force server query for Safety Reports collection
+      let safetySnap;
+      try {
+        const qSafety = query(collection(this.db, 'safety_reports'), orderBy('timestamp', 'desc'), limit(100));
+        safetySnap = await getDocsFromServer(qSafety);
+      } catch {
+        const qSafety = query(collection(this.db, 'safety_reports'), orderBy('timestamp', 'desc'), limit(100));
+        safetySnap = await getDocs(qSafety);
+      }
+
+      const freshReports: ResidentSafetyReport[] = [];
+      safetySnap.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        freshReports.push({
+          id: docSnapshot.id,
+          userId: data.userId || 'anonymous',
+          userName: data.userName || 'Resident',
+          village: data.village || 'Dzenje Village',
+          status: data.status || 'safe',
+          statusLabel: data.statusLabel,
+          peopleCount: data.peopleCount,
+          phone: data.phone,
+          message: data.message,
+          timestamp: data.timestamp || Date.now(),
+          formattedTime: data.formattedTime || new Date(data.timestamp || Date.now()).toLocaleTimeString(),
+          latitude: data.latitude,
+          longitude: data.longitude,
+          mapsUrl: data.mapsUrl,
+          voiceAudioBase64: data.voiceAudioBase64,
+          voiceDurationSec: data.voiceDurationSec,
+          hasVoiceNote: data.hasVoiceNote || !!data.voiceAudioBase64,
+          updatedAt: data.updatedAt,
+        });
+      });
+
+      if (freshReports.length > 0) {
+        this.saveLocalSafetyReports(freshReports);
+        this.notifySafetyReports(freshReports);
+      }
+
+      // 4. Immediately sync all contacts with SMS Gateway
+      await smsGatewayService.syncUsersFromFirestore(this.db);
+
+      // 5. Re-bind onSnapshot listeners to maintain continuous live sync
+      this.subscribeFirestoreAlerts();
+      this.subscribeFirestoreSafetyReports();
+      this.subscribeFirestoreUsers();
+
+      console.log(
+        `[Firebase] Manual refresh complete: ${freshUsers.length} users (${newUsers.length} new), ${freshAlerts.length} alerts, ${freshReports.length} reports.`
+      );
+
       return {
         success: true,
         usersCount: freshUsers.length,
-        alertsCount: this.getLocalAlerts().length,
-        reportsCount: this.getLocalSafetyReports().length,
-        newUsersCount: 0,
-        newUsers: [],
+        alertsCount: freshAlerts.length,
+        reportsCount: freshReports.length,
+        newUsersCount: newUsers.length,
+        newUsers,
         timestamp: Date.now(),
       };
     } catch (err) {
-      console.warn('manualRefreshAll:', err);
+      console.warn('[Firebase] Manual server sync failed:', err);
       return {
         success: false,
         usersCount: this.cachedUsers.length,
@@ -478,189 +588,476 @@ class FirebaseFloodService {
     }
   }
 
-  public async dismissAlert(id: string): Promise<void> {
+  private async syncUserProfile(fbUser: User) {
+    let profile: UserProfile | null = null;
+
     if (this.db) {
       try {
-        await updateDoc(doc(this.db, 'flood_alerts', id), {
-          status: 'dismissed',
-          dismissedAt: Date.now(),
-        });
-      } catch {}
-    }
-    const alerts = this.getLocalAlerts().map((a) =>
-      a.id === id ? { ...a, status: 'dismissed' as const } : a
-    );
-    this.saveLocalAlerts(alerts);
-    this.notifyAlerts(alerts);
-  }
+        const userDocRef = doc(this.db, 'users', fbUser.uid);
+        const docSnap = await getDoc(userDocRef);
 
-  public async clearAllAlerts(): Promise<void> {
-    this.saveLocalAlerts([]);
-    this.notifyAlerts([]);
-  }
-
-  public async deleteSafetyReport(id: string): Promise<void> {
-    if (this.db) {
-      try {
-        await deleteDoc(doc(this.db, 'safety_reports', id));
-      } catch {}
-    }
-    const reports = this.getLocalSafetyReports().filter((r) => r.id !== id);
-    this.saveLocalSafetyReports(reports);
-    this.notifySafetyReports(reports);
-  }
-
-  public async recordFloodAlert(payload: Partial<FloodAlert>): Promise<FloodAlert> {
-    const alert: FloodAlert = {
-      id: 'local_' + Date.now(),
-      timestamp: payload.timestamp || Date.now(),
-      formattedTime: payload.formattedTime || new Date().toLocaleTimeString(),
-      peakDelta: payload.peakDelta || 0,
-      durationSeconds: payload.durationSeconds || 0,
-      nodeId: payload.nodeId || 'node',
-      nodeName: payload.nodeName || 'Sensor',
-      village: payload.village,
-      status: payload.status || 'active',
-      severity: payload.severity || 'red',
-      title: payload.title,
-      message: payload.message,
-      source: payload.source || 'manual_test',
-      notes: payload.notes,
-      latitude: payload.latitude,
-      longitude: payload.longitude,
-      mapsUrl: payload.mapsUrl,
-      riverName: payload.riverName,
-    } as FloodAlert;
-    if (this.db) {
-      try {
-        const ref = await addDoc(collection(this.db, 'flood_alerts'), cleanFirestorePayload(alert as any));
-        alert.id = ref.id;
-      } catch (err) {
-        console.warn('recordFloodAlert firestore:', err);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const userEmail = fbUser.email || data.email;
+          const cleanName = (data.name || fbUser.displayName || '').toLowerCase().trim().replace(/\s+/g, ' ');
+          const cleanVillage = (data.village || '').toLowerCase().trim().replace(/\s+/g, ' ');
+          const isMatchAdminName =
+            cleanName === 'mr skinner' ||
+            cleanName === 'mr. skinner' ||
+            cleanName.includes('mr skinner');
+          const isMatchAdminVillage =
+            cleanVillage.includes('dsenje adda') ||
+            cleanVillage.includes('dzenje adda') ||
+            cleanVillage.includes('dsenje') ||
+            cleanVillage.includes('dzenje');
+          const isClubAccount = cleanName.includes('dzenje cdss adda stem club');
+          const isAdminUser =
+            !isClubAccount &&
+            ((userEmail && userEmail.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase()) ||
+              (isMatchAdminName && isMatchAdminVillage));
+          profile = {
+            uid: fbUser.uid,
+            name: data.name || fbUser.displayName || (isAdminUser ? 'Mr Skinner' : 'Resident'),
+            village: data.village || 'Dzenje Village',
+            phone: data.phone || undefined,
+            smsAlertsEnabled: data.smsAlertsEnabled !== false,
+            email: userEmail,
+            photoURL: fbUser.photoURL || data.photoURL,
+            authProvider: data.authProvider || (fbUser.isAnonymous ? 'name_village' : 'google'),
+            hasPassword: data.hasPassword,
+            role: isAdminUser ? 'admin' : (data.role || 'resident'),
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt,
+          };
+        }
+      } catch {
+        // Continue with local / fallback
       }
     }
-    const alerts = [alert, ...this.getLocalAlerts()].slice(0, 50);
-    this.saveLocalAlerts(alerts);
-    this.notifyAlerts(alerts);
-    return alert;
-  }
 
-  public async submitSafetyReport(payload: any): Promise<ResidentSafetyReport> {
-    const report: any = {
-      id: 'local_' + Date.now(),
-      userId: payload.userId || 'guest',
-      userName: payload.userName || 'Resident',
-      village: payload.village || 'Dzenje Village',
-      status: payload.status || 'safe',
-      phone: payload.phone,
-      message: payload.message,
-      timestamp: Date.now(),
-      formattedTime: new Date().toLocaleTimeString(),
-      latitude: payload.latitude,
-      longitude: payload.longitude,
-      mapsUrl: payload.mapsUrl,
-    };
-    if (this.db) {
-      try {
-        const ref = await addDoc(collection(this.db, 'safety_reports'), cleanFirestorePayload(report));
-        report.id = ref.id;
-      } catch (err) {
-        console.warn('submitSafetyReport:', err);
+    if (!profile) {
+      const cached = this.getCachedProfile();
+      if (cached && cached.uid === fbUser.uid) {
+        profile = cached;
+      } else {
+        const userEmail = fbUser.email || undefined;
+        const isAdminUser = userEmail && userEmail.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase();
+        profile = {
+          uid: fbUser.uid,
+          name: fbUser.displayName || (isAdminUser ? 'Admin Peter (System Manager)' : 'Community Member'),
+          village: 'Dzenje Village',
+          email: userEmail,
+          photoURL: fbUser.photoURL || undefined,
+          authProvider: fbUser.isAnonymous ? 'name_village' : 'google',
+          role: isAdminUser ? 'admin' : 'resident',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
       }
     }
-    const reports = [report, ...this.getLocalSafetyReports()].slice(0, 100);
-    this.saveLocalSafetyReports(reports);
-    this.notifySafetyReports(reports);
-    return report;
-  }
 
-  public async signInWithNameAndVillage(
-    name: string,
-    village: string,
-    phone?: string
-  ): Promise<UserProfile> {
-    const uid = 'nv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-    const now = new Date().toISOString();
-    const profile: UserProfile = {
-      uid,
-      name: name.trim(),
-      village: village.trim() || 'Dzenje Village',
-      phone: phone?.trim(),
-      authProvider: 'name_village',
-      role: 'resident',
-      smsAlertsEnabled: true,
-      createdAt: now,
-      updatedAt: now,
-    } as UserProfile;
-    if (this.auth && !this.auth.currentUser) {
-      try {
-        await signInAnonymously(this.auth);
-      } catch {}
-    }
-    if (this.db) {
-      try {
-        await setDoc(doc(this.db, 'users', uid), cleanFirestorePayload(profile as any), { merge: true });
-      } catch (err) {
-        console.warn('signIn name village firestore:', err);
-      }
-    }
-    this.saveCachedProfile(profile);
-    this.upsertCachedUser(profile);
-    this.updateAuthState({
-      user: profile,
-      firebaseUid: this.auth?.currentUser?.uid || uid,
-      isAuthenticated: true,
-      isLoading: false,
-    });
-    if (profile.phone) {
+    if (profile && profile.phone) {
       smsGatewayService.addOrUpdateUserRecipient({
         uid: profile.uid,
         name: profile.name,
         phone: profile.phone,
         village: profile.village,
-        enabled: true,
+        role: profile.role === 'admin' ? 'Village Admin' : 'Resident',
+        enabled: profile.smsAlertsEnabled !== false,
       });
     }
-    return profile;
-  }
 
-  public async signInWithGoogle(village?: string): Promise<UserProfile> {
-    if (!this.auth) throw new Error('Firebase Auth not ready');
-    const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(this.auth, provider);
-    const fbUser = result.user;
-    const now = new Date().toISOString();
-    const profile: UserProfile = {
-      uid: fbUser.uid,
-      name: fbUser.displayName || 'User',
-      email: fbUser.email || undefined,
-      village: village || 'Dzenje Village',
-      authProvider: 'google',
-      role: isAppAdmin({ email: fbUser.email || '', role: 'resident' } as any) ? 'admin' : 'resident',
-      smsAlertsEnabled: true,
-      photoURL: fbUser.photoURL || undefined,
-      createdAt: now,
-      updatedAt: now,
-    } as UserProfile;
-    if (this.db) {
-      await setDoc(doc(this.db, 'users', fbUser.uid), cleanFirestorePayload(profile as any), { merge: true });
-    }
-    this.saveCachedProfile(profile);
     this.upsertCachedUser(profile);
+    this.saveCachedProfile(profile);
     this.updateAuthState({
       user: profile,
       firebaseUid: fbUser.uid,
       isAuthenticated: true,
       isLoading: false,
     });
-    return profile;
   }
 
-  public async signOutUser(): Promise<void> {
-    if (this.auth) await signOut(this.auth);
+  private updateAuthState(state: AuthState) {
+    this.currentAuthState = state;
+    this.authListeners.forEach((cb) => cb(state));
+    // Refresh alerts filtering based on updated user role
+    this.notifyAlerts(this.getLocalAlerts());
+  }
+
+  public getCachedProfile(): UserProfile | null {
     try {
-      localStorage.removeItem(STORAGE_KEY_USER_PROFILE);
-    } catch {}
+      const raw = localStorage.getItem(STORAGE_KEY_USER_PROFILE);
+      if (raw) {
+        return JSON.parse(raw);
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }
+
+  private saveCachedProfile(profile: UserProfile | null) {
+    try {
+      if (profile) {
+        localStorage.setItem(STORAGE_KEY_USER_PROFILE, JSON.stringify(profile));
+      } else {
+        localStorage.removeItem(STORAGE_KEY_USER_PROFILE);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  /**
+   * Option 1: Sign in using Name, Village, optional phone and password
+   */
+  public async signInWithNameAndVillage(
+    name: string,
+    village: string,
+    phone?: string,
+    smsAlertsEnabled: boolean = true,
+    password?: string,
+    alertLanguage: 'en' | 'ny' = 'ny'
+  ): Promise<UserProfile> {
+    const trimmedName = name.trim();
+    const trimmedVillage = village.trim();
+
+    if (!trimmedName || !trimmedVillage) {
+      throw new Error('Please enter both your name and village.');
+    }
+
+    this.updateAuthState({ ...this.currentAuthState, isLoading: true, error: undefined });
+
+    try {
+      let uid = 'user_' + Date.now();
+
+      if (this.auth) {
+        try {
+          // Attempt Firebase anonymous authentication if enabled in project
+          const cred = await signInAnonymously(this.auth);
+          uid = cred.user.uid;
+          if (trimmedName) {
+            try {
+              await updateProfile(cred.user, { displayName: trimmedName });
+            } catch {
+              // Ignore
+            }
+          }
+        } catch (authErr) {
+          console.warn('Firebase Anonymous sign-in unavailable or restricted, using persistent local session:', authErr);
+          const cached = this.getCachedProfile();
+          if (cached && cached.uid) {
+            uid = cached.uid;
+          } else {
+            uid = 'resident_' + Math.random().toString(36).substring(2, 10);
+          }
+        }
+      }
+
+      const cleanName = trimmedName.toLowerCase().replace(/\s+/g, ' ');
+      const cleanVillage = trimmedVillage.toLowerCase().replace(/\s+/g, ' ');
+      const isClubAccount = cleanName.includes('dzenje cdss adda stem club');
+      const isMatchAdminName =
+        cleanName === 'mr skinner' ||
+        cleanName === 'mr. skinner' ||
+        cleanName.includes('mr skinner');
+      const isMatchAdminVillage =
+        cleanVillage.includes('dsenje adda') ||
+        cleanVillage.includes('dzenje adda') ||
+        cleanVillage.includes('dsenje') ||
+        cleanVillage.includes('dzenje');
+      const isAdminLogin = !isClubAccount && isMatchAdminName && isMatchAdminVillage;
+
+      const profile: UserProfile = {
+        uid,
+        name: trimmedName,
+        village: trimmedVillage,
+        phone: phone ? phone.trim() : undefined,
+        smsAlertsEnabled: smsAlertsEnabled ?? true,
+        alertLanguage: 'en',
+        authProvider: 'name_village',
+        hasPassword: Boolean(password && password.trim().length > 0),
+        role: isAdminLogin ? 'admin' : 'resident',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Register contact with SMS Gateway
+      if (profile.phone && profile.phone.length >= 6) {
+        smsGatewayService.addOrUpdateUserRecipient({
+          uid,
+          name: profile.name,
+          phone: profile.phone,
+          village: profile.village,
+          role: profile.role === 'admin' ? 'Village Admin' : 'Resident',
+          language: profile.alertLanguage,
+          enabled: profile.smsAlertsEnabled !== false,
+        });
+      }
+
+      // Save to Firestore if available
+      if (this.db) {
+        try {
+          const cleanedProfile = cleanFirestorePayload(profile);
+          await setDoc(doc(this.db, 'users', uid), cleanedProfile, { merge: true });
+
+          // Also immediately sync to sms_recipients collection on Firestore
+          if (profile.phone && profile.phone.length >= 6) {
+            await setDoc(
+              doc(this.db, 'sms_recipients', uid),
+              cleanFirestorePayload({
+                id: uid,
+                name: profile.name,
+                phone: profile.phone,
+                village: profile.village,
+                role: profile.role || 'Resident',
+                language: profile.alertLanguage || 'ny',
+                enabled: profile.smsAlertsEnabled !== false,
+                updatedAt: new Date().toISOString(),
+              }),
+              { merge: true }
+            );
+          }
+        } catch (err) {
+          console.warn('Could not write profile to Firestore (cached locally):', err);
+        }
+      }
+
+      this.upsertCachedUser(profile);
+      this.saveCachedProfile(profile);
+      this.updateAuthState({
+        user: profile,
+        firebaseUid: uid,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+
+      if (this.broadcastChannel) {
+        this.broadcastChannel.postMessage({ type: 'NEW_USER', user: profile });
+      }
+
+      return profile;
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Sign in failed';
+      this.updateAuthState({
+        ...this.currentAuthState,
+        isLoading: false,
+        error: errMsg,
+      });
+      throw err;
+    }
+  }
+
+  /**
+   * Option 2: Sign in using Google Account
+   */
+  public async signInWithGoogle(
+    defaultVillage: string = 'Dzenje Village',
+    phone?: string,
+    smsAlertsEnabled: boolean = true,
+    alertLanguage: 'en' | 'ny' = 'ny'
+  ): Promise<UserProfile> {
+    if (!this.auth) {
+      throw new Error('Firebase Auth is not available.');
+    }
+
+    this.updateAuthState({ ...this.currentAuthState, isLoading: true, error: undefined });
+
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const result = await signInWithPopup(this.auth, provider);
+      const fbUser = result.user;
+
+      let village = defaultVillage;
+      let existingPhone = phone ? phone.trim() : undefined;
+      let existingLang = alertLanguage || 'ny';
+
+      // Check if existing profile document has village/phone/language
+      if (this.db) {
+        try {
+          const userDoc = await getDoc(doc(this.db, 'users', fbUser.uid));
+          if (userDoc.exists()) {
+            const d = userDoc.data();
+            if (d.village) village = d.village;
+            if (d.phone && !existingPhone) existingPhone = d.phone;
+            if (d.alertLanguage) existingLang = d.alertLanguage;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      const userEmail = fbUser.email || undefined;
+      const isAdminUser = userEmail && userEmail.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase();
+
+      const profile: UserProfile = {
+        uid: fbUser.uid,
+        name: fbUser.displayName || (isAdminUser ? 'Admin Peter (System Manager)' : 'Google User'),
+        village,
+        phone: existingPhone,
+        smsAlertsEnabled: smsAlertsEnabled ?? true,
+        alertLanguage: 'en',
+        email: userEmail,
+        photoURL: fbUser.photoURL || undefined,
+        authProvider: 'google',
+        role: isAdminUser ? 'admin' : 'resident',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (profile.phone && profile.phone.length >= 6) {
+        smsGatewayService.addOrUpdateUserRecipient({
+          uid: fbUser.uid,
+          name: profile.name,
+          phone: profile.phone,
+          village: profile.village,
+          role: profile.role === 'admin' ? 'Village Admin' : 'Resident',
+          language: profile.alertLanguage,
+          enabled: profile.smsAlertsEnabled !== false,
+        });
+      }
+
+      if (this.db) {
+        try {
+          await setDoc(doc(this.db, 'users', fbUser.uid), cleanFirestorePayload(profile), { merge: true });
+          if (profile.phone && profile.phone.length >= 6) {
+            await setDoc(
+              doc(this.db, 'sms_recipients', fbUser.uid),
+              cleanFirestorePayload({
+                id: fbUser.uid,
+                name: profile.name,
+                phone: profile.phone,
+                village: profile.village,
+                role: profile.role || 'Resident',
+                language: profile.alertLanguage || 'ny',
+                enabled: profile.smsAlertsEnabled !== false,
+                updatedAt: new Date().toISOString(),
+              }),
+              { merge: true }
+            );
+          }
+        } catch (err) {
+          console.warn('Could not write Google user to Firestore:', err);
+        }
+      }
+
+      this.upsertCachedUser(profile);
+      this.saveCachedProfile(profile);
+      this.updateAuthState({
+        user: profile,
+        firebaseUid: fbUser.uid,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+
+      if (this.broadcastChannel) {
+        this.broadcastChannel.postMessage({ type: 'NEW_USER', user: profile });
+      }
+
+      return profile;
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Google sign-in failed';
+      this.updateAuthState({
+        ...this.currentAuthState,
+        isLoading: false,
+        error: errMsg,
+      });
+      throw err;
+    }
+  }
+
+  /**
+   * Update Profile (e.g. Village, Name, Phone Number, SMS preferences)
+   */
+  public async updateProfileData(updates: Partial<UserProfile>): Promise<UserProfile> {
+    const current = this.currentAuthState.user;
+    if (!current) throw new Error('No user is currently signed in');
+
+    const newName = (updates.name !== undefined ? updates.name : current.name).trim();
+    const newVillage = (updates.village !== undefined ? updates.village : current.village).trim();
+    const newPhone = updates.phone !== undefined ? updates.phone.trim() : current.phone;
+    const newSmsEnabled = updates.smsAlertsEnabled !== undefined ? updates.smsAlertsEnabled : (current.smsAlertsEnabled ?? true);
+
+    const cleanName = newName.toLowerCase().replace(/\s+/g, ' ');
+    const cleanVillage = newVillage.toLowerCase().replace(/\s+/g, ' ');
+    const isMatchAdminName =
+      cleanName === 'mr skinner' ||
+      cleanName === 'mr. skinner' ||
+      cleanName.includes('mr skinner');
+    const isMatchAdminVillage =
+      cleanVillage.includes('dsenje adda') ||
+      cleanVillage.includes('dzenje adda') ||
+      cleanVillage.includes('dsenje') ||
+      cleanVillage.includes('dzenje');
+    const isClubAccount = cleanName.includes('dzenje cdss adda stem club');
+    const isAdminUser =
+      !isClubAccount &&
+      ((current.email && current.email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase()) ||
+        (isMatchAdminName && isMatchAdminVillage));
+
+    const updatedProfile: UserProfile = {
+      ...current,
+      ...updates,
+      name: newName,
+      village: newVillage,
+      phone: newPhone,
+      smsAlertsEnabled: newSmsEnabled,
+      role: isAdminUser ? 'admin' : (updates.role || current.role || 'resident'),
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (updatedProfile.phone && updatedProfile.phone.length >= 6) {
+      smsGatewayService.addOrUpdateUserRecipient({
+        uid: updatedProfile.uid,
+        name: updatedProfile.name,
+        phone: updatedProfile.phone,
+        village: updatedProfile.village,
+        role: updatedProfile.role === 'admin' ? 'Village Admin' : 'Resident',
+        language: 'en',
+        enabled: updatedProfile.smsAlertsEnabled !== false,
+      });
+    }
+
+    if (this.db && this.currentAuthState.firebaseUid) {
+      try {
+        const cleaned = cleanFirestorePayload({
+          ...updates,
+          name: newName,
+          village: newVillage,
+          phone: newPhone,
+          smsAlertsEnabled: newSmsEnabled,
+          role: isAdminUser ? 'admin' : (updates.role || current.role || 'resident'),
+          updatedAt: new Date().toISOString(),
+        });
+        await setDoc(doc(this.db, 'users', this.currentAuthState.firebaseUid), cleaned, { merge: true });
+      } catch (err) {
+        console.warn('Failed to update profile on Firestore:', err);
+      }
+    }
+
+    this.upsertCachedUser(updatedProfile);
+    this.saveCachedProfile(updatedProfile);
+    this.updateAuthState({
+      ...this.currentAuthState,
+      user: updatedProfile,
+    });
+
+    return updatedProfile;
+  }
+
+  /**
+   * Sign Out
+   */
+  public async signOutUser(): Promise<void> {
+    try {
+      if (this.auth) {
+        await signOut(this.auth);
+      }
+    } catch (err) {
+      console.warn('Firebase signout error:', err);
+    }
+    this.saveCachedProfile(null);
     this.updateAuthState({
       user: null,
       firebaseUid: null,
@@ -669,57 +1066,703 @@ class FirebaseFloodService {
     });
   }
 
-  public async signOut(): Promise<void> {
-    await this.signOutUser();
-  }
+  private subscribeFirestoreAlerts() {
+    if (!this.db) return;
 
-  public async updateProfileData(updates: Partial<UserProfile>): Promise<UserProfile> {
-    const current = this.currentAuthState.user;
-    if (!current) throw new Error('Not signed in');
-    const updated: UserProfile = {
-      ...current,
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    } as UserProfile;
-    if (this.db) {
-      await setDoc(doc(this.db, 'users', current.uid), cleanFirestorePayload(updated as any), { merge: true });
+    if (this.firestoreUnsubscribe) {
+      this.firestoreUnsubscribe();
     }
-    this.saveCachedProfile(updated);
-    this.upsertCachedUser(updated);
-    this.updateAuthState({ ...this.currentAuthState, user: updated });
-    if (updated.phone) {
-      smsGatewayService.addOrUpdateUserRecipient({
-        uid: updated.uid,
-        name: updated.name,
-        phone: updated.phone,
-        village: updated.village,
-        enabled: updated.smsAlertsEnabled !== false,
-      });
+
+    try {
+      const q = query(
+        collection(this.db, 'flood_alerts'),
+        orderBy('timestamp', 'desc'),
+        limit(50)
+      );
+
+      this.firestoreUnsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const alerts: FloodAlert[] = [];
+          snapshot.forEach((docSnapshot) => {
+            const data = docSnapshot.data();
+            alerts.push({
+              id: docSnapshot.id,
+              timestamp: data.timestamp || Date.now(),
+              formattedTime: data.formattedTime || new Date(data.timestamp).toLocaleTimeString(),
+              peakDelta: data.peakDelta || 0,
+              durationSeconds: data.durationSeconds || 0,
+              nodeId: data.nodeId || 'node-unknown',
+              nodeName: data.nodeName || 'Sensor Node',
+              village: data.village || data.location?.village || 'Dzenje',
+              location: data.location,
+              locationLabel: data.locationLabel || (data.location ? `${data.location.riverName}, ${data.location.village}` : undefined),
+              riverName: data.riverName || data.location?.riverName,
+              traditionalAuthority: data.traditionalAuthority || data.location?.traditionalAuthority,
+              district: data.district || data.location?.district,
+              region: data.region || data.location?.region,
+              latitude: data.latitude ?? data.location?.coordinates?.latitude,
+              longitude: data.longitude ?? data.location?.coordinates?.longitude,
+              mapsUrl: data.mapsUrl || data.location?.mapsUrl,
+              userId: data.userId,
+              status: data.status || 'active',
+              severity: data.severity || (data.peakDelta >= 1.5 ? 'red' : 'yellow'),
+              title: data.title,
+              message: data.message,
+              dismissedBy: data.dismissedBy,
+              dismissedAt: data.dismissedAt,
+              source: data.source || 'hardware_sensor',
+              notes: data.notes,
+            });
+          });
+
+          this.saveLocalAlerts(alerts);
+          this.notifyAlerts(alerts);
+        },
+        (error) => {
+          console.warn('Firestore alerts snapshot listener error:', error);
+        }
+      );
+    } catch (err) {
+      console.warn('Firestore subscription failed:', err);
     }
-    return updated;
   }
 
-  public isFirebaseConnected(): boolean {
-    return this.isFirebaseActive && this.db !== null;
-  }
+  public async recordFloodAlert(alert: Omit<FloodAlert, 'id'>): Promise<FloodAlert> {
+    const user = this.currentAuthState.user;
+    const alertWithUser: Omit<FloodAlert, 'id'> = {
+      ...alert,
+      village: alert.village || alert.location?.village || user?.village || 'Dzenje',
+      riverName: alert.riverName || alert.location?.riverName || 'Ruo River',
+      traditionalAuthority: alert.traditionalAuthority || alert.location?.traditionalAuthority || 'T/A Mabuka',
+      district: alert.district || alert.location?.district || 'Mulanje',
+      region: alert.region || alert.location?.region || 'Southern Region, Malawi',
+      locationLabel: alert.locationLabel || (alert.location ? `${alert.location.riverName}, ${alert.location.village}, ${alert.location.traditionalAuthority}` : `${alert.village || 'Dzenje'}`),
+      latitude: alert.latitude ?? alert.location?.coordinates?.latitude,
+      longitude: alert.longitude ?? alert.location?.coordinates?.longitude,
+      mapsUrl: alert.mapsUrl || alert.location?.mapsUrl || (alert.latitude && alert.longitude ? `https://www.google.com/maps?q=${alert.latitude},${alert.longitude}` : undefined),
+      userId: user?.uid || this.currentAuthState.firebaseUid || 'anonymous',
+    };
 
-  public getIsFirebaseConnected(): boolean {
-    return this.isFirebaseConnected();
-  }
+    const newAlert: FloodAlert = {
+      ...alertWithUser,
+      id: 'alert_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+    };
 
-  public async deleteAlert(alertId: string, _forceAdmin: boolean = false): Promise<void> {
-    await this.dismissAlert(alertId);
+    // 1. Write to Firestore if connected
     if (this.db) {
       try {
-        await deleteDoc(doc(this.db, 'flood_alerts', alertId));
+        const cleaned = cleanFirestorePayload({
+          ...alertWithUser,
+          createdAt: new Date().toISOString(),
+        });
+        const docRef = await addDoc(collection(this.db, 'flood_alerts'), cleaned);
+        newAlert.id = docRef.id;
+        console.log('[Firestore] Incident saved in database:', docRef.id);
       } catch (err) {
-        console.warn('deleteAlert firestore:', err);
+        console.warn('Could not write alert to Firestore, stored locally:', err);
+      }
+    }
+
+    // 2. Write to local storage & broadcast to other tabs/receivers
+    const existing = this.getLocalAlerts();
+    const updated = [newAlert, ...existing.filter((a) => a.id !== newAlert.id)].slice(0, 100);
+    this.saveLocalAlerts(updated);
+    this.notifyAlerts(updated);
+
+    if (this.broadcastChannel) {
+      this.broadcastChannel.postMessage({ type: 'NEW_ALERT', alert: newAlert });
+    }
+
+    // 3. Trigger remote FCM Push Gateway to wake closed/background phones across the village
+    FcmGatewayService.broadcastPushAlert({
+      title: newAlert.title || '🚨 FLOOD EMERGENCY ALARM',
+      body: newAlert.message || `River water rise detected in ${newAlert.village}. Peak vibration delta: ${newAlert.peakDelta.toFixed(1)} m/s²!`,
+      severity: newAlert.severity || (newAlert.peakDelta >= 2.0 ? 'red' : 'yellow'),
+      village: newAlert.village,
+      peakDelta: newAlert.peakDelta,
+      customData: {
+        alertId: newAlert.id,
+        nodeId: newAlert.nodeId,
+        nodeName: newAlert.nodeName,
+        riverName: newAlert.riverName,
+        mapsUrl: newAlert.mapsUrl,
+      },
+    }).catch((pushErr) => {
+      console.warn('[FCM Gateway] Background broadcast note:', pushErr);
+    });
+
+    // 4. Trigger Textbee SMS Gateway to send emergency text messages to marked village phone numbers
+    if (smsGatewayService.getConfig().autoSendOnCriticalAlert) {
+      smsGatewayService.sendLanguageAwareBroadcastSms(true).then((smsRes) => {
+        console.log('[SMS Gateway] Automatic SMS flood warning dispatched:', smsRes);
+      }).catch((smsErr) => {
+        console.warn('[SMS Gateway] Automatic SMS broadcast note:', smsErr);
+      });
+    }
+
+    return newAlert;
+  }
+
+  public getLocalHiddenAlertIds(): Set<string> {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_HIDDEN_ALERTS);
+      if (raw) {
+        return new Set(JSON.parse(raw));
+      }
+    } catch {
+      // ignore
+    }
+    return new Set();
+  }
+
+  private saveLocalHiddenAlertIds(set: Set<string>) {
+    try {
+      localStorage.setItem(STORAGE_KEY_HIDDEN_ALERTS, JSON.stringify(Array.from(set)));
+    } catch {
+      // ignore
+    }
+  }
+
+  public filterAlertsForCurrentUser(alerts: FloodAlert[]): FloodAlert[] {
+    const isAdmin = isAppAdmin(this.currentAuthState.user);
+    if (isAdmin) {
+      return alerts;
+    }
+    const hiddenSet = this.getLocalHiddenAlertIds();
+    return alerts.filter((a) => !hiddenSet.has(a.id));
+  }
+
+  /**
+   * Dismiss an alert:
+   * - If user is NOT admin: only hides the alert locally on this user's phone. Firestore data remains intact!
+   * - If user IS admin: updates document on Firestore with status = 'dismissed'.
+   */
+  public async dismissAlert(alertId: string, dismissedBy?: string, forceAdmin: boolean = false): Promise<void> {
+    const user = this.currentAuthState.user;
+    const isAdmin = forceAdmin || isAppAdmin(user);
+
+    if (!isAdmin) {
+      const hidden = this.getLocalHiddenAlertIds();
+      hidden.add(alertId);
+      this.saveLocalHiddenAlertIds(hidden);
+      this.notifyAlerts(this.getLocalAlerts());
+      return;
+    }
+
+    const authorName = dismissedBy || user?.name || 'STEM Station Admin';
+    const now = Date.now();
+
+    // 1. Update Firestore if connected
+    if (this.db) {
+      try {
+        const docRef = doc(this.db, 'flood_alerts', alertId);
+        await updateDoc(docRef, {
+          status: 'dismissed',
+          dismissedBy: authorName,
+          dismissedAt: now,
+        });
+      } catch (err) {
+        console.warn('Firestore alert update failed:', err);
+      }
+    }
+
+    // 2. Update local state
+    const existing = this.getLocalAlerts();
+    const updated = existing.map((item) => {
+      if (item.id === alertId) {
+        return {
+          ...item,
+          status: 'dismissed' as const,
+          dismissedBy: authorName,
+          dismissedAt: now,
+        };
+      }
+      return item;
+    });
+
+    this.saveLocalAlerts(updated);
+    this.notifyAlerts(updated);
+
+    if (this.broadcastChannel) {
+      const target = updated.find((a) => a.id === alertId);
+      if (target) {
+        this.broadcastChannel.postMessage({ type: 'UPDATE_ALERT', alert: target });
       }
     }
   }
 
-  public async clearAlerts(_forceAdmin: boolean = false): Promise<void> {
-    await this.clearAllAlerts();
+  /**
+   * Delete an alert:
+   * - If user is NOT admin: only removes it from this user's view (localStorage hidden list). Firestore data is untouched so other villagers see it!
+   * - If user IS admin: deletes document completely from Firestore for all villagers.
+   */
+  public async deleteAlert(alertId: string, forceAdmin: boolean = false): Promise<void> {
+    const isAdmin = forceAdmin || isAppAdmin(this.currentAuthState.user);
+
+    if (!isAdmin) {
+      const hidden = this.getLocalHiddenAlertIds();
+      hidden.add(alertId);
+      this.saveLocalHiddenAlertIds(hidden);
+      this.notifyAlerts(this.getLocalAlerts());
+      return;
+    }
+
+    if (this.db) {
+      try {
+        const docRef = doc(this.db, 'flood_alerts', alertId);
+        await deleteDoc(docRef);
+        console.log('[Firestore Admin] Deleted flood_alert document for all:', alertId);
+      } catch (err) {
+        console.warn('Firestore delete flood_alert failed:', err);
+      }
+    }
+
+    this.handleLocalAlertDeleted(alertId);
+
+    if (this.broadcastChannel) {
+      this.broadcastChannel.postMessage({ type: 'DELETE_ALERT', alertId });
+    }
+  }
+
+  /**
+   * Clear Alerts list:
+   * - If user is NOT admin: hides all current alerts from this user's screen only. Firestore data is NOT deleted!
+   * - If user IS admin: deletes all documents in Firestore so data is cleared for everyone.
+   */
+  public async clearAlerts(forceAdmin: boolean = false): Promise<void> {
+    const isAdmin = forceAdmin || isAppAdmin(this.currentAuthState.user);
+
+    if (!isAdmin) {
+      const all = this.getLocalAlerts();
+      const hidden = this.getLocalHiddenAlertIds();
+      all.forEach((a) => hidden.add(a.id));
+      this.saveLocalHiddenAlertIds(hidden);
+      this.notifyAlerts(all);
+      return;
+    }
+
+    if (this.db) {
+      try {
+        const snap = await getDocs(collection(this.db, 'flood_alerts'));
+        const deletePromises = snap.docs.map((d) => deleteDoc(doc(this.db!, 'flood_alerts', d.id)));
+        await Promise.all(deletePromises);
+        console.log('[Firestore Admin] Cleared all flood alerts from Firestore for all users');
+      } catch (err) {
+        console.warn('Firestore clearAlerts error:', err);
+      }
+    }
+
+    this.saveLocalAlerts([]);
+    this.notifyAlerts([]);
+    if (this.broadcastChannel) {
+      this.broadcastChannel.postMessage({ type: 'CLEAR_ALERTS' });
+    }
+  }
+
+  private handleLocalAlertDeleted(alertId: string) {
+    const existing = this.getLocalAlerts();
+    const updated = existing.filter((item) => item.id !== alertId);
+    this.saveLocalAlerts(updated);
+    this.notifyAlerts(updated);
+  }
+
+  public getLocalAlerts(): FloodAlert[] {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_ALERTS);
+      if (raw) {
+        return JSON.parse(raw);
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  }
+
+  private saveLocalAlerts(alerts: FloodAlert[]) {
+    try {
+      localStorage.setItem(STORAGE_KEY_ALERTS, JSON.stringify(alerts));
+    } catch {
+      // ignore
+    }
+  }
+
+  private handleLocalAlertReceived(alert: FloodAlert) {
+    const existing = this.getLocalAlerts();
+    if (!existing.some((a) => a.id === alert.id)) {
+      const updated = [alert, ...existing].slice(0, 100);
+      this.saveLocalAlerts(updated);
+      this.notifyAlerts(updated);
+    }
+  }
+
+  private handleLocalAlertUpdated(alert: FloodAlert) {
+    const existing = this.getLocalAlerts();
+    const updated = existing.map((item) => (item.id === alert.id ? alert : item));
+    this.saveLocalAlerts(updated);
+    this.notifyAlerts(updated);
+  }
+
+  public subscribeAlerts(cb: (alerts: FloodAlert[]) => void): () => void {
+    this.alertListeners.add(cb);
+    cb(this.filterAlertsForCurrentUser(this.getLocalAlerts()));
+    return () => this.alertListeners.delete(cb);
+  }
+
+  public subscribeSafetyReports(cb: (reports: ResidentSafetyReport[]) => void): () => void {
+    this.safetyListeners.add(cb);
+    cb(this.getLocalSafetyReports());
+    return () => this.safetyListeners.delete(cb);
+  }
+
+  public subscribeAuth(cb: (state: AuthState) => void): () => void {
+    this.authListeners.add(cb);
+    cb(this.currentAuthState);
+    return () => this.authListeners.delete(cb);
+  }
+
+  private notifyAlerts(rawAlerts: FloodAlert[]) {
+    const filtered = this.filterAlertsForCurrentUser(rawAlerts);
+    this.alertListeners.forEach((cb) => cb(filtered));
+  }
+
+  private notifySafetyReports(reports: ResidentSafetyReport[]) {
+    this.safetyListeners.forEach((cb) => cb(reports));
+  }
+
+  private subscribeFirestoreSafetyReports() {
+    if (!this.db) return;
+
+    if (this.safetyFirestoreUnsubscribe) {
+      this.safetyFirestoreUnsubscribe();
+    }
+
+    try {
+      const q = query(
+        collection(this.db, 'safety_reports'),
+        orderBy('timestamp', 'desc'),
+        limit(100)
+      );
+
+      this.safetyFirestoreUnsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const reports: ResidentSafetyReport[] = [];
+          snapshot.forEach((docSnapshot) => {
+            const data = docSnapshot.data();
+            reports.push({
+              id: docSnapshot.id,
+              userId: data.userId || 'anonymous',
+              userName: data.userName || 'Resident',
+              village: data.village || 'Dzenje Village',
+              status: data.status || 'safe',
+              statusLabel: data.statusLabel,
+              peopleCount: data.peopleCount,
+              phone: data.phone,
+              message: data.message,
+              timestamp: data.timestamp || Date.now(),
+              formattedTime: data.formattedTime || new Date(data.timestamp || Date.now()).toLocaleTimeString(),
+              latitude: data.latitude,
+              longitude: data.longitude,
+              mapsUrl: data.mapsUrl,
+              voiceAudioBase64: data.voiceAudioBase64,
+              voiceDurationSec: data.voiceDurationSec,
+              hasVoiceNote: data.hasVoiceNote || !!data.voiceAudioBase64,
+              updatedAt: data.updatedAt,
+            });
+          });
+
+          this.saveLocalSafetyReports(reports);
+          this.notifySafetyReports(reports);
+        },
+        (error) => {
+          console.warn('Firestore safety reports snapshot listener error:', error);
+        }
+      );
+    } catch (err) {
+      console.warn('Firestore safety reports subscription failed:', err);
+    }
+  }
+
+  private subscribeFirestoreUsers() {
+    if (!this.db) return;
+
+    if (this.userFirestoreUnsubscribe) {
+      this.userFirestoreUnsubscribe();
+    }
+
+    try {
+      const q = query(collection(this.db, 'users'), limit(500));
+
+      this.userFirestoreUnsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const users: UserProfile[] = [];
+          snapshot.forEach((docSnapshot) => {
+            const data = docSnapshot.data();
+            users.push({
+              uid: docSnapshot.id,
+              name: data.name || 'Community Member',
+              village: data.village || 'Dzenje Village',
+              phone: data.phone,
+              email: data.email,
+              smsAlertsEnabled: data.smsAlertsEnabled !== false,
+              alertLanguage: data.alertLanguage || 'ny',
+              authProvider: data.authProvider || 'name_village',
+              role: data.role || 'resident',
+              createdAt: data.createdAt,
+              updatedAt: data.updatedAt,
+            });
+          });
+          this.saveCachedUsers(users);
+          this.notifyUsers(users);
+          if (this.db) {
+            smsGatewayService.syncUsersFromFirestore(this.db);
+          }
+        },
+        (error) => {
+          console.warn('Firestore users snapshot listener error:', error);
+        }
+      );
+    } catch (err) {
+      console.warn('Firestore users subscription failed:', err);
+    }
+  }
+
+  public subscribeUsers(cb: (users: UserProfile[]) => void): () => void {
+    this.userListeners.add(cb);
+    cb(this.cachedUsers.length > 0 ? this.cachedUsers : (this.currentAuthState.user ? [this.currentAuthState.user] : []));
+    return () => this.userListeners.delete(cb);
+  }
+
+  private notifyUsers(users: UserProfile[]) {
+    this.userListeners.forEach((cb) => cb(users));
+  }
+
+  public async submitSafetyReport(
+    reportData: Omit<ResidentSafetyReport, 'id' | 'timestamp' | 'formattedTime'>
+  ): Promise<ResidentSafetyReport> {
+    const user = this.currentAuthState.user;
+    const now = Date.now();
+    const formatted = new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const newReport: ResidentSafetyReport = {
+      ...reportData,
+      id: 'report_' + now + '_' + Math.random().toString(36).substring(2, 7),
+      userId: reportData.userId || user?.uid || this.currentAuthState.firebaseUid || 'anonymous_user',
+      userName: reportData.userName || user?.name || 'Resident',
+      village: reportData.village || user?.village || 'Dzenje Village',
+      timestamp: now,
+      formattedTime: formatted,
+      updatedAt: new Date(now).toISOString(),
+    };
+
+    // 1. Write to Firestore if connected
+    if (this.db) {
+      try {
+        const cleaned = cleanFirestorePayload({
+          ...newReport,
+          createdAt: new Date().toISOString(),
+        });
+        const docRef = await addDoc(collection(this.db, 'safety_reports'), cleaned);
+        newReport.id = docRef.id;
+        console.log('[Firestore] Safety report saved in database:', docRef.id);
+      } catch (err) {
+        console.warn('Could not write safety report to Firestore, stored locally:', err);
+      }
+    }
+
+    // 2. Save locally and broadcast
+    const existing = this.getLocalSafetyReports();
+    // Replace any previous report by the same user or prepend
+    const filtered = existing.filter((r) => r.userId !== newReport.userId);
+    const updated = [newReport, ...filtered].slice(0, 100);
+    this.saveLocalSafetyReports(updated);
+    this.notifySafetyReports(updated);
+
+    if (this.broadcastChannel) {
+      this.broadcastChannel.postMessage({ type: 'NEW_SAFETY_REPORT', report: newReport });
+    }
+
+    return newReport;
+  }
+
+  public getLocalSafetyReports(): ResidentSafetyReport[] {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_SAFETY_REPORTS);
+      if (raw) {
+        return JSON.parse(raw);
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  }
+
+  public async deleteSafetyReport(reportId: string): Promise<void> {
+    if (this.db) {
+      try {
+        const docRef = doc(this.db, 'safety_reports', reportId);
+        await deleteDoc(docRef);
+      } catch (err) {
+        console.warn('Firestore delete safety_report failed:', err);
+      }
+    }
+
+    this.handleLocalSafetyReportDeleted(reportId);
+
+    if (this.broadcastChannel) {
+      this.broadcastChannel.postMessage({ type: 'DELETE_SAFETY_REPORT', reportId });
+    }
+  }
+
+  public async updateUserRole(userId: string, newRole: 'admin' | 'resident'): Promise<void> {
+    const updatedAt = new Date().toISOString();
+    if (this.db) {
+      try {
+        const docRef = doc(this.db, 'users', userId);
+        await setDoc(docRef, { role: newRole, updatedAt }, { merge: true });
+        console.log(`[Firestore] User ${userId} role successfully updated to ${newRole}`);
+      } catch (err) {
+        console.warn('Firestore updateUserRole failed:', err);
+        this.handleFirestoreError(err, OperationType.UPDATE, `users/${userId}`);
+      }
+    }
+
+    // Update local cached users list
+    this.cachedUsers = this.cachedUsers.map((u) => {
+      if (u.uid === userId) {
+        return { ...u, role: newRole, updatedAt };
+      }
+      return u;
+    });
+    this.notifyUsers(this.cachedUsers);
+
+    // If this is the currently logged in user, update auth state
+    if (this.currentAuthState.user && this.currentAuthState.user.uid === userId) {
+      const updatedUser: UserProfile = {
+        ...this.currentAuthState.user,
+        role: newRole,
+        updatedAt,
+      };
+      this.saveCachedProfile(updatedUser);
+      this.updateAuthState({
+        ...this.currentAuthState,
+        user: updatedUser,
+      });
+    }
+
+    // Update SMS gateway recipient role if exists
+    const user = this.cachedUsers.find((u) => u.uid === userId);
+    if (user && user.phone) {
+      smsGatewayService.addOrUpdateUserRecipient({
+        uid: user.uid,
+        name: user.name,
+        phone: user.phone,
+        village: user.village,
+        role: newRole === 'admin' ? 'Village Admin' : 'Resident',
+        language: 'en',
+        enabled: user.smsAlertsEnabled !== false,
+      });
+    }
+  }
+
+  public async deleteUser(userId: string): Promise<void> {
+    if (this.db) {
+      try {
+        const docRef = doc(this.db, 'users', userId);
+        await deleteDoc(docRef);
+        // Also remove from sms_recipients if exists
+        try {
+          await deleteDoc(doc(this.db, 'sms_recipients', userId));
+        } catch {
+          // ignore
+        }
+        console.log(`User ${userId} successfully deleted from Firestore.`);
+      } catch (err) {
+        console.warn('Firestore delete user failed:', err);
+        this.handleFirestoreError(err, OperationType.DELETE, `users/${userId}`);
+      }
+    }
+
+    // Clean up local cache and SMS gateway recipients
+    this.cachedUsers = this.cachedUsers.filter((u) => u.uid !== userId);
+    this.notifyUsers(this.cachedUsers);
+    smsGatewayService.removeRecipient(userId);
+  }
+
+  public async clearSafetyReports(): Promise<void> {
+    if (this.db) {
+      try {
+        const snap = await getDocs(collection(this.db, 'safety_reports'));
+        const deletePromises = snap.docs.map((d) => deleteDoc(doc(this.db!, 'safety_reports', d.id)));
+        await Promise.all(deletePromises);
+        console.log('[Firestore] Cleared all safety reports from Firestore');
+      } catch (err) {
+        console.warn('Firestore clearSafetyReports error:', err);
+      }
+    }
+
+    this.saveLocalSafetyReports([]);
+    this.notifySafetyReports([]);
+    if (this.broadcastChannel) {
+      this.broadcastChannel.postMessage({ type: 'CLEAR_SAFETY_REPORTS' });
+    }
+  }
+
+  private handleLocalSafetyReportDeleted(reportId: string) {
+    const existing = this.getLocalSafetyReports();
+    const updated = existing.filter((r) => r.id !== reportId);
+    this.saveLocalSafetyReports(updated);
+    this.notifySafetyReports(updated);
+  }
+
+  private saveLocalSafetyReports(reports: ResidentSafetyReport[]) {
+    try {
+      localStorage.setItem(STORAGE_KEY_SAFETY_REPORTS, JSON.stringify(reports));
+    } catch {
+      // ignore
+    }
+  }
+
+  private handleLocalSafetyReportReceived(report: ResidentSafetyReport) {
+    const existing = this.getLocalSafetyReports();
+    const filtered = existing.filter((r) => r.id !== report.id && r.userId !== report.userId);
+    const updated = [report, ...filtered].slice(0, 100);
+    this.saveLocalSafetyReports(updated);
+    this.notifySafetyReports(updated);
+  }
+
+  public async registerFcmToken(token: string): Promise<void> {
+    if (!token) return;
+    try {
+      localStorage.setItem('flood_alert_fcm_token', token);
+      if (this.db) {
+        const tokenDocId = token.slice(0, 32).replace(/[^a-zA-Z0-9_-]/g, '_');
+        const tokenRef = doc(this.db, 'fcm_tokens', tokenDocId);
+        const fcmPayload = cleanFirestorePayload({
+          token,
+          userId: this.currentAuthState.user?.uid || 'anonymous_subscriber',
+          userName: this.currentAuthState.user?.name || 'Resident',
+          village: this.currentAuthState.user?.village || 'Dzenje Village',
+          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Unknown',
+          updatedAt: new Date().toISOString(),
+          timestamp: Date.now(),
+        });
+        await setDoc(tokenRef, fcmPayload, { merge: true });
+        console.log('[FCM] Device push token registered in Firestore:', tokenDocId);
+      }
+    } catch (err) {
+      console.warn('[FCM] Token registration in Firestore note:', err);
+    }
+  }
+
+  public getAuthState(): AuthState {
+    return this.currentAuthState;
+  }
+
+  public getIsFirebaseConnected(): boolean {
+    return this.isFirebaseActive && this.db !== null;
   }
 }
 

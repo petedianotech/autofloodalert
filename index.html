@@ -11,8 +11,6 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Automatic Flood Alert" />
     <meta name="format-detection" content="telephone=no" />
-    <!-- Allow geolocation / mic permission prompts on mobile browser & PWA (fixes blocked popup bubbles) -->
-    <meta http-equiv="Permissions-Policy" content="geolocation=(self), microphone=(self), camera=(), fullscreen=(self)" />
     
     <!-- Open Graph (OG) Social Meta Tags -->
     <meta property="og:type" content="website" />
@@ -42,6 +40,7 @@
     <!-- Core Polyfills & Legacy Android 6.0.1 Compatibility Shim -->
     <script>
       (function () {
+        // 1. globalThis polyfill for older V8 / WebViews (< Chrome 71)
         if (typeof globalThis === 'undefined') {
           if (typeof window !== 'undefined') {
             window.globalThis = window;
@@ -49,9 +48,13 @@
             self.globalThis = self;
           }
         }
+
+        // 2. AudioContext prefix fallback for older Android Chrome / WebViews
         if (typeof window !== 'undefined') {
           window.AudioContext = window.AudioContext || window.webkitAudioContext || null;
         }
+
+        // 3. getUserMedia legacy bridge for Android 6.0.1
         if (typeof navigator !== 'undefined') {
           if (!navigator.mediaDevices) {
             navigator.mediaDevices = {};
@@ -87,6 +90,8 @@
             });
         });
       }
+
+      // Prevent accidental pinch-to-zoom & double-tap zoom on mobile web browsers
       document.addEventListener('gesturestart', function (e) {
         e.preventDefault();
       });
@@ -97,3 +102,4 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+
