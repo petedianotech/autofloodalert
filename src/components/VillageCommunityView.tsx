@@ -82,7 +82,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
   onOpenCheckInModal,
   onOpenReportFloodModal,
 }) => {
-  const { t } = useTranslation();
+  const { t, isChichewa } = useTranslation();
   const isAdmin = isAppAdmin(currentUser);
   const currentVillageName = selectedVillage || currentUser?.village || 'Dzenje Village';
 
@@ -252,10 +252,12 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-bold text-base text-slate-900 leading-tight truncate">
-                    {activeVillageData.name}
+                    {activeVillageData.name === 'Dzenje Village'
+                      ? (isChichewa ? t.villageDzenjeName : 'Dzenje Village')
+                      : activeVillageData.name}
                   </h3>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Mulanje District &bull; Ruo River Area
+                    {isChichewa ? t.mulanjeDistrictRuoArea : 'Mulanje District • Ruo River Area'}
                   </p>
                 </div>
               </div>
@@ -266,7 +268,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
                 className="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-full transition cursor-pointer shrink-0"
                 title="Switch selected village"
               >
-                Change
+                {t.change}
               </button>
             </div>
 
@@ -299,8 +301,8 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
               <div className="p-3 rounded-xl bg-emerald-50/80 border border-emerald-200 text-emerald-950 flex items-center gap-2.5">
                 <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
                 <div className="min-w-0 text-xs">
-                  <span className="font-bold text-emerald-900 block">Normal Monitoring &bull; No Active Floods</span>
-                  <span className="font-medium text-slate-600">River sensors watching water levels continuously.</span>
+                  <span className="font-bold text-emerald-900 block">{t.normalMonitoringNoFloods}</span>
+                  <span className="font-medium text-slate-600">{t.riverSensorsWatchingContinuously}</span>
                 </div>
               </div>
             )}
@@ -308,17 +310,17 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
             {/* Statistics Bar: Check-Ins / Safe / People */}
             <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-100">
               <div className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
-                <span className="text-[11px] text-slate-500 font-medium block">Check-Ins</span>
+                <span className="text-[11px] text-slate-500 font-medium block">{t.checkIns}</span>
                 <span className="text-base font-bold text-slate-900">{realTotalReportsCount}</span>
               </div>
 
               <div className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
-                <span className="text-[11px] text-slate-500 font-medium block">Safe</span>
+                <span className="text-[11px] text-slate-500 font-medium block">{t.safe}</span>
                 <span className="text-base font-bold text-emerald-600">{realSafeCount}</span>
               </div>
 
               <div className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
-                <span className="text-[11px] text-slate-500 font-medium block">People</span>
+                <span className="text-[11px] text-slate-500 font-medium block">{t.people}</span>
                 <span className="text-base font-bold text-blue-600">{realHeadcountSum}</span>
               </div>
             </div>
@@ -334,7 +336,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
                     className="py-3 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer min-h-[44px]"
                   >
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    <span>Mark I Am Safe</span>
+                    <span>{t.markIAmSafe}</span>
                   </button>
                 )}
 
@@ -345,7 +347,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
                   className="py-3 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-98 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer min-h-[44px]"
                 >
                   <Droplets className="w-4 h-4 shrink-0" />
-                  <span>Report Floods</span>
+                  <span>{t.reportFloods}</span>
                 </button>
               </div>
 
@@ -358,12 +360,12 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
                         <Mic className="w-3.5 h-3.5" />
                       </div>
                       <div className="min-w-0">
-                        <span className="text-xs font-bold text-red-950 block truncate">Emergency Rescue SOS</span>
-                        <span className="text-[10px] text-red-700 font-medium block truncate">Instant voice &amp; GPS dispatch to rescue team</span>
+                        <span className="text-xs font-bold text-red-950 block truncate">{t.emergencyRescueSos}</span>
+                        <span className="text-[10px] text-red-700 font-medium block truncate">{t.instantVoiceGpsDispatch}</span>
                       </div>
                     </div>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-200 shrink-0">
-                      Live GPS
+                      {t.liveGps}
                     </span>
                   </div>
 
@@ -375,7 +377,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
                     title="Send Emergency Voice SOS"
                   >
                     <Mic className="w-4 h-4 shrink-0" />
-                    <span>Record &amp; Send Voice SOS</span>
+                    <span>{t.recordSendVoiceSos}</span>
                   </button>
                 </div>
               )}
@@ -398,7 +400,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
               }`}
             >
               <Home className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Safe Areas ({activeVillageData.safeAreas.length})</span>
+              <span>{t.safeAreas} ({activeVillageData.safeAreas.length})</span>
             </button>
 
             <button
@@ -412,7 +414,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
               }`}
             >
               <MapPin className="w-3.5 h-3.5 text-blue-600" />
-              <span>Switch Village</span>
+              <span>{t.switchVillage}</span>
             </button>
 
             <button
@@ -426,7 +428,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
               }`}
             >
               <Info className="w-3.5 h-3.5 text-amber-600" />
-              <span>Safety Guide</span>
+              <span>{t.safetyGuide}</span>
             </button>
           </div>
 
@@ -436,14 +438,18 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
               <div className="flex items-center justify-between pb-1 border-b border-slate-100">
                 <div>
                   <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                    Safe High Ground Evacuation Areas
+                    {t.safeHighGroundEvacuationAreas}
                   </h4>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Designated shelters for residents in {activeVillageData.name}
+                    {activeVillageData.name === 'Dzenje Village'
+                      ? t.designatedSheltersInDzenje
+                      : (isChichewa
+                          ? `Malo othawirako a anthu m'mudzi wa ${activeVillageData.name.replace('Village', '')}`
+                          : `Designated shelters for residents in ${activeVillageData.name}`)}
                   </p>
                 </div>
                 <span className="text-xs bg-emerald-50 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full border border-emerald-200">
-                  High Ground
+                  {t.highGround}
                 </span>
               </div>
 
@@ -459,17 +465,21 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
                       </div>
                       <div className="min-w-0">
                         <h5 className="font-bold text-sm text-slate-900 leading-tight">
-                          {area.name}
+                          {area.name === 'Dzenje CDSS Hall' && isChichewa ? t.dzenjeCdssHallName : area.name}
                         </h5>
                         <span className="text-xs text-emerald-700 font-medium block mt-0.5">
-                          High Ground Evacuation Shelter
+                          {t.highGroundEvacuationShelter}
                         </span>
                       </div>
                     </div>
 
                     <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-600">
-                      <span className="font-medium">Capacity:</span>
-                      <span className="font-bold text-slate-900">{area.capacity}</span>
+                      <span className="font-medium">{t.capacity}</span>
+                      <span className="font-bold text-slate-900">
+                        {isChichewa
+                          ? area.capacity.replace('About', t.aboutPeople).replace('people', '')
+                          : area.capacity}
+                      </span>
                     </div>
                   </div>
                 ))}

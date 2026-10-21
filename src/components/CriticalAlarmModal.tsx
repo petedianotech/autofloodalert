@@ -174,7 +174,7 @@ export const CriticalAlarmModal: React.FC<CriticalAlarmModalProps> = ({
                 <span>Turn Off River Sensor &amp; Reset Alarm</span>
               </button>
 
-              {onOpenSmsModal && (
+              {onOpenSmsModal && isAdmin && (
                 <button
                   type="button"
                   onClick={() => {

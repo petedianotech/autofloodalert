@@ -74,7 +74,7 @@ export const AdminSafetyDashboardView: React.FC<AdminSafetyDashboardViewProps> =
   onRefresh,
   isRefreshing = false,
 }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation(true);
   const [filterCategory, setFilterCategory] = useState<'all' | 'sightings' | 'safe' | 'shelters' | 'help'>('all');
   const [villageFilter, setVillageFilter] = useState<string>('all');
   const [isVillageDropdownOpen, setIsVillageDropdownOpen] = useState(false);
@@ -470,6 +470,19 @@ export const AdminSafetyDashboardView: React.FC<AdminSafetyDashboardViewProps> =
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            {onOpenSmsModal && (
+              <button
+                type="button"
+                id="btn-admin-overview-open-sms"
+                onClick={onOpenSmsModal}
+                className="flex items-center gap-1.5 bg-[#006A4E] hover:bg-emerald-800 active:scale-95 text-white px-3 py-1 rounded-full text-xs font-bold transition cursor-pointer shadow-2xs"
+                title="Open Textbee SMS Flood Alert Gateway"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>SMS Gateway (Textbee)</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setShowOverviewMap(true)}
@@ -528,6 +541,19 @@ export const AdminSafetyDashboardView: React.FC<AdminSafetyDashboardViewProps> =
               >
                 <RefreshCw className={`w-3.5 h-3.5 text-[#1F71E8] ${isRefreshing ? 'animate-spin' : ''}`} />
                 <span>Refresh</span>
+              </button>
+            )}
+
+            {onOpenSmsModal && (
+              <button
+                type="button"
+                id="btn-admin-users-card-sms"
+                onClick={onOpenSmsModal}
+                className="px-3.5 py-2 bg-[#006A4E] hover:bg-emerald-800 active:scale-98 text-white rounded-2xl text-xs font-bold transition cursor-pointer shadow-xs flex items-center gap-1.5 shrink-0"
+                title="Send emergency SMS broadcast to marked phones via Textbee"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>SMS Broadcast (Textbee)</span>
               </button>
             )}
 

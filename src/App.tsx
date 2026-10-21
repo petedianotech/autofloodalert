@@ -31,6 +31,7 @@ import { FcmGatewayModal } from './components/FcmGatewayModal';
 import { AlertSoundModal } from './components/AlertSoundModal';
 import { SmsGatewayModal } from './components/SmsGatewayModal';
 import { AboutLegalModal } from './components/AboutLegalModal';
+import { i18nService } from './services/i18n';
 import { Mic } from 'lucide-react';
 import {
   MotionData,
@@ -284,6 +285,13 @@ export default function App() {
   const [isAlertSoundModalOpen, setIsAlertSoundModalOpen] = useState(false);
   const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
+  const [aboutModalInitialTab, setAboutModalInitialTab] = useState<'thanks' | 'about' | 'privacy' | 'terms'>('thanks');
+
+  const handleOpenAboutLegal = (tab: 'thanks' | 'about' | 'privacy' | 'terms' = 'thanks') => {
+    setAboutModalInitialTab(tab);
+    setIsAboutModalOpen(true);
+  };
+
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(() =>
     NotificationService.getPermission()
   );
@@ -317,6 +325,13 @@ export default function App() {
       unsubAuth();
     };
   }, []);
+
+  // Ensure admin UI is strictly in English (Chichewa is only for regular user UI)
+  useEffect(() => {
+    if (isAdmin && i18nService.getLanguage() !== 'en') {
+      i18nService.setLanguage('en');
+    }
+  }, [isAdmin]);
 
 
   // Sync config changes to storage & services
@@ -916,6 +931,7 @@ export default function App() {
         onClose={() => setIsAuthModalOpen(false)}
         currentUser={authState.user}
         isDarkMode={isDarkMode}
+        onOpenAboutLegal={handleOpenAboutLegal}
         onSignedIn={(isAdminUser) => {
           if (isAdminUser) {
             setCurrentMode('admin');
@@ -955,6 +971,7 @@ export default function App() {
       <AboutLegalModal
         isOpen={isAboutModalOpen}
         onClose={() => setIsAboutModalOpen(false)}
+        initialTab={aboutModalInitialTab}
       />
     </div>
   );

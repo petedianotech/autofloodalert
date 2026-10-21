@@ -59,8 +59,8 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
   onOpenSoundModal,
   onOpenSmsModal,
 }) => {
-  const { t } = useTranslation();
   const isAdmin = isAdminProp ?? isAppAdmin(currentUser);
+  const { t } = useTranslation(isAdmin);
   const [isSirenActive, setIsSirenActive] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'resolved'>('all');
   const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(new Set());
@@ -221,30 +221,45 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
                   {t.riverFloodAlerts}
                 </span>
                 <span className="text-xs font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">
-                  {alerts.length} total
+                  {alerts.length} {t.total}
                 </span>
               </div>
 
-              {alerts.length > 0 && (
-                <button
-                  type="button"
-                  id="btn-clear-alerts"
-                  onClick={onClearAlerts}
-                  className={`text-xs font-bold transition flex items-center gap-1 cursor-pointer px-3 py-1.5 rounded-full border ${
-                    isAdmin
-                      ? 'text-red-700 hover:text-red-800 bg-red-50 border-red-200'
-                      : 'text-slate-700 hover:text-slate-900 bg-slate-100 border-slate-200 hover:bg-slate-200'
-                  }`}
-                  title={
-                    isAdmin
-                      ? 'Delete all alerts from database for all village users'
-                      : 'Clear alerts from your phone view only'
-                  }
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>{isAdmin ? 'Clear Database (Admin)' : 'Clear My View'}</span>
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {onOpenSmsModal && isAdmin && (
+                  <button
+                    type="button"
+                    id="btn-alerts-open-sms-broadcast"
+                    onClick={onOpenSmsModal}
+                    className="text-xs font-bold transition flex items-center gap-1.5 cursor-pointer px-3 py-1.5 rounded-full border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 shadow-2xs"
+                    title="Open SMS Flood Alert Gateway (Admin)"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>SMS Gateway</span>
+                  </button>
+                )}
+
+                {alerts.length > 0 && (
+                  <button
+                    type="button"
+                    id="btn-clear-alerts"
+                    onClick={onClearAlerts}
+                    className={`text-xs font-bold transition flex items-center gap-1 cursor-pointer px-3 py-1.5 rounded-full border ${
+                      isAdmin
+                        ? 'text-red-700 hover:text-red-800 bg-red-50 border-red-200'
+                        : 'text-slate-700 hover:text-slate-900 bg-slate-100 border-slate-200 hover:bg-slate-200'
+                    }`}
+                    title={
+                      isAdmin
+                        ? 'Delete all alerts from database for all village users'
+                        : 'Clear alerts from your phone view only'
+                    }
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{isAdmin ? 'Clear Database (Admin)' : 'Clear My View'}</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Filter Tabs: All / Active / Resolved */}
@@ -258,7 +273,7 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                All ({alerts.length})
+                {t.all} ({alerts.length})
               </button>
 
               <button
@@ -285,7 +300,7 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                Resolved
+                {t.resolved}
               </button>
             </div>
 
@@ -431,9 +446,9 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
               ) : (
                 <div className="bg-slate-50 rounded-xl p-6 text-center space-y-2 border border-slate-200">
                   <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                  <p className="text-xs font-bold text-slate-900">River Channels Clear &bull; No Active Warnings</p>
+                  <p className="text-xs font-bold text-slate-900">{t.riverChannelsClearNoAlerts}</p>
                   <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
-                    River sensors along the Ruo River and surrounding streams are active. You will receive audible warnings and notifications immediately if water levels rise.
+                    {t.riverSensorsActiveDesc}
                   </p>
                 </div>
               )}

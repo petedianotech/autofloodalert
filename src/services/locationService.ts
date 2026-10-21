@@ -63,6 +63,7 @@ export const MALAWI_RIVER_STATION_PRESETS: Array<{
 
 class LocationService {
   private cachedLocation: SensorLocation | null = null;
+  private lastKnownCoords: GeoLocationCoordinates | null = null;
   private watchId: number | null = null;
 
   constructor() {
@@ -96,13 +97,18 @@ class LocationService {
     return DEFAULT_MALAWI_SENSOR_LOCATION;
   }
 
+  public getLastKnownCoordinates(): GeoLocationCoordinates | null {
+    return this.lastKnownCoords;
+  }
+
   /**
    * Acquire real GPS hardware coordinates from the mobile device
    * Supports native Capacitor Geolocation (APK) with multi-tier fallback to standard web browser API.
+   * Fully optimized for PWA standalone modes and all modern mobile browsers.
    */
   public async getDeviceGpsCoordinates(options?: { enableHighAccuracy?: boolean; timeout?: number }): Promise<GeoLocationCoordinates> {
     const enableHighAccuracy = options?.enableHighAccuracy ?? true;
-    const timeout = options?.timeout ?? 12000;
+    const timeout = options?.timeout ?? 14000;
 
     // 1. Check if we are running on a native Capacitor platform (Android APK)
     if (Capacitor.isNativePlatform()) {
@@ -121,16 +127,18 @@ class LocationService {
         const pos = await CapGeolocation.getCurrentPosition({
           enableHighAccuracy,
           timeout,
-          maximumAge: 5000,
+          maximumAge: 15000,
         });
 
-        return {
+        const coords: GeoLocationCoordinates = {
           latitude: Number(pos.coords.latitude.toFixed(6)),
           longitude: Number(pos.coords.longitude.toFixed(6)),
           accuracy: Math.round(pos.coords.accuracy),
           altitude: pos.coords.altitude ? Number(pos.coords.altitude.toFixed(1)) : null,
           timestamp: pos.timestamp || Date.now(),
         };
+        this.lastKnownCoords = coords;
+        return coords;
       } catch (nativeErr: any) {
         if (nativeErr.code === 1 || String(nativeErr.message).toLowerCase().includes('denied')) {
           const err: any = new Error('Location permission denied on device.');
@@ -153,13 +161,14 @@ class LocationService {
       return new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(
           (pos) => {
-            resolve({
+            const result: GeoLocationCoordinates = {
               latitude: Number(pos.coords.latitude.toFixed(6)),
               longitude: Number(pos.coords.longitude.toFixed(6)),
               accuracy: Math.round(pos.coords.accuracy),
               altitude: pos.coords.altitude ? Number(pos.coords.altitude.toFixed(1)) : null,
               timestamp: pos.timestamp || Date.now(),
-            });
+            };
+            resolve(result);
           },
           (err) => {
             const customErr: any = new Error(err.message || 'GPS position error');
@@ -175,9 +184,11 @@ class LocationService {
       });
     };
 
-    // 2. First attempt: High Accuracy GPS (Satellites + Wi-Fi)
+    // 2. First attempt: High Accuracy GPS (Satellites + Wi-Fi) with 15s cache tolerance for instant PWA fix
     try {
-      return await acquirePosition(enableHighAccuracy, timeout, 0);
+      const coords = await acquirePosition(enableHighAccuracy, timeout, 15000);
+      this.lastKnownCoords = coords;
+      return coords;
     } catch (primaryErr: any) {
       // If user specifically denied permission (code 1), do not try fallback, report immediately
       if (primaryErr.code === 1 || primaryErr.message?.toLowerCase().includes('denied')) {
@@ -188,9 +199,11 @@ class LocationService {
 
       console.warn('[GPS] High-accuracy lock timed out or unavailable. Trying network coarse fallback...', primaryErr);
 
-      // 3. Second attempt: Coarse Network Location (Cell Tower + Cached Wi-Fi, 60s maxAge)
+      // 3. Second attempt: Coarse Network Location (Cell Tower + Cached Wi-Fi, 120s maxAge)
       try {
-        return await acquirePosition(false, 8000, 60000);
+        const fallbackCoords = await acquirePosition(false, 9000, 120000);
+        this.lastKnownCoords = fallbackCoords;
+        return fallbackCoords;
       } catch (fallbackErr: any) {
         if (fallbackErr.code === 1) {
           const err: any = new Error('Location permission denied in browser.');
@@ -198,10 +211,16 @@ class LocationService {
           throw err;
         }
 
+        // 4. Third attempt: If user previously obtained a GPS fix in this session, return it
+        if (this.lastKnownCoords && Date.now() - this.lastKnownCoords.timestamp < 900000) {
+          console.log('[GPS] Returning recent session cached location:', this.lastKnownCoords);
+          return this.lastKnownCoords;
+        }
+
         const msg =
           fallbackErr.code === 2
             ? 'GPS location signal unavailable. Please ensure Phone Location / GPS is turned ON.'
-            : 'GPS satellite fix timed out. Please check signal or try again outdoors.';
+            : 'GPS satellite fix timed out. Please check signal or tap to use village center coordinates.';
         const finalErr: any = new Error(msg);
         finalErr.code = fallbackErr.code || 3;
         throw finalErr;

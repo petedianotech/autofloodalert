@@ -129,7 +129,7 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
             </div>
             <div className="min-w-0">
               <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight truncate">
-                SMS Flood Alert Gateway
+                Textbee SMS Flood Alert Gateway
               </h2>
               <p className="text-xs text-slate-500 font-medium truncate">
                 Village Emergency SMS Broadcast Network
@@ -178,10 +178,10 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
             <Smartphone className="w-5 h-5 text-[#006A4E]" />
             <div>
               <span className="text-xs font-bold text-[#1C1B1F] block">
-                Gateway Phone
+                Textbee Gateway Phone
               </span>
               <span className="text-[11px] text-[#49454F]">
-                Sends flood alerts directly to local SIMs
+                Sends flood alerts directly to local SIMs via Textbee
               </span>
             </div>
           </div>

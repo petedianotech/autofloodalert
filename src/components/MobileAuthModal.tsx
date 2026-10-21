@@ -16,6 +16,9 @@ import {
   Hand,
   Globe,
   Radio,
+  Award,
+  Lock,
+  FileText,
 } from 'lucide-react';
 import { UserProfile, isAppAdmin } from '../types';
 import { firebaseFloodService } from '../services/firebaseService';
@@ -26,6 +29,7 @@ interface MobileAuthModalProps {
   currentUser: UserProfile | null;
   isDarkMode?: boolean;
   onSignedIn?: (isAdmin: boolean) => void;
+  onOpenAboutLegal?: (tab?: 'thanks' | 'about' | 'privacy' | 'terms') => void;
 }
 
 const POPULAR_VILLAGES = [
@@ -38,6 +42,7 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
   onClose,
   currentUser,
   onSignedIn,
+  onOpenAboutLegal,
 }) => {
   const [name, setName] = useState(currentUser?.name || '');
   const [village, setVillage] = useState(currentUser?.village || 'Dzenje Village');
@@ -264,11 +269,42 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
             </div>
             <div className="min-w-0">
               <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight truncate">
-                {currentUser ? 'Your Profile & Settings' : 'Sign In to Flood Alert'}
+                {currentUser ? 'Your Profile & Settings' : 'Automatic Flood Alert'}
               </h2>
-              <p className="text-xs text-slate-500 font-medium truncate">
-                {currentUser ? 'Dzenje CDSS STEM Club Network' : 'Dzenje Early Warning Community'}
-              </p>
+              <div className="flex items-center gap-1.5 flex-wrap text-xs text-slate-500 font-medium">
+                <span>{currentUser ? 'Dzenje CDSS STEM Club' : 'Sign In'}</span>
+                {onOpenAboutLegal && (
+                  <>
+                    <span className="text-slate-300">•</span>
+                    <button
+                      type="button"
+                      id="btn-header-thanks"
+                      onClick={() => onOpenAboutLegal('thanks')}
+                      className="text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
+                    >
+                      Thanks
+                    </button>
+                    <span className="text-slate-300">•</span>
+                    <button
+                      type="button"
+                      id="btn-header-privacy"
+                      onClick={() => onOpenAboutLegal('privacy')}
+                      className="text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
+                    >
+                      Privacy
+                    </button>
+                    <span className="text-slate-300">•</span>
+                    <button
+                      type="button"
+                      id="btn-header-terms"
+                      onClick={() => onOpenAboutLegal('terms')}
+                      className="text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
+                    >
+                      Terms
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -452,6 +488,49 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
               <div className="p-3 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-bold flex items-center gap-2 border border-emerald-200 animate-in fade-in">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>{successMsg}</span>
+              </div>
+            )}
+
+            {/* User Profile Legal & Thanks Access */}
+            {onOpenAboutLegal && (
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                    Information &amp; Legal
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-medium">Dzenje CDSS STEM Club</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    id="btn-profile-thanks"
+                    onClick={() => onOpenAboutLegal('thanks')}
+                    className="py-2.5 px-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-xs font-bold text-slate-800 flex flex-col items-center justify-center gap-1 transition cursor-pointer shadow-2xs active:scale-95"
+                  >
+                    <Award className="w-4 h-4 text-blue-600" />
+                    <span>Thanks</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    id="btn-profile-privacy"
+                    onClick={() => onOpenAboutLegal('privacy')}
+                    className="py-2.5 px-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-xs font-bold text-slate-800 flex flex-col items-center justify-center gap-1 transition cursor-pointer shadow-2xs active:scale-95"
+                  >
+                    <Lock className="w-4 h-4 text-emerald-600" />
+                    <span>Privacy</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    id="btn-profile-terms"
+                    onClick={() => onOpenAboutLegal('terms')}
+                    className="py-2.5 px-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-xs font-bold text-slate-800 flex flex-col items-center justify-center gap-1 transition cursor-pointer shadow-2xs active:scale-95"
+                  >
+                    <FileText className="w-4 h-4 text-amber-600" />
+                    <span>Terms</span>
+                  </button>
+                </div>
               </div>
             )}
 
@@ -664,6 +743,38 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
                 <span>Continue as Guest (Read-Only)</span>
               </button>
             </div>
+
+            {/* Legal Links Footer */}
+            {onOpenAboutLegal && (
+              <div className="pt-1.5 text-center text-xs text-slate-500 flex items-center justify-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  id="btn-login-thanks"
+                  onClick={() => onOpenAboutLegal('thanks')}
+                  className="font-medium text-slate-600 hover:text-blue-600 hover:underline cursor-pointer"
+                >
+                  Thanks
+                </button>
+                <span className="text-slate-300">•</span>
+                <button
+                  type="button"
+                  id="btn-login-privacy"
+                  onClick={() => onOpenAboutLegal('privacy')}
+                  className="font-medium text-slate-600 hover:text-blue-600 hover:underline cursor-pointer"
+                >
+                  Privacy Policy
+                </button>
+                <span className="text-slate-300">•</span>
+                <button
+                  type="button"
+                  id="btn-login-terms"
+                  onClick={() => onOpenAboutLegal('terms')}
+                  className="font-medium text-slate-600 hover:text-blue-600 hover:underline cursor-pointer"
+                >
+                  Terms of Service
+                </button>
+              </div>
+            )}
           </div>
         )}
         </div>

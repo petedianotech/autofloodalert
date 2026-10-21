@@ -94,6 +94,11 @@ export const VillageReportFloodModal: React.FC<VillageReportFloodModalProps> = (
     'Machokola Village': { lat: -15.9715, lng: 35.5310, label: 'Machokola Village River Post' },
   };
 
+  useEffect(() => {
+    // Auto-acquire live GPS in the background when modal opens
+    handleGetLocation();
+  }, []);
+
   const handleGetLocation = async () => {
     setIsLocating(true);
     setLocationErrorType(null);

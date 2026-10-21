@@ -63,6 +63,11 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
     'Machokola Village': { lat: -15.9715, lng: 35.5310, label: 'Machokola Village River Watch Post' },
   };
 
+  useEffect(() => {
+    // Auto-acquire live GPS in the background when modal opens
+    handleGetLocation();
+  }, []);
+
   const handleGetLocation = async () => {
     setIsLocating(true);
     setLocationErrorType(null);

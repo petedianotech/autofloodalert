@@ -34,7 +34,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onRefresh,
   isRefreshing = false,
 }) => {
-  const { t } = useTranslation();
+  const { t, isChichewa, toggleLanguage } = useTranslation(isAdmin);
 
   const getInitials = () => {
     if (!currentUser?.name) return 'U';
@@ -116,23 +116,85 @@ export const TopBar: React.FC<TopBarProps> = ({
           </nav>
         )}
 
-        {/* Right: User / Refresh */}
-        <div className="flex items-center gap-2">
-           <button
-              type="button"
-              onClick={onRefresh}
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-              title="Refresh Data"
-            >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            </button>
+        {/* Right: Language Switcher (Users only), Refresh, Profile */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* English / Chichewa Language Switch Toggle (Users UI Only - Flag Only) */}
+          {!isAdmin && (
             <button
               type="button"
-              onClick={onOpenAuthModal}
-              className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs transition cursor-pointer hover:bg-blue-700"
+              id="btn-language-toggle"
+              onClick={toggleLanguage}
+              className="w-9 h-9 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 active:scale-95 flex items-center justify-center transition cursor-pointer shadow-2xs shrink-0"
+              title={
+                isChichewa
+                  ? 'Sinthani kupita ku Chingerezi (Switch to English)'
+                  : 'Sinthani ku Chichewa (Switch to Chichewa)'
+              }
+              aria-label={
+                isChichewa
+                  ? 'Sinthani kupita ku Chingerezi (Switch to English)'
+                  : 'Sinthani ku Chichewa (Switch to Chichewa)'
+              }
             >
-              {getInitials()}
+              {isChichewa ? (
+                /* Malawi Flag */
+                <span className="inline-flex items-center justify-center shrink-0 overflow-hidden rounded-[3px] shadow-2xs border border-slate-300/60 w-6 h-4">
+                  <svg viewBox="0 0 60 40" className="w-full h-full object-cover">
+                    <rect width="60" height="13.33" fill="#000000" />
+                    <rect y="13.33" width="60" height="13.34" fill="#DA121A" />
+                    <rect y="26.67" width="60" height="13.33" fill="#007A3D" />
+                    <circle cx="30" cy="13.33" r="5" fill="#DA121A" />
+                    <g stroke="#DA121A" strokeWidth="0.8">
+                      {[...Array(11)].map((_, i) => {
+                        const rad = ((i * 180) / 10 * Math.PI) / 180;
+                        return (
+                          <line
+                            key={i}
+                            x1={30 - Math.cos(rad) * 6}
+                            y1={13.33 - Math.sin(rad) * 6}
+                            x2={30 - Math.cos(rad) * 8}
+                            y2={13.33 - Math.sin(rad) * 8}
+                          />
+                        );
+                      })}
+                    </g>
+                  </svg>
+                </span>
+              ) : (
+                /* Britain Flag */
+                <span className="inline-flex items-center justify-center shrink-0 overflow-hidden rounded-[3px] shadow-2xs border border-slate-300/60 w-6 h-4">
+                  <svg viewBox="0 0 60 40" className="w-full h-full object-cover">
+                    <path d="M0,0 h60 v40 h-60 z" fill="#012169" />
+                    <path d="M0,0 L60,40 M60,0 L0,40" stroke="#FFFFFF" strokeWidth="6" />
+                    <path d="M0,0 L60,40 M60,0 L0,40" stroke="#C8102E" strokeWidth="3" />
+                    <path d="M30,0 v40 M0,20 h60" stroke="#FFFFFF" strokeWidth="10" />
+                    <path d="M30,0 v40 M0,20 h60" stroke="#C8102E" strokeWidth="6" />
+                  </svg>
+                </span>
+              )}
             </button>
+          )}
+
+          {/* Refresh Button */}
+          <button
+            type="button"
+            id="btn-topbar-refresh"
+            onClick={onRefresh}
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 border border-slate-200 transition cursor-pointer active:scale-95 shadow-2xs"
+            title="Refresh Data"
+          >
+            <RefreshCw className={`w-4 h-4 text-emerald-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </button>
+
+          {/* User Profile / Auth Button */}
+          <button
+            type="button"
+            id="btn-topbar-user-profile"
+            onClick={onOpenAuthModal}
+            className="h-9 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center font-bold text-xs transition cursor-pointer active:scale-95 shadow-xs"
+          >
+            {getInitials()}
+          </button>
         </div>
       </div>
     </header>

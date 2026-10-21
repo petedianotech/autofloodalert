@@ -21,7 +21,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   isPaused,
   isAdmin = false,
 }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation(isAdmin);
 
   // Villagers and guests only see Village and Alerts tabs.
   // Admins get full app access (Dashboard, Sensor, Alerts, Village).
