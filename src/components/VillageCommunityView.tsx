@@ -62,7 +62,7 @@ const VILLAGES_DATA: VillageData[] = [
     safeAreas: [
       {
         name: 'Chikulumuzu Hill',
-        capacity: '400+ people',
+        capacity: '500+ people',
       },
       {
         name: 'Mayero Church',
