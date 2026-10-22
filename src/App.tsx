@@ -572,8 +572,10 @@ export default function App() {
           wakeLockService.request();
         }
       } else {
+        setIsPaused(false);
         motionSensorService.stopListening();
         acousticSensorService.stopListening();
+        wakeLockService.release().catch(() => {});
       }
       return next;
     });

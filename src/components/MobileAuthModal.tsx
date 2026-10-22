@@ -19,6 +19,7 @@ import {
   Award,
   Lock,
   FileText,
+  ExternalLink,
 } from 'lucide-react';
 import { UserProfile, isAppAdmin } from '../types';
 import { firebaseFloodService } from '../services/firebaseService';
@@ -460,46 +461,25 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
               </div>
             )}
 
-            {/* User Profile Legal & Thanks Access */}
-            {onOpenAboutLegal && (
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                    Information &amp; Legal
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-medium">Dzenje CDSS STEM Club</span>
+            {/* User Profile Legal & Thanks Access (Hidden for Admins) */}
+            {!isAdmin && onOpenAboutLegal && (
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => onOpenAboutLegal('thanks')}
+                onKeyDown={(e) => { if (e.key === 'Enter') onOpenAboutLegal('thanks'); }}
+                className="p-3.5 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 flex items-center justify-between cursor-pointer transition shadow-2xs active:scale-95"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-xs text-slate-900 truncate">App Information &amp; Legal Policies</h4>
+                    <p className="text-[11px] text-slate-500 font-medium">Thanks, About, Privacy &amp; Terms</p>
+                  </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    id="btn-profile-thanks"
-                    onClick={() => onOpenAboutLegal('thanks')}
-                    className="py-2.5 px-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-xs font-bold text-slate-800 flex flex-col items-center justify-center gap-1 transition cursor-pointer shadow-2xs active:scale-95"
-                  >
-                    <Award className="w-4 h-4 text-blue-600" />
-                    <span>Thanks</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    id="btn-profile-privacy"
-                    onClick={() => onOpenAboutLegal('privacy')}
-                    className="py-2.5 px-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-xs font-bold text-slate-800 flex flex-col items-center justify-center gap-1 transition cursor-pointer shadow-2xs active:scale-95"
-                  >
-                    <Lock className="w-4 h-4 text-emerald-600" />
-                    <span>Privacy</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    id="btn-profile-terms"
-                    onClick={() => onOpenAboutLegal('terms')}
-                    className="py-2.5 px-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-xs font-bold text-slate-800 flex flex-col items-center justify-center gap-1 transition cursor-pointer shadow-2xs active:scale-95"
-                  >
-                    <FileText className="w-4 h-4 text-amber-600" />
-                    <span>Terms</span>
-                  </button>
-                </div>
+                <ExternalLink className="w-4 h-4 text-slate-400 shrink-0" />
               </div>
             )}
 
@@ -713,43 +693,20 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
               </button>
             </div>
 
-            {/* Legal Links Footer */}
-            {onOpenAboutLegal && (
-              <div className="pt-2 text-center text-xs text-slate-500 flex items-center justify-center gap-2 flex-wrap">
+            {/* Legal Links Footer (Hidden for Admins) */}
+            {!isAdmin && onOpenAboutLegal && (
+              <div className="pt-2">
                 <button
                   type="button"
-                  id="btn-login-thanks"
+                  id="btn-login-legal-card"
                   onClick={() => onOpenAboutLegal('thanks')}
-                  className="font-medium text-slate-600 hover:text-blue-600 hover:underline cursor-pointer"
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 flex items-center justify-between gap-2 transition cursor-pointer"
                 >
-                  Thanks
-                </button>
-                <span className="text-slate-300">•</span>
-                <button
-                  type="button"
-                  id="btn-login-about"
-                  onClick={() => onOpenAboutLegal('about')}
-                  className="font-medium text-slate-600 hover:text-blue-600 hover:underline cursor-pointer"
-                >
-                  About
-                </button>
-                <span className="text-slate-300">•</span>
-                <button
-                  type="button"
-                  id="btn-login-privacy"
-                  onClick={() => onOpenAboutLegal('privacy')}
-                  className="font-medium text-slate-600 hover:text-blue-600 hover:underline cursor-pointer"
-                >
-                  Privacy
-                </button>
-                <span className="text-slate-300">•</span>
-                <button
-                  type="button"
-                  id="btn-login-terms"
-                  onClick={() => onOpenAboutLegal('terms')}
-                  className="font-medium text-slate-600 hover:text-blue-600 hover:underline cursor-pointer"
-                >
-                  Terms
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    <span>App Information, Thanks, Privacy &amp; Terms</span>
+                  </div>
+                  <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
                 </button>
               </div>
             )}

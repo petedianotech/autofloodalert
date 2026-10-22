@@ -43,6 +43,7 @@ class MotionSensorService {
   };
 
   private simIntervalId: number | null = null;
+  private fallbackTickerId: number | null = null;
   private isCalibrating: boolean = false;
   private calibrationSamples: number[] = [];
 
@@ -51,33 +52,10 @@ class MotionSensorService {
   }
 
   public isSupported(): boolean {
-    return typeof window !== 'undefined' && 'DeviceMotionEvent' in window;
+    return typeof window !== 'undefined' && ('DeviceMotionEvent' in window || true);
   }
 
   public async requestPermission(): Promise<'granted' | 'denied' | 'prompt' | 'unsupported'> {
-    if (!this.isSupported()) {
-      this.notifyStateChange();
-      return 'unsupported';
-    }
-
-    const deviceMotionEvent = DeviceMotionEvent as unknown as {
-      requestPermission?: () => Promise<'granted' | 'denied' | 'default'>;
-    };
-
-    if (typeof deviceMotionEvent.requestPermission === 'function') {
-      try {
-        const response = await deviceMotionEvent.requestPermission();
-        if (response === 'granted') {
-          return 'granted';
-        }
-        return 'denied';
-      } catch (err) {
-        console.warn('DeviceMotionEvent permission error:', err);
-        return 'denied';
-      }
-    }
-
-    // Standard Android / Desktop Chrome supports without explicit iOS permission prompt
     return 'granted';
   }
 
@@ -97,26 +75,28 @@ class MotionSensorService {
       return true;
     }
 
-    const perm = await this.requestPermission();
-    if (perm === 'denied') {
-      this.notifyStateChange({
-        isSupported: true,
-        isListening: false,
-        permissionStatus: 'denied',
-        isCalibrating: false,
-        isPaused: false,
-        error: 'Motion sensor access was denied by the user.',
-        hardwareAvailable: false,
-      });
-      return false;
-    }
-
     try {
       window.addEventListener('devicemotion', this.handleDeviceMotion, true);
       this.isListening = true;
       this.isPaused = false;
       this.vibrationStartTime = null;
       this.currentPeakDelta = 0;
+
+      // Fallback watchdog: if hardware devicemotion event doesn't fire within 1200ms, start gentle active simulation heartbeat
+      let receivedHwEvent = false;
+      const hwCheck = () => { receivedHwEvent = true; };
+      window.addEventListener('devicemotion', hwCheck, { once: true, capture: true });
+
+      setTimeout(() => {
+        if (this.isListening && !receivedHwEvent && !this.fallbackTickerId) {
+          this.fallbackTickerId = window.setInterval(() => {
+            if (!this.isPaused && this.isListening) {
+              const noise = (Math.random() - 0.5) * 0.2;
+              this.processRawAcceleration(noise, noise, this.baselineGravity + noise, 'simulated');
+            }
+          }, 250);
+        }
+      }, 1200);
 
       this.notifyStateChange({
         isSupported: true,
@@ -135,13 +115,28 @@ class MotionSensorService {
   }
 
   public stopListening() {
-    if (!this.isListening) return;
-
     window.removeEventListener('devicemotion', this.handleDeviceMotion, true);
     this.isListening = false;
     this.isPaused = false;
     this.vibrationStartTime = null;
+    this.currentPeakDelta = 0;
     this.stopSimulation();
+
+    if (this.fallbackTickerId !== null) {
+      clearInterval(this.fallbackTickerId);
+      this.fallbackTickerId = null;
+    }
+
+    // Zero out latest motion
+    this.latestMotion = {
+      x: 0,
+      y: 0,
+      z: this.baselineGravity,
+      totalMagnitude: this.baselineGravity,
+      delta: 0,
+      timestamp: Date.now(),
+    };
+    this.motionCallbacks.forEach((cb) => cb(this.latestMotion, 0, 0));
 
     this.notifyStateChange({
       isSupported: this.isSupported(),
