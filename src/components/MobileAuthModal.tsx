@@ -273,37 +273,6 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
               </h2>
               <div className="flex items-center gap-1.5 flex-wrap text-xs text-slate-500 font-medium">
                 <span>{currentUser ? 'Dzenje CDSS STEM Club' : 'Sign In'}</span>
-                {onOpenAboutLegal && (
-                  <>
-                    <span className="text-slate-300">•</span>
-                    <button
-                      type="button"
-                      id="btn-header-thanks"
-                      onClick={() => onOpenAboutLegal('thanks')}
-                      className="text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
-                    >
-                      Thanks
-                    </button>
-                    <span className="text-slate-300">•</span>
-                    <button
-                      type="button"
-                      id="btn-header-privacy"
-                      onClick={() => onOpenAboutLegal('privacy')}
-                      className="text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
-                    >
-                      Privacy
-                    </button>
-                    <span className="text-slate-300">•</span>
-                    <button
-                      type="button"
-                      id="btn-header-terms"
-                      onClick={() => onOpenAboutLegal('terms')}
-                      className="text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
-                    >
-                      Terms
-                    </button>
-                  </>
-                )}
               </div>
             </div>
           </div>
@@ -746,7 +715,7 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
 
             {/* Legal Links Footer */}
             {onOpenAboutLegal && (
-              <div className="pt-1.5 text-center text-xs text-slate-500 flex items-center justify-center gap-2 flex-wrap">
+              <div className="pt-2 text-center text-xs text-slate-500 flex items-center justify-center gap-2 flex-wrap">
                 <button
                   type="button"
                   id="btn-login-thanks"
@@ -758,11 +727,20 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
                 <span className="text-slate-300">•</span>
                 <button
                   type="button"
+                  id="btn-login-about"
+                  onClick={() => onOpenAboutLegal('about')}
+                  className="font-medium text-slate-600 hover:text-blue-600 hover:underline cursor-pointer"
+                >
+                  About
+                </button>
+                <span className="text-slate-300">•</span>
+                <button
+                  type="button"
                   id="btn-login-privacy"
                   onClick={() => onOpenAboutLegal('privacy')}
                   className="font-medium text-slate-600 hover:text-blue-600 hover:underline cursor-pointer"
                 >
-                  Privacy Policy
+                  Privacy
                 </button>
                 <span className="text-slate-300">•</span>
                 <button
@@ -771,7 +749,7 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
                   onClick={() => onOpenAboutLegal('terms')}
                   className="font-medium text-slate-600 hover:text-blue-600 hover:underline cursor-pointer"
                 >
-                  Terms of Service
+                  Terms
                 </button>
               </div>
             )}

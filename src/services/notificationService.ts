@@ -93,10 +93,23 @@ export class NotificationService {
 
     // 1. Register Service Worker for PWA Web
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      const registerPeriodic = (reg: ServiceWorkerRegistration) => {
+        if ('periodicSync' in reg) {
+          try {
+            (reg as any).periodicSync.register('flood-status-sync', {
+              minInterval: 15 * 60 * 1000,
+            }).catch(() => {});
+          } catch {
+            // ignore
+          }
+        }
+      };
+
       navigator.serviceWorker
         .register('/firebase-messaging-sw.js')
         .then((reg) => {
           this.swRegistration = reg;
+          registerPeriodic(reg);
           this.initFirebaseMessaging(reg);
         })
         .catch(() => {
@@ -105,6 +118,7 @@ export class NotificationService {
             .register('/sw.js')
             .then((reg) => {
               this.swRegistration = reg;
+              registerPeriodic(reg);
               this.initFirebaseMessaging(reg);
             })
             .catch((err) => {
@@ -114,9 +128,11 @@ export class NotificationService {
 
       navigator.serviceWorker.ready.then((reg) => {
         this.swRegistration = reg;
+        registerPeriodic(reg);
         this.initFirebaseMessaging(reg);
       });
     }
+
 
     // 2. Listen for PWA Install Prompt
     if (typeof window !== 'undefined') {

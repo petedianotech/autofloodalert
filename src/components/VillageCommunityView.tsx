@@ -264,7 +264,13 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
 
               <button
                 type="button"
-                onClick={() => setActiveTabSection('villages')}
+                onClick={() => {
+                  setActiveTabSection('villages');
+                  setTimeout(() => {
+                    const el = document.getElementById('tab-villages');
+                    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                  }, 50);
+                }}
                 className="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-full transition cursor-pointer shrink-0"
                 title="Switch selected village"
               >

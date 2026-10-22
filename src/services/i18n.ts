@@ -483,7 +483,7 @@ export const translations: Record<SupportedLanguage, Translations> = {
     riverChannelsClearNoAlerts: 'Mitsinje Ili Bwino • Palibe Chenjezo',
     riverSensorsActiveDesc:
       'Makina a m’mtsinje wa Ruo ndi ena  akugwira ntchito. Mupeza chenjezo  ndi uthenga madzi akakwera.',
-    normalMonitoringNoFloods: 'Zilili Bwino • Palibe Chigumula',
+    normalMonitoringNoFloods: 'Zili Bwino • Palibe Chigumula',
     riverSensorsWatchingContinuously: "Makina akuyang'anira msinkhu wa madzi nthawi zonse.",
     villageDzenjeName: 'Mudzi wa Dzenje',
     mulanjeDistrictRuoArea: 'Boma la Mulanje • Dera la Mtsinje wa Ruo',
