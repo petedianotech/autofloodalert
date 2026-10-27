@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "autofloodalert"
+    namespace = "com.dzenjecdsstem.floodalert"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "autofloodalert"
+        applicationId "com.dzenjecdsstem.floodalert"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 25
@@ -16,13 +16,6 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
-        }
-    }
     signingConfigs {
         release {
             if (System.getenv("RELEASE_KEYSTORE_PASSWORD")) {
@@ -30,6 +23,15 @@ android {
                 storePassword System.getenv("RELEASE_KEYSTORE_PASSWORD")
                 keyAlias System.getenv("RELEASE_KEY_ALIAS")
                 keyPassword System.getenv("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (System.getenv("RELEASE_KEYSTORE_PASSWORD")) {
+                signingConfig signingConfigs.release
             }
         }
     }

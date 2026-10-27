@@ -1,6 +1,6 @@
 {
 	"appId": "com.dzenjecdsstem.floodalert",
-	"appName": "Auto Flood Alert",
+	"appName": "automatic flood alert",
 	"webDir": "dist",
 	"server": {
 		"androidScheme": "https",

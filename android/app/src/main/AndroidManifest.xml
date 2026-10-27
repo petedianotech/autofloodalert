@@ -11,7 +11,7 @@
 
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
-            android:name=".MainActivity"
+            android:name="com.dzenjecdsstem.floodalert.MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
@@ -34,9 +34,17 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
 
+        <!-- Default FCM Notification Channel & Icon for Background / Closed-App Delivery -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="dzenje_flood_alarm_channel_v1" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
+
         <!-- Firebase Cloud Messaging Background Service for Native Flood Alerts -->
         <service
-            android:name=".FloodFirebaseMessagingService"
+            android:name="com.dzenjecdsstem.floodalert.FloodFirebaseMessagingService"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
@@ -45,7 +53,7 @@
 
         <!-- Native AlarmManager BroadcastReceiver for exact flood alerts & wake lock -->
         <receiver
-            android:name=".FloodAlarmReceiver"
+            android:name="com.dzenjecdsstem.floodalert.FloodAlarmReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.dzenjecdsstem.floodalert.ACTION_TRIGGER_FLOOD_ALARM" />

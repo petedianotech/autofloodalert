@@ -124,6 +124,12 @@ export class FcmGatewayService {
       });
 
       const data = await res.json();
+
+      // Clean up invalid or expired tokens from Firestore
+      if (data && Array.isArray(data.invalidTokens) && data.invalidTokens.length > 0) {
+        this.cleanUpInvalidTokens(data.invalidTokens).catch(() => {});
+      }
+
       return data;
     } catch (err: any) {
       console.warn('[FCM Gateway] Push broadcast error:', err);
@@ -131,6 +137,25 @@ export class FcmGatewayService {
         success: false,
         error: err.message || 'Failed to dispatch push broadcast.',
       };
+    }
+  }
+
+  /**
+   * Cleans up expired or unregistered FCM device tokens from Firestore
+   */
+  public static async cleanUpInvalidTokens(tokensToRemove: string[]): Promise<void> {
+    try {
+      const db = (firebaseFloodService as any).db;
+      if (!db || tokensToRemove.length === 0) return;
+      const { deleteDoc, doc } = await import('firebase/firestore');
+
+      for (const token of tokensToRemove) {
+        const tokenDocId = token.slice(0, 32).replace(/[^a-zA-Z0-9_-]/g, '_');
+        await deleteDoc(doc(db, 'fcm_tokens', tokenDocId)).catch(() => {});
+      }
+      console.log(`[FCM Gateway] Cleaned up ${tokensToRemove.length} invalid/expired device token(s) from Firestore.`);
+    } catch (err) {
+      console.warn('[FCM Gateway] Error cleaning up invalid tokens:', err);
     }
   }
 

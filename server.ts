@@ -50,28 +50,29 @@ async function startServer() {
     res.json({ status: 'ok', timestamp: Date.now() });
   });
 
-  // 2. Firebase Cloud Messaging (FCM) Push Gateway Status
-  app.get('/api/push/status', (req, res) => {
-    const fcmServerKey = process.env.FIREBASE_FCM_SERVER_KEY || process.env.FCM_SERVER_KEY;
-    const isConfigured = Boolean(fcmServerKey && fcmServerKey.trim().length > 10);
-
-    res.json({
-      configured: isConfigured,
-      serviceName: "Firebase Cloud Messaging (FCM) Push Gateway",
-      androidChannelId: "dzenje_flood_alarm_channel_v1",
-      priority: "high",
-      keyPreview: isConfigured ? `${fcmServerKey!.substring(0, 6)}...${fcmServerKey!.slice(-4)}` : null,
-      message: isConfigured
-        ? "FCM Server Key is active. High-priority push alerts will wake closed and background phones."
-        : "FCM Server Key not set. Add FIREBASE_FCM_SERVER_KEY to your environment settings to wake closed apps."
-    });
+  // 2. Firebase Cloud Messaging (FCM) Push Gateway Status (HTTP v1)
+  app.get('/api/push/status', async (req, res) => {
+    try {
+      const { getFcmV1Status } = await import('./src/server/fcmV1Client.js');
+      const status = await getFcmV1Status();
+      res.json(status);
+    } catch (err: any) {
+      res.json({
+        configured: false,
+        apiVersion: "Firebase Cloud Messaging HTTP v1",
+        serviceName: "FCM Push Gateway (HTTP v1)",
+        androidChannelId: "dzenje_flood_alarm_channel_v1",
+        priority: "HIGH",
+        message: err.message || "Failed to determine FCM v1 status."
+      });
+    }
   });
 
-  // 5. Firebase Cloud Messaging (FCM) Push Broadcast to Wake Closed/Background Phones
+  // 3. Firebase Cloud Messaging (FCM) Push Broadcast to Wake Closed/Background Phones via HTTP v1
   app.post('/api/push/broadcast', async (req, res) => {
     try {
-      const fcmServerKey = process.env.FIREBASE_FCM_SERVER_KEY || process.env.FCM_SERVER_KEY;
-      const { title, body, severity, village, peakDelta, tokens, data: customData } = req.body;
+      const { sendFcmV1Push } = await import('./src/server/fcmV1Client.js');
+      const { title, body, severity, village, peakDelta, tokens, data: customData } = req.body || {};
 
       if (!title || !body) {
         return res.status(400).json({
@@ -80,101 +81,22 @@ async function startServer() {
         });
       }
 
-      if (!fcmServerKey || fcmServerKey.trim() === '') {
-        return res.status(200).json({
-          success: false,
-          notConfigured: true,
-          error: "FCM Server Key is not configured. Set FIREBASE_FCM_SERVER_KEY in your environment to dispatch remote background push messages.",
-          deliveredCount: 0,
-          tokensCount: Array.isArray(tokens) ? tokens.length : 0
-        });
-      }
-
-      // Collect target tokens
-      let targetTokens: string[] = [];
-      if (Array.isArray(tokens) && tokens.length > 0) {
-        targetTokens = tokens.filter((t) => typeof t === 'string' && t.trim().length > 10);
-      }
-
-      if (targetTokens.length === 0) {
-        return res.status(400).json({
-          success: false,
-          error: "No active FCM device tokens provided to broadcast to."
-        });
-      }
-
-      // Prepare High-Priority FCM Payload for Android APK and Web PWA
-      const fcmPayload = {
-        registration_ids: targetTokens,
-        priority: 'high',
-        time_to_live: 0, // Deliver immediately or discard if unreachable
-        notification: {
-          title: title,
-          body: body,
-          sound: 'default',
-          android_channel_id: 'dzenje_flood_alarm_channel_v1',
-          click_action: 'FLDT_ALARM_OPEN',
-          icon: 'ic_launcher'
-        },
-        data: {
-          title: title,
-          body: body,
-          severity: severity || 'red',
-          village: village || 'Dzenje Village',
-          peakDelta: String(peakDelta || 0),
-          timestamp: String(Date.now()),
-          alarmType: 'flood_siren',
-          click_action: 'FLDT_ALARM_OPEN',
-          ...(customData || {})
-        },
-        android: {
-          priority: 'high',
-          notification: {
-            channel_id: 'dzenje_flood_alarm_channel_v1',
-            sound: 'default',
-            priority: 'max',
-            visibility: 'public'
-          }
-        }
-      };
-
-      console.log(`[FCM Gateway] Dispatching high-priority push to ${targetTokens.length} devices...`);
-
-      const fcmResponse = await fetch('https://fcm.googleapis.com/fcm/send', {
-        method: 'POST',
-        headers: {
-          'Authorization': `key=${fcmServerKey.trim()}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(fcmPayload)
+      const result = await sendFcmV1Push({
+        title,
+        body,
+        severity: severity || 'red',
+        village: village || 'Dzenje Village',
+        peakDelta: peakDelta || 0,
+        tokens: Array.isArray(tokens) ? tokens : [],
+        data: customData || {}
       });
 
-      const responseJson = await fcmResponse.json().catch(() => null);
-
-      if (!fcmResponse.ok) {
-        console.error('[FCM Gateway] FCM Error response:', responseJson || fcmResponse.statusText);
-        return res.status(fcmResponse.status).json({
-          success: false,
-          error: (responseJson && responseJson.results) || fcmResponse.statusText || 'FCM push request rejected by Google.',
-          details: responseJson
-        });
-      }
-
-      console.log(`[FCM Gateway] Push sent successfully: ${responseJson?.success} delivered, ${responseJson?.failure} failed.`);
-
-      return res.json({
-        success: true,
-        deliveredCount: responseJson?.success || 0,
-        failureCount: responseJson?.failure || 0,
-        tokensCount: targetTokens.length,
-        multicastId: responseJson?.multicast_id,
-        results: responseJson?.results
-      });
+      return res.json(result);
     } catch (err: any) {
-      console.error('[FCM Gateway] Server exception during push:', err);
+      console.error('[FCM Gateway v1] Server exception during push:', err);
       return res.status(500).json({
         success: false,
-        error: err.message || 'Failed to dispatch FCM push notification.'
+        error: err.message || 'Failed to dispatch FCM push notification via HTTP v1.'
       });
     }
   });

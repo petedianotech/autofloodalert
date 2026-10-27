@@ -69,15 +69,38 @@ export class NotificationService {
           );
         });
 
-        PushNotifications.checkPermissions().then((perm) => {
+        PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+          console.log('[Native FCM] User tapped push notification on lockscreen:', action);
+          try {
+            window.dispatchEvent(
+              new CustomEvent('flood_notification_opened', {
+                detail: action.notification?.data || {},
+              })
+            );
+          } catch {
+            // ignore
+          }
+        });
+
+        PushNotifications.checkPermissions().then(async (perm) => {
           if (perm.receive === 'granted') {
-            PushNotifications.register();
+            await PushNotifications.register();
+          } else if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
+            try {
+              const requested = await PushNotifications.requestPermissions();
+              if (requested.receive === 'granted') {
+                await PushNotifications.register();
+                this.notifyPermissionListeners('granted');
+              }
+            } catch (err) {
+              console.warn('[Native FCM] requestPermissions error:', err);
+            }
           }
         });
 
         // Create Lockscreen Wakeup Channel for Android (High Importance 5 & Public Visibility 1)
         LocalNotifications.createChannel({
-          id: 'flood_emergency_siren_channel',
+          id: 'dzenje_flood_alarm_channel_v1',
           name: '🚨 Critical Flood Warning Alarms',
           description: 'Emergency siren alerts that wake device and display on lockscreen',
           importance: 5,

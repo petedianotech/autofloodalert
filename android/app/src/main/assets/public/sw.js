@@ -171,3 +171,21 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
+
+// 7. Periodic Background Sync & Wake-Up Persistence
+self.addEventListener('periodicsync', (event) => {
+  if (event.tag === 'flood-status-sync' || event.tag === 'flood-alarm-sync') {
+    event.waitUntil(
+      fetch('/manifest.json').catch(() => {})
+    );
+  }
+});
+
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'flood-alert-sync') {
+    event.waitUntil(
+      fetch('/manifest.json').catch(() => {})
+    );
+  }
+});
+

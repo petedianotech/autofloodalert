@@ -121,16 +121,29 @@ export const FcmGatewayModal: React.FC<FcmGatewayModalProps> = ({
 
         {/* Body Content */}
         <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-[#1C1B1F]">
-          {/* 1. Simple Active Status Card */}
-          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 flex items-start justify-between gap-3">
+          {/* 1. FCM HTTP v1 Active Status Card */}
+          <div className={`p-4 rounded-2xl border flex items-start justify-between gap-3 ${
+            fcmStatus?.configured
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
+              : 'bg-amber-50 border-amber-200 text-amber-950'
+          }`}>
             <div className="flex items-start gap-3 min-w-0">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              {fcmStatus?.configured ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              ) : (
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              )}
               <div className="text-xs space-y-1 min-w-0">
-                <span className="font-bold text-sm block text-emerald-950">
-                  Alert System Active & Ready
-                </span>
-                <p className="text-[#49454F] leading-relaxed">
-                  Loud sirens and flood alert messages will sound directly on connected community phones when an emergency is triggered.
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-sm block">
+                    {fcmStatus?.configured ? 'FCM HTTP v1 Active & Ready' : 'FCM v1 Service Key Needed'}
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/80 border border-slate-200">
+                    HTTP v1
+                  </span>
+                </div>
+                <p className="text-slate-600 leading-relaxed text-[11px]">
+                  {fcmStatus?.message || 'High-priority push notifications configured to wake phone lock screens.'}
                 </p>
               </div>
             </div>
@@ -139,12 +152,32 @@ export const FcmGatewayModal: React.FC<FcmGatewayModalProps> = ({
               type="button"
               onClick={loadStatusAndTokens}
               disabled={isRefreshing}
-              className="p-2 rounded-xl text-slate-600 hover:bg-emerald-100/60 transition cursor-pointer shrink-0"
+              className="p-2 rounded-xl text-slate-600 hover:bg-slate-100 transition cursor-pointer shrink-0"
               title="Refresh status"
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </button>
           </div>
+
+          {/* Setup Guide if not configured yet */}
+          {!fcmStatus?.configured && (
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2 text-xs">
+              <span className="font-bold text-slate-900 block flex items-center gap-1.5">
+                <Info className="w-4 h-4 text-[#1F71E8]" /> How to activate closed-app sirens:
+              </span>
+              <ol className="list-decimal list-inside space-y-1.5 text-slate-700 text-[11px] leading-relaxed">
+                <li>
+                  Open <strong>console.firebase.google.com</strong> → Project Settings → <strong>Service accounts</strong>.
+                </li>
+                <li>
+                  Tap <strong>Generate new private key</strong> to download your project key.
+                </li>
+                <li>
+                  In your GitHub or Vercel settings, add an environment variable named <strong>FIREBASE_SERVICE_ACCOUNT</strong> and paste the contents of that JSON file.
+                </li>
+              </ol>
+            </div>
+          )}
 
           {/* 2. Connected Phones & Trigger Action */}
           <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3">
@@ -158,12 +191,12 @@ export const FcmGatewayModal: React.FC<FcmGatewayModalProps> = ({
                     Connected Community Phones
                   </h3>
                   <p className="text-[11px] text-[#49454F]">
-                    Phones receiving emergency sirens
+                    Phones receiving emergency sirens on lock screen
                   </p>
                 </div>
               </div>
               <span className="px-3 py-1 rounded-full bg-[#1F71E8] text-white font-bold text-xs shadow-xs">
-                {tokensCount > 0 ? tokensCount : 1} {tokensCount === 1 ? 'Phone' : 'Phones'}
+                {tokensCount > 0 ? tokensCount : 0} {tokensCount === 1 ? 'Phone' : 'Phones'}
               </span>
             </div>
 
@@ -177,7 +210,7 @@ export const FcmGatewayModal: React.FC<FcmGatewayModalProps> = ({
               <Send className="w-4 h-4" />
               <span>
                 {isSending
-                  ? 'Sending Siren Alert to Phones...'
+                  ? 'Sending Siren Alert via FCM v1...'
                   : `Send Test Siren Alert to All Phones`}
               </span>
             </button>
@@ -186,14 +219,14 @@ export const FcmGatewayModal: React.FC<FcmGatewayModalProps> = ({
               <div
                 className={`p-3 rounded-xl text-xs font-medium flex items-start gap-2.5 ${
                   resultMessage.success
-                    ? 'bg-emerald-100/80 text-emerald-950 border border-emerald-300'
+                    ? 'bg-emerald-50 text-emerald-950 border border-emerald-200'
                     : 'bg-red-50 text-red-950 border border-red-200'
                 }`}
               >
                 {resultMessage.success ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 ) : (
-                  <AlertTriangle className="w-4 h-4 text-red-700 shrink-0 mt-0.5" />
+                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
                 )}
                 <span className="leading-snug">{resultMessage.text}</span>
               </div>

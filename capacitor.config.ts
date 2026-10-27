@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'autofloodalert',
+  appId: 'com.dzenjecdsstem.floodalert',
   appName: 'automatic flood alert',
   webDir: 'dist',
   server: {
