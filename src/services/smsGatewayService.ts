@@ -515,9 +515,51 @@ class SmsGatewayServiceClass {
     const defaultMsg = SIMPLE_ENGLISH_SMS_ALERT;
     const safeMessage = (message || defaultMsg).slice(0, 99);
 
-    const apiKey = this.config.textbeeApiKey || DEFAULT_CONFIG.textbeeApiKey;
-    const deviceId = this.config.textbeeDeviceId || DEFAULT_CONFIG.textbeeDeviceId;
+    const apiKey = (this.config.textbeeApiKey || DEFAULT_CONFIG.textbeeApiKey || '').trim();
+    const deviceId = (this.config.textbeeDeviceId || DEFAULT_CONFIG.textbeeDeviceId || '').trim();
 
+    // Strategy 1: Attempt direct Textbee Cloud Gateway API
+    try {
+      const directTextbeeUrl = `https://api.textbee.dev/api/v1/gateway/devices/${deviceId}/send-sms`;
+      const directResponse = await fetch(directTextbeeUrl, {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recipients: targets,
+          message: safeMessage,
+        }),
+      });
+
+      if (directResponse.ok) {
+        const data = await directResponse.json().catch(() => ({}));
+        return {
+          success: true,
+          sentCount: targets.length,
+          failedCount: 0,
+          recipientsCount: targets.length,
+          error: data.message,
+        };
+      }
+
+      // If direct call returned specific auth or validation error, check status
+      if (directResponse.status === 401 || directResponse.status === 403) {
+        const errData = await directResponse.json().catch(() => ({}));
+        return {
+          success: false,
+          sentCount: 0,
+          failedCount: targets.length,
+          recipientsCount: targets.length,
+          error: errData.message || 'Invalid Textbee API Key. Please verify in settings.',
+        };
+      }
+    } catch (directErr: any) {
+      console.warn('[SMS Gateway] Direct Textbee call not available (CORS/offline), trying server proxy...', directErr);
+    }
+
+    // Strategy 2: Fallback to Server Proxy (/api/sms/send)
     try {
       const response = await fetch('/api/sms/send', {
         method: 'POST',
@@ -549,17 +591,19 @@ class SmsGatewayServiceClass {
           sentCount: 0,
           failedCount: targets.length,
           recipientsCount: targets.length,
-          error: errData.error || `Server responded with ${response.status}`,
+          error: errData.error || (response.status === 404
+            ? 'Textbee phone SM-A105F is not connected or gateway service is offline. Tap "Send via SIM SMS App" below.'
+            : `Textbee Gateway responded with status ${response.status}`),
         };
       }
     } catch (err: any) {
-      console.error('[SMS Gateway] Network error connecting to SMS proxy:', err);
+      console.error('[SMS Gateway] Network error connecting to SMS gateway:', err);
       return {
         success: false,
         sentCount: 0,
         failedCount: targets.length,
         recipientsCount: targets.length,
-        error: err.message || 'Network connection failed',
+        error: 'Network connection error. Use "Send via SIM SMS App" below to broadcast directly.',
       };
     }
   }

@@ -210,32 +210,32 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200 shadow-xs space-y-5">
+            <form onSubmit={handleSubmit} className="p-1 space-y-3.5">
             {/* Status Type Selector */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
                 Select Your Safety Status
               </span>
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-2">
                 {/* 1. Safe */}
                 <button
                   type="button"
                   id="status-option-safe"
                   onClick={() => setStatus('safe')}
-                  className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition cursor-pointer min-h-[44px] ${
+                  className={`p-2.5 rounded-xl border text-left flex flex-col gap-0.5 transition cursor-pointer ${
                     status === 'safe'
-                      ? 'bg-emerald-50 border-2 border-emerald-600 text-emerald-950 shadow-xs'
+                      ? 'bg-emerald-50 border-2 border-emerald-600 text-emerald-950 shadow-2xs'
                       : 'bg-slate-50 border border-slate-200 text-slate-900 hover:border-emerald-400'
                   }`}
                 >
-                  <div className="flex items-center justify-between font-bold text-xs text-emerald-800">
+                  <div className="flex items-center justify-between font-bold text-xs text-emerald-700">
                     <div className="flex items-center gap-1.5">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span>I Am Safe</span>
                     </div>
-                    {status === 'safe' && <Check className="w-4 h-4 text-emerald-700" />}
+                    {status === 'safe' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
                   </div>
-                  <span className="text-xs text-emerald-700 font-medium">No flood near me</span>
+                  <span className="text-[11px] text-emerald-700 font-medium">No flood near me</span>
                 </button>
 
                 {/* 2. Evacuated to Shelter */}
@@ -243,20 +243,20 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                   type="button"
                   id="status-option-evacuated"
                   onClick={() => setStatus('evacuated')}
-                  className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition cursor-pointer ${
+                  className={`p-2.5 rounded-xl border text-left flex flex-col gap-0.5 transition cursor-pointer ${
                     status === 'evacuated'
-                      ? 'bg-blue-50 border-2 border-[#1F71E8] text-blue-950 shadow-xs'
+                      ? 'bg-blue-50 border-2 border-[#1F71E8] text-blue-950 shadow-2xs'
                       : 'bg-slate-50 border border-slate-200 text-[#1C1B1F] hover:border-blue-400'
                   }`}
                 >
-                  <div className="flex items-center justify-between font-bold text-xs text-blue-800">
+                  <div className="flex items-center justify-between font-bold text-xs text-[#1F71E8]">
                     <div className="flex items-center gap-1.5">
-                      <Home className="w-4 h-4 text-[#1F71E8] shrink-0" />
+                      <Home className="w-3.5 h-3.5 text-[#1F71E8] shrink-0" />
                       <span>At Shelter</span>
                     </div>
-                    {status === 'evacuated' && <Check className="w-4 h-4 text-[#1F71E8]" />}
+                    {status === 'evacuated' && <Check className="w-3.5 h-3.5 text-[#1F71E8]" />}
                   </div>
-                  <span className="text-xs text-blue-700 font-medium">At school / hall</span>
+                  <span className="text-[11px] text-slate-600 font-medium">At school / hall</span>
                 </button>
 
                 {/* 3. Water Rising */}
@@ -264,20 +264,20 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                   type="button"
                   id="status-option-flooding"
                   onClick={() => setStatus('in_flooding')}
-                  className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition cursor-pointer ${
+                  className={`p-2.5 rounded-xl border text-left flex flex-col gap-0.5 transition cursor-pointer ${
                     status === 'in_flooding'
-                      ? 'bg-amber-50 border-2 border-amber-600 text-amber-950 shadow-xs'
+                      ? 'bg-amber-50 border-2 border-amber-600 text-amber-950 shadow-2xs'
                       : 'bg-slate-50 border border-slate-200 text-[#1C1B1F] hover:border-amber-400'
                   }`}
                 >
                   <div className="flex items-center justify-between font-bold text-xs text-amber-800">
                     <div className="flex items-center gap-1.5">
-                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                       <span>Water Rising</span>
                     </div>
-                    {status === 'in_flooding' && <Check className="w-4 h-4 text-amber-700" />}
+                    {status === 'in_flooding' && <Check className="w-3.5 h-3.5 text-amber-700" />}
                   </div>
-                  <span className="text-xs text-amber-700 font-medium">Water near house</span>
+                  <span className="text-[11px] text-amber-700 font-medium">Water near house</span>
                 </button>
 
                 {/* 4. Need Help / Rescue */}
@@ -285,26 +285,26 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                   type="button"
                   id="status-option-needs-help"
                   onClick={() => setStatus('needs_help')}
-                  className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1 transition cursor-pointer ${
+                  className={`p-2.5 rounded-xl border text-left flex flex-col gap-0.5 transition cursor-pointer ${
                     status === 'needs_help'
-                      ? 'bg-red-50 border-2 border-red-600 text-red-950 shadow-xs'
+                      ? 'bg-red-50 border-2 border-red-600 text-red-950 shadow-2xs'
                       : 'bg-slate-50 border border-slate-200 text-[#1C1B1F] hover:border-red-400'
                   }`}
                 >
                   <div className="flex items-center justify-between font-bold text-xs text-red-800">
                     <div className="flex items-center gap-1.5">
-                      <LifeBuoy className="w-4 h-4 text-red-600 shrink-0" />
+                      <LifeBuoy className="w-3.5 h-3.5 text-red-600 shrink-0" />
                       <span>Need Help</span>
                     </div>
-                    {status === 'needs_help' && <Check className="w-4 h-4 text-red-700" />}
+                    {status === 'needs_help' && <Check className="w-3.5 h-3.5 text-red-700" />}
                   </div>
-                  <span className="text-xs text-red-700 font-medium">Help needed urgently</span>
+                  <span className="text-[11px] text-red-700 font-medium">Help needed urgently</span>
                 </button>
               </div>
             </div>
 
             {/* Resident Name & Village */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2.5">
               <div className="space-y-1">
                 <label className="block text-xs font-bold text-[#1C1B1F]">
                   Your Full Name
@@ -316,7 +316,7 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                   onChange={(e) => setUserName(e.target.value)}
                   placeholder="e.g. Peter Damiano"
                   required
-                  className="w-full px-3.5 py-2.5 text-sm font-medium rounded-2xl border border-slate-200 bg-white text-[#1C1B1F] placeholder-slate-400 outline-none focus:border-[#1F71E8] focus:ring-2 focus:ring-blue-100 shadow-2xs"
+                  className="w-full px-3 py-2 text-xs font-medium rounded-xl border border-slate-200 bg-white text-[#1C1B1F] placeholder-slate-400 outline-none focus:border-[#1F71E8] focus:ring-1 focus:ring-blue-100"
                 />
               </div>
 
@@ -331,17 +331,17 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                   onChange={(e) => setVillage(e.target.value)}
                   placeholder="e.g. Dzenje Village"
                   required
-                  className="w-full px-3.5 py-2.5 text-sm font-medium rounded-2xl border border-slate-200 bg-white text-[#1C1B1F] placeholder-slate-400 outline-none focus:border-[#1F71E8] focus:ring-2 focus:ring-blue-100 shadow-2xs"
+                  className="w-full px-3 py-2 text-xs font-medium rounded-xl border border-slate-200 bg-white text-[#1C1B1F] placeholder-slate-400 outline-none focus:border-[#1F71E8] focus:ring-1 focus:ring-blue-100"
                 />
-                <div className="flex items-center gap-1.5 pt-1 overflow-x-auto scrollbar-none">
+                <div className="flex items-center gap-1 pt-0.5 overflow-x-auto scrollbar-none">
                   {['Dzenje Village', 'Machokola Village'].map((vName) => (
                     <button
                       key={vName}
                       type="button"
                       onClick={() => setVillage(vName)}
-                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border transition cursor-pointer shrink-0 ${
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition cursor-pointer shrink-0 ${
                         village.toLowerCase() === vName.toLowerCase()
-                          ? 'bg-blue-600 text-white border-blue-600'
+                          ? 'bg-[#1F71E8] text-white border-[#1F71E8]'
                           : 'bg-slate-100 text-slate-700 border-slate-200 hover:border-blue-300'
                       }`}
                     >
@@ -353,10 +353,10 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
             </div>
 
             {/* Headcount & Phone */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2.5">
               <div className="space-y-1">
                 <label className="block text-xs font-bold text-[#1C1B1F] flex items-center gap-1">
-                  <Users className="w-4 h-4 text-[#1F71E8]" /> People with you
+                  <Users className="w-3.5 h-3.5 text-[#1F71E8]" /> People with you
                 </label>
                 <input
                   type="number"
@@ -365,13 +365,13 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                   max="50"
                   value={peopleCount}
                   onChange={(e) => setPeopleCount(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-full px-3.5 py-2.5 text-sm font-medium rounded-2xl border border-slate-200 bg-white text-[#1C1B1F] placeholder-slate-400 outline-none focus:border-[#1F71E8] focus:ring-2 focus:ring-blue-100 shadow-2xs"
+                  className="w-full px-3 py-2 text-xs font-medium rounded-xl border border-slate-200 bg-white text-[#1C1B1F] placeholder-slate-400 outline-none focus:border-[#1F71E8] focus:ring-1 focus:ring-blue-100"
                 />
               </div>
 
               <div className="space-y-1">
                 <label className="block text-xs font-bold text-[#1C1B1F] flex items-center gap-1">
-                  <Phone className="w-4 h-4 text-emerald-600" /> Phone (optional)
+                  <Phone className="w-3.5 h-3.5 text-emerald-600" /> Phone (optional)
                 </label>
                 <input
                   type="tel"
@@ -379,7 +379,7 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="099..."
-                  className="w-full px-3.5 py-2.5 text-sm font-medium rounded-2xl border border-slate-200 bg-white text-[#1C1B1F] placeholder-slate-400 outline-none focus:border-[#1F71E8] focus:ring-2 focus:ring-blue-100 shadow-2xs"
+                  className="w-full px-3 py-2 text-xs font-medium rounded-xl border border-slate-200 bg-white text-[#1C1B1F] placeholder-slate-400 outline-none focus:border-[#1F71E8] focus:ring-1 focus:ring-blue-100"
                 />
               </div>
             </div>
@@ -389,22 +389,22 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
               <label className="block text-xs font-bold text-[#1C1B1F]">
                 Short Note (optional)
               </label>
-              <textarea
+              <input
+                type="text"
                 id="safety-message-input"
-                rows={2}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="e.g. Water is low, family is safe at home."
-                className="w-full px-3.5 py-2.5 text-sm font-medium rounded-2xl border border-slate-200 bg-white text-[#1C1B1F] placeholder-slate-400 outline-none resize-none focus:border-[#1F71E8] focus:ring-2 focus:ring-blue-100 shadow-2xs"
+                className="w-full px-3 py-2 text-xs font-medium rounded-xl border border-slate-200 bg-white text-[#1C1B1F] placeholder-slate-400 outline-none focus:border-[#1F71E8] focus:ring-1 focus:ring-blue-100"
               />
             </div>
 
             {/* GPS Location Attachment */}
-            <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 space-y-2.5 shadow-2xs">
+            <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${latitude && isGpsLive ? 'bg-emerald-100 text-emerald-700' : latitude && !isGpsLive ? 'bg-blue-100 text-[#1F71E8]' : 'bg-slate-200 text-slate-700'}`}>
-                    <MapPin className="w-4 h-4" />
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${latitude && isGpsLive ? 'bg-emerald-100 text-emerald-700' : latitude && !isGpsLive ? 'bg-blue-100 text-[#1F71E8]' : 'bg-slate-200 text-slate-700'}`}>
+                    <MapPin className="w-3.5 h-3.5" />
                   </div>
                   <div className="min-w-0">
                     <span className="text-xs font-bold text-[#1C1B1F] block truncate">
@@ -412,8 +412,8 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                         ? `${isGpsLive ? '✓ Live GPS' : '📍 Preset'}: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
                         : 'Attach GPS Location'}
                     </span>
-                    <span className="text-[11px] text-[#49454F] block truncate">
-                      {locationStatusText || (latitude ? 'Location ready to send to rescue team' : 'Sends precise pin to rescue team')}
+                    <span className="text-[10px] text-[#49454F] block truncate">
+                      {locationStatusText || (latitude ? 'Location ready to send' : 'Sends precise pin to rescue team')}
                     </span>
                   </div>
                 </div>
@@ -423,7 +423,7 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                     <button
                       type="button"
                       onClick={handleClearLocation}
-                      className="p-1.5 rounded-full text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
+                      className="p-1 rounded-full text-slate-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
                       title="Clear attached GPS"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -434,9 +434,9 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                     id="get-gps-coords-btn"
                     onClick={handleGetLocation}
                     disabled={isLocating}
-                    className={`px-3.5 py-1.5 text-xs font-bold rounded-full flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs ${
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs ${
                       latitude && isGpsLive
-                        ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                         : 'bg-[#1F71E8] hover:bg-blue-700 text-white'
                     }`}
                   >
@@ -452,18 +452,18 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
 
               {/* Error & Helper Box */}
               {locationErrorType && (
-                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 space-y-1.5 text-xs animate-in fade-in">
+                <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 space-y-1 text-xs animate-in fade-in">
                   <div className="flex items-start gap-1.5">
                     <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
                     <div className="space-y-0.5">
-                      <p className="font-bold">
+                      <p className="font-bold text-[11px]">
                         {locationErrorType === 'permission'
                           ? 'Location Permission Needed'
                           : 'Location Signal Unavailable'}
                       </p>
-                      <p className="text-[11px] text-amber-800 leading-snug">
+                      <p className="text-[10px] text-amber-800 leading-snug">
                         {locationErrorType === 'permission' ? (
-                          <>Close any <strong>floating screen recorders or bubbles</strong> on Android (they block permission prompts), or tap Chrome ⋮ Settings → Site settings → Location → Allow.</>
+                          <>Close any floating bubbles, or tap Chrome ⋮ Settings → Site settings → Location → Allow.</>
                         ) : (
                           <>Ensure Location (GPS) is turned ON in your phone settings.</>
                         )}
@@ -477,7 +477,7 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
               {!latitude && (
                 <div className="flex items-center gap-1.5 pt-1 border-t border-slate-200/60 overflow-x-auto scrollbar-none">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider shrink-0">
-                    Or preset:
+                    Preset:
                   </span>
                   {Object.entries(VILLAGE_COORDS).map(([name, coords]) => (
                     <button
@@ -490,7 +490,7 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                         setLocationErrorType(null);
                         setLocationStatusText(`Attached ${name} center point`);
                       }}
-                      className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-white hover:bg-blue-50 text-[#1F71E8] border border-slate-200 hover:border-blue-300 transition cursor-pointer shrink-0"
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white hover:bg-blue-50 text-[#1F71E8] border border-slate-200 hover:border-blue-300 transition cursor-pointer shrink-0"
                     >
                       {name}
                     </button>
@@ -505,7 +505,7 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                 type="button"
                 id="cancel-safety-btn"
                 onClick={onClose}
-                className="flex-1 py-3.5 px-4 rounded-full text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition active:scale-98 cursor-pointer min-h-[44px]"
+                className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition active:scale-98 cursor-pointer min-h-[42px]"
               >
                 Cancel
               </button>
@@ -514,12 +514,12 @@ export const SafetyCheckInModal: React.FC<SafetyCheckInModalProps> = ({
                 type="submit"
                 id="confirm-safety-report-btn"
                 disabled={isSubmitting || !userName.trim()}
-                className="flex-1 py-3.5 px-4 rounded-full text-sm font-bold bg-[#1F71E8] hover:bg-blue-700 text-white shadow-xs transition active:scale-98 cursor-pointer flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold bg-[#1F71E8] hover:bg-blue-700 text-white shadow-xs transition active:scale-98 cursor-pointer flex items-center justify-center gap-2 min-h-[42px]"
               >
                 {isSubmitting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
-                  <CheckCircle2 className="w-4 h-4" />
+                  <CheckCircle2 className="w-3.5 h-3.5" />
                 )}
                 <span>Save Safety Status</span>
               </button>

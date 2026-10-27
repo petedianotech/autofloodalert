@@ -10,6 +10,7 @@ import {
   Check,
   Search,
   RefreshCw,
+  Loader2,
 } from 'lucide-react';
 import {
   smsGatewayService,
@@ -143,13 +144,12 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
               id="btn-sms-refresh-recipients"
               onClick={handleRefreshContacts}
               disabled={isRefreshingContacts}
-              className="px-3 py-1.5 rounded-xl bg-white border border-emerald-300 hover:bg-emerald-50 text-[#006A4E] text-xs font-bold flex items-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer disabled:opacity-50"
+              className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-[#1F71E8] text-xs font-bold flex items-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer disabled:opacity-50"
               title="Refresh contacts from Firebase"
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-[#006A4E] ${isRefreshingContacts ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 text-[#1F71E8] ${isRefreshingContacts ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">Refresh</span>
             </button>
-
             <button
               type="button"
               onClick={onClose}
@@ -163,7 +163,6 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
 
         {/* Scrollable Modal Body */}
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
-
         {/* Refresh feedback toast if triggered */}
         {refreshMsg && (
           <div className="p-2.5 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
@@ -175,7 +174,7 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
         {/* Gateway Phone Status Only */}
         <div className="bg-white rounded-2xl p-3.5 border border-slate-200 flex items-center justify-between shadow-2xs">
           <div className="flex items-center gap-2.5">
-            <Smartphone className="w-5 h-5 text-[#006A4E]" />
+            <Smartphone className="w-5 h-5 text-[#1F71E8]" />
             <div>
               <span className="text-xs font-bold text-[#1C1B1F] block">
                 Textbee Gateway Phone
@@ -239,7 +238,7 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
               placeholder="Search by name, village, or number..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#006A4E]"
+              className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#1F71E8]"
             />
             {searchQuery && (
               <button
@@ -278,7 +277,7 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
                       >
                         <div className="shrink-0">
                           {rec.enabled ? (
-                            <div className="w-5 h-5 rounded-md bg-[#006A4E] text-white flex items-center justify-center shadow-2xs">
+                            <div className="w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center shadow-2xs">
                               <Check className="w-3.5 h-3.5 stroke-3" />
                             </div>
                           ) : (
@@ -337,12 +336,16 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
         <div className="space-y-2">
           <button
             type="button"
+            id="btn-send-sms-broadcast"
             onClick={handleSendBroadcast}
             disabled={isSending || activeRecipients.length === 0}
-            className="w-full py-3.5 px-4 rounded-2xl bg-[#006A4E] hover:bg-emerald-800 active:scale-98 text-white text-xs sm:text-sm font-bold shadow-xs flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50"
+            className="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white text-xs sm:text-sm font-bold shadow-xs flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50"
           >
             {isSending ? (
-              <span>Sending SMS Warning...</span>
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Sending SMS Warning...</span>
+              </span>
             ) : (
               <>
                 <Send className="w-4 h-4 fill-current" />
@@ -356,22 +359,35 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
           {/* Feedback message */}
           {sendResult && (
             <div
-              className={`p-3 rounded-xl text-xs font-medium flex items-center gap-2.5 ${
+              className={`p-3.5 rounded-2xl text-xs font-medium flex flex-col gap-2 ${
                 sendResult.success
-                  ? 'bg-emerald-100 border border-emerald-300 text-emerald-950'
+                  ? 'bg-emerald-50 border border-emerald-200 text-emerald-950'
                   : 'bg-red-50 border border-red-200 text-red-950'
               }`}
             >
-              {sendResult.success ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" />
-              ) : (
-                <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
+              <div className="flex items-start gap-2.5">
+                {sendResult.success ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                )}
+                <span className="leading-snug">
+                  {sendResult.success
+                    ? `Success! Emergency text sent to ${sendResult.sentCount} marked phone${sendResult.sentCount === 1 ? '' : 's'}.`
+                    : sendResult.error || 'Failed to send text message.'}
+                </span>
+              </div>
+              {!sendResult.success && activeRecipients.length > 0 && (
+                <div className="pt-1">
+                  <a
+                    href={smsGatewayService.getNativeSmsUrl(undefined, activeRecipients.map((r) => r.phone))}
+                    className="w-full py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs text-center"
+                  >
+                    <Smartphone className="w-3.5 h-3.5" />
+                    <span>Send via Phone SIM SMS App (Instant)</span>
+                  </a>
+                </div>
               )}
-              <span className="leading-snug">
-                {sendResult.success
-                  ? `Success! Emergency text sent to ${sendResult.sentCount} marked phone${sendResult.sentCount === 1 ? '' : 's'}.`
-                  : sendResult.error || 'Failed to send text message.'}
-              </span>
             </div>
           )}
         </div>
@@ -382,7 +398,7 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
           onClick={onClose}
           className="w-full py-3 rounded-full bg-slate-200 hover:bg-slate-300 text-xs font-bold text-[#1C1B1F] transition cursor-pointer active:scale-98 flex items-center justify-center gap-1.5"
         >
-          <Check className="w-4 h-4 text-[#006A4E]" />
+          <Check className="w-4 h-4 text-emerald-600" />
           <span>Done</span>
         </button>
         </div>
