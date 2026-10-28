@@ -10,11 +10,12 @@ export interface SmsRecipient {
   phone: string;
   role: string;
   village: string;
-  language?: 'en';
+  language?: 'en' | 'ny';
   enabled: boolean;
 }
 
 export const SIMPLE_ENGLISH_SMS_ALERT = 'FLOOD ALERT: Ruo River rising fast at Dzenje! Go to high ground now!';
+export const SIMPLE_CHICHEWA_SMS_ALERT = 'CHENJEZO: Madzi a Mtsinje wa Ruo akukwera ku Dzenje! Thawirani kumtunda tsopano!';
 
 export interface SmsGatewayConfig {
   enabled: boolean;
@@ -174,7 +175,7 @@ class SmsGatewayServiceClass {
       id: newId,
       phone: cleanPhone,
       village: recipient.village === 'Machokola' ? 'Machokola Village' : (recipient.village || 'Dzenje Village'),
-      language: 'en',
+      language: recipient.language || 'en',
       enabled: recipient.enabled !== undefined ? recipient.enabled : true,
     };
 
@@ -201,7 +202,7 @@ class SmsGatewayServiceClass {
     phone: string;
     village: string;
     role?: string;
-    language?: 'en';
+    language?: 'en' | 'ny';
     enabled?: boolean;
   }) {
     if (!user.phone || user.phone.trim().length < 6) return;
@@ -216,6 +217,7 @@ class SmsGatewayServiceClass {
 
     const updatedList = [...cleanList];
     const userVillage = user.village === 'Machokola' ? 'Machokola Village' : (user.village || 'Dzenje Village');
+    const userLang = user.language || 'en';
 
     if (existingIndex >= 0) {
       const currentEnabled = cleanList[existingIndex].enabled;
@@ -226,7 +228,7 @@ class SmsGatewayServiceClass {
         phone: cleanPhone,
         village: userVillage,
         role: user.role || updatedList[existingIndex].role || 'Signed-In Resident',
-        language: 'en',
+        language: userLang,
         enabled: user.enabled !== undefined ? user.enabled : (currentEnabled ?? true),
       };
     } else {
@@ -236,7 +238,7 @@ class SmsGatewayServiceClass {
         phone: cleanPhone,
         village: userVillage,
         role: user.role || 'Signed-In Resident',
-        language: 'en',
+        language: userLang,
         enabled: user.enabled !== undefined ? user.enabled : true, // Immediately enabled for real users who sign up
       });
     }
@@ -257,7 +259,7 @@ class SmsGatewayServiceClass {
               phone: cleanPhone,
               village: userVillage,
               role: user.role || 'Resident',
-              language: user.language || 'ny',
+              language: userLang,
               enabled: user.enabled !== undefined ? user.enabled : true,
               updatedAt: new Date().toISOString(),
             },
@@ -362,14 +364,23 @@ class SmsGatewayServiceClass {
     }
   }
 
-  public updateRecipientLanguage(id: string, language: 'en') {
+  public updateRecipientLanguage(id: string, language: 'en' | 'ny') {
     this.config.recipients = this.config.recipients.map((r) =>
       r.id === id ? { ...r, language } : r
     );
     this.saveConfig({ recipients: this.config.recipients });
+
+    if (this.db) {
+      import('firebase/firestore')
+        .then(({ doc, updateDoc }) => {
+          updateDoc(doc(this.db, 'users', id), { alertLanguage: language }).catch(() => {});
+          updateDoc(doc(this.db, 'sms_recipients', id), { language }).catch(() => {});
+        })
+        .catch(() => {});
+    }
   }
 
-  public setAllRecipientsEnabled(enabled: boolean, languageFilter?: 'en') {
+  public setAllRecipientsEnabled(enabled: boolean, languageFilter?: 'en' | 'ny') {
     this.config.recipients = this.config.recipients.map((r) => {
       if (languageFilter && (r.language || 'en') !== languageFilter) {
         return r;
@@ -382,7 +393,7 @@ class SmsGatewayServiceClass {
       import('firebase/firestore')
         .then(({ doc, updateDoc }) => {
           this.config.recipients.forEach((r) => {
-            if (languageFilter && (r.language || 'ny') !== languageFilter) return;
+            if (languageFilter && (r.language || 'en') !== languageFilter) return;
             updateDoc(doc(this.db, 'users', r.id), { smsAlertsEnabled: enabled }).catch(() => {});
             updateDoc(doc(this.db, 'sms_recipients', r.id), { enabled: enabled }).catch(() => {});
           });
@@ -397,7 +408,7 @@ class SmsGatewayServiceClass {
 
   public getRecipientsByLanguage(lang: 'en' | 'ny', markedOnly: boolean = false): SmsRecipient[] {
     return this.getConfig().recipients.filter((r) => {
-      const recipientLang = r.language || 'ny';
+      const recipientLang = r.language || 'en';
       if (recipientLang !== lang) return false;
       if (markedOnly && !r.enabled) return false;
       return normalizePhoneNumber(r.phone).length >= 6;
@@ -470,34 +481,61 @@ class SmsGatewayServiceClass {
         };
       }
 
-      // Deduplicate unique phone numbers
-      const allPhones = Array.from(
+      // Partition into Chichewa and English phone number lists
+      const chichewaPhones = Array.from(
         new Set(
           active
+            .filter((r) => r.language === 'ny')
+            .map((r) => normalizePhoneNumber(r.phone))
+            .filter((p) => p.length >= 6)
+        )
+      );
+
+      const englishPhones = Array.from(
+        new Set(
+          active
+            .filter((r) => r.language !== 'ny')
             .map((r) => normalizePhoneNumber(r.phone))
             .filter((p) => p.length >= 6)
         )
       );
 
       let totalSent = 0;
+      let chichewaSent = 0;
+      let englishSent = 0;
       const errors: string[] = [];
 
-      if (allPhones.length > 0) {
-        const res = await this.sendBroadcastSms(SIMPLE_ENGLISH_SMS_ALERT, allPhones);
-        if (res.success) {
-          totalSent += allPhones.length;
-        } else if (res.error) {
-          errors.push(res.error);
+      // Send Chichewa SMS Alert to Chichewa recipients
+      if (chichewaPhones.length > 0) {
+        const resChichewa = await this.sendBroadcastSms(SIMPLE_CHICHEWA_SMS_ALERT, chichewaPhones);
+        if (resChichewa.success) {
+          totalSent += chichewaPhones.length;
+          chichewaSent = chichewaPhones.length;
+        } else if (resChichewa.error) {
+          errors.push(`Chichewa SMS: ${resChichewa.error}`);
         }
       }
+
+      // Send English SMS Alert to English recipients
+      if (englishPhones.length > 0) {
+        const resEnglish = await this.sendBroadcastSms(SIMPLE_ENGLISH_SMS_ALERT, englishPhones);
+        if (resEnglish.success) {
+          totalSent += englishPhones.length;
+          englishSent = englishPhones.length;
+        } else if (resEnglish.error) {
+          errors.push(`English SMS: ${resEnglish.error}`);
+        }
+      }
+
+      const totalTargeted = chichewaPhones.length + englishPhones.length;
 
       return {
         success: totalSent > 0 || errors.length === 0,
         sentCount: totalSent,
-        failedCount: allPhones.length - totalSent,
-        chichewaCount: 0,
-        englishCount: allPhones.length,
-        recipientsCount: allPhones.length,
+        failedCount: totalTargeted - totalSent,
+        chichewaCount: chichewaSent,
+        englishCount: englishSent,
+        recipientsCount: totalTargeted,
         error: errors.length > 0 ? errors.join('; ') : undefined,
       };
     } finally {

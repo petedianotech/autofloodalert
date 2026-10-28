@@ -46,7 +46,7 @@ export interface UserProfile {
   phone?: string;
   smsAlertsEnabled?: boolean;
   swipeGesturesEnabled?: boolean; // Off by default (false). Can be turned on in user's profile
-  alertLanguage?: 'en';
+  alertLanguage?: 'en' | 'ny';
   email?: string;
   photoURL?: string;
   authProvider: 'name_village' | 'google';

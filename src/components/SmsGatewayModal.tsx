@@ -39,7 +39,7 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
     return unsub;
   }, [isOpen]);
 
-  const [activeTab, setActiveTab] = useState<'all' | 'marked'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'marked' | 'chichewa' | 'english'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isRefreshingContacts, setIsRefreshingContacts] = useState(false);
@@ -48,6 +48,8 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
     success: boolean;
     sentCount: number;
     failedCount: number;
+    chichewaCount?: number;
+    englishCount?: number;
     error?: string;
   } | null>(null);
 
@@ -82,6 +84,11 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
     setConfig(smsGatewayService.getConfig());
   };
 
+  const handleToggleLanguage = (id: string, newLang: 'en' | 'ny') => {
+    smsGatewayService.updateRecipientLanguage(id, newLang);
+    setConfig(smsGatewayService.getConfig());
+  };
+
   const handleMarkAll = (enabled: boolean) => {
     smsGatewayService.setAllRecipientsEnabled(enabled);
     setConfig(smsGatewayService.getConfig());
@@ -98,10 +105,14 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
 
   const recipients = config.recipients || [];
   const activeRecipients = recipients.filter((r) => r.enabled && r.phone.trim().length >= 6);
+  const chichewaRecipients = recipients.filter((r) => r.language === 'ny');
+  const englishRecipients = recipients.filter((r) => r.language !== 'ny');
 
   // Filtered recipients according to search query and active tab
   const filteredRecipients = recipients.filter((rec) => {
     if (activeTab === 'marked' && !rec.enabled) return false;
+    if (activeTab === 'chichewa' && rec.language !== 'ny') return false;
+    if (activeTab === 'english' && rec.language === 'ny') return false;
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -209,7 +220,7 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
                 SMS Alert Recipients
               </span>
               <p className="text-[11px] text-blue-800 font-medium mt-0.5">
-                {activeRecipients.length} of {recipients.length} phone numbers marked to receive instant flood alerts
+                {activeRecipients.length} of {recipients.length} numbers ready ({chichewaRecipients.filter(r => r.enabled).length} Chichewa, {englishRecipients.filter(r => r.enabled).length} English)
               </p>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
@@ -228,6 +239,54 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
                 Clear
               </button>
             </div>
+          </div>
+
+          {/* Language Filter Tabs */}
+          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200 text-[11px] font-bold">
+            <button
+              type="button"
+              onClick={() => setActiveTab('all')}
+              className={`flex-1 py-1.5 px-2 rounded-lg transition text-center cursor-pointer ${
+                activeTab === 'all'
+                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              All ({recipients.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('chichewa')}
+              className={`flex-1 py-1.5 px-2 rounded-lg transition text-center cursor-pointer ${
+                activeTab === 'chichewa'
+                  ? 'bg-emerald-600 text-white shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-emerald-700'
+              }`}
+            >
+              🇲🇼 Chichewa ({chichewaRecipients.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('english')}
+              className={`flex-1 py-1.5 px-2 rounded-lg transition text-center cursor-pointer ${
+                activeTab === 'english'
+                  ? 'bg-blue-600 text-white shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-blue-700'
+              }`}
+            >
+              🇬🇧 English ({englishRecipients.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('marked')}
+              className={`flex-1 py-1.5 px-2 rounded-lg transition text-center cursor-pointer ${
+                activeTab === 'marked'
+                  ? 'bg-slate-900 text-white shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Ready ({activeRecipients.length})
+            </button>
           </div>
 
           {/* Search Box */}
@@ -259,6 +318,7 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
               </div>
             ) : (
               filteredRecipients.map((rec) => {
+                const isChichewa = rec.language === 'ny';
                 return (
                   <div
                     key={rec.id}
@@ -299,20 +359,37 @@ export const SmsGatewayModal: React.FC<SmsGatewayModalProps> = ({
                         </div>
                       </button>
 
-                      {/* Delete Contact */}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveRecipient(rec.id)}
-                        className="w-7 h-7 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-600 flex items-center justify-center transition cursor-pointer shrink-0"
-                        title="Remove number"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {/* Language Switch Button & Delete */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleLanguage(rec.id, isChichewa ? 'en' : 'ny')}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition cursor-pointer flex items-center gap-1 shadow-2xs ${
+                            isChichewa
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                              : 'bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100'
+                          }`}
+                          title="Click to switch language between Chichewa and English"
+                        >
+                          <span>{isChichewa ? '🇲🇼 Chichewa' : '🇬🇧 English'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveRecipient(rec.id)}
+                          className="w-7 h-7 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-600 flex items-center justify-center transition cursor-pointer shrink-0"
+                          title="Remove number"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Status */}
+                    {/* Status & Message preview */}
                     <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 text-[11px]">
-                      <span className="text-slate-500 text-[10px]">Alert Message: Emergency Flood SMS</span>
+                      <span className="text-slate-500 text-[10px] truncate max-w-[220px]">
+                        {isChichewa ? 'SMS: CHENJEZO (Chichewa)' : 'SMS: FLOOD ALERT (English)'}
+                      </span>
                       <div>
                         {rec.enabled ? (
                           <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">

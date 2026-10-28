@@ -52,7 +52,7 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
   const [swipeGesturesEnabled, setSwipeGesturesEnabled] = useState(
     Boolean(currentUser?.swipeGesturesEnabled ?? false)
   );
-  const [alertLanguage, setAlertLanguage] = useState<'en'>('en');
+  const [alertLanguage, setAlertLanguage] = useState<'en' | 'ny'>('en');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -223,12 +223,12 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
     }
   };
 
-  const handleUpdateLanguageOnly = async (newLang: 'en') => {
+  const handleUpdateLanguageOnly = async (newLang: 'en' | 'ny') => {
     setAlertLanguage(newLang);
     if (currentUser) {
       try {
         await firebaseFloodService.updateProfileData({ alertLanguage: newLang });
-        setSuccessMsg('Alert language set to English');
+        setSuccessMsg(newLang === 'ny' ? 'Alert language set to Chichewa' : 'Alert language set to English');
         setTimeout(() => setSuccessMsg(null), 1800);
       } catch {
         // ignore
@@ -456,6 +456,45 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
                 <span>Receive emergency SMS alerts when river rises</span>
               </label>
 
+              {/* Alert Language Preference */}
+              <div className="space-y-1.5 pt-1 border-t border-slate-200/60">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700">
+                    Alert &amp; SMS Language / Chilankhulo
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    {alertLanguage === 'ny' ? '🇲🇼 Chichewa' : '🇬🇧 English (Default)'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateLanguageOnly('en')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer border ${
+                      alertLanguage === 'en'
+                        ? 'bg-[#1F71E8] text-white border-[#1F71E8] shadow-2xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <span>🇬🇧 English (Default)</span>
+                    {alertLanguage === 'en' && <Check className="w-3.5 h-3.5" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateLanguageOnly('ny')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer border ${
+                      alertLanguage === 'ny'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <span>🇲🇼 Chichewa</span>
+                    {alertLanguage === 'ny' && <Check className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
               <button
                 id="btn-save-phone-sms"
                 type="submit"
@@ -672,6 +711,43 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
                     placeholder="099..."
                     className="w-full pl-9.5 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium text-slate-900 outline-none focus:border-[#1F71E8] focus:bg-white focus:ring-1 focus:ring-[#1F71E8]"
                   />
+                </div>
+              </div>
+
+              {/* Alert Language Selection */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-800">
+                    Receive Alerts In (SMS &amp; In-App)
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-medium">English by default</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAlertLanguage('en')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer border ${
+                      alertLanguage === 'en'
+                        ? 'bg-[#1F71E8] text-white border-[#1F71E8] shadow-2xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <span>🇬🇧 English (Default)</span>
+                    {alertLanguage === 'en' && <Check className="w-3.5 h-3.5" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAlertLanguage('ny')}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer border ${
+                      alertLanguage === 'ny'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <span>🇲🇼 Chichewa</span>
+                    {alertLanguage === 'ny' && <Check className="w-3.5 h-3.5" />}
+                  </button>
                 </div>
               </div>
 
