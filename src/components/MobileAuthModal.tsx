@@ -705,24 +705,6 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
                 <span>Continue as Guest (Read-Only)</span>
               </button>
             </div>
-
-            {/* Legal Links Footer (Hidden for Admins) */}
-            {!isAdmin && onOpenAboutLegal && (
-              <div className="pt-2">
-                <button
-                  type="button"
-                  id="btn-login-legal-card"
-                  onClick={() => onOpenAboutLegal('thanks')}
-                  className="w-full py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 flex items-center justify-between gap-2 transition cursor-pointer"
-                >
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-blue-600" />
-                    <span>App Information, Thanks, Privacy &amp; Terms</span>
-                  </div>
-                  <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
-                </button>
-              </div>
-            )}
           </div>
         )}
         </div>

@@ -28,6 +28,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   currentUser,
   isAdmin = false,
   onOpenAuthModal,
+  onOpenAboutModal,
   currentMode,
   onSelectMode,
   activeAlertCount = 0,
@@ -116,8 +117,26 @@ export const TopBar: React.FC<TopBarProps> = ({
           </nav>
         )}
 
-        {/* Right: Language Switcher (Users only), Refresh, Profile */}
+        {/* Right: Info/About, Language Switcher (Users only), Refresh, Profile */}
         <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* App Info, Thanks, Privacy & Terms Button */}
+          {onOpenAboutModal && (
+            <button
+              type="button"
+              id="btn-topbar-about"
+              onClick={onOpenAboutModal}
+              className="w-9 h-9 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 active:scale-95 flex items-center justify-center transition cursor-pointer shadow-2xs shrink-0 text-slate-600 hover:text-blue-600"
+              title={
+                isChichewa
+                  ? 'Zambiri za Pulogalamu, Zikomo & Malamulo'
+                  : 'App Information, Thanks, Privacy & Terms'
+              }
+              aria-label="App Information, Thanks, Privacy & Terms"
+            >
+              <Info className="w-4 h-4 text-blue-600" />
+            </button>
+          )}
+
           {/* English / Chichewa Language Switch Toggle (Users UI Only - Flag Only) */}
           {!isAdmin && (
             <button
@@ -175,16 +194,18 @@ export const TopBar: React.FC<TopBarProps> = ({
             </button>
           )}
 
-          {/* Refresh Button */}
-          <button
-            type="button"
-            id="btn-topbar-refresh"
-            onClick={onRefresh}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 border border-slate-200 transition cursor-pointer active:scale-95 shadow-2xs"
-            title="Refresh Data"
-          >
-            <RefreshCw className={`w-4 h-4 text-emerald-600 ${isRefreshing ? 'animate-spin' : ''}`} />
-          </button>
+          {/* Refresh Button (Admin only) */}
+          {isAdmin && (
+            <button
+              type="button"
+              id="btn-topbar-refresh"
+              onClick={onRefresh}
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 border border-slate-200 transition cursor-pointer active:scale-95 shadow-2xs"
+              title="Refresh Data"
+            >
+              <RefreshCw className={`w-4 h-4 text-emerald-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
+          )}
 
           {/* User Profile / Auth Button */}
           <button

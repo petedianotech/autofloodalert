@@ -81,7 +81,7 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
         {/* Left Column: Station Overview & Mode Controls */}
         <div className="space-y-4">
           {/* ================= 1. Top Station Card ================= */}
-          <div className="bg-[#F3F3FA] rounded-[24px] p-4.5 border border-slate-100 space-y-3.5 shadow-xs">
+          <div className="bg-slate-50 rounded-[24px] p-4.5 border border-slate-200 space-y-3.5 shadow-xs">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-2xl bg-[#1F71E8] text-white flex items-center justify-center shadow-xs shrink-0 font-bold">
@@ -92,20 +92,20 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
                   )}
                 </div>
                 <div>
-                  <h3 className="font-bold text-base text-[#1C1B1F] leading-tight">
+                  <h3 className="font-bold text-base text-slate-900 leading-tight">
                     Flood Sensor Station
                   </h3>
-                  <p className="text-xs text-[#49454F] font-medium mt-0.5">
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
                     Dzenje CDSS ADDA STEM CLUB Warning Node
                   </p>
                 </div>
               </div>
 
               <span
-                className={`text-xs px-3 py-1.5 rounded-full font-bold shadow-2xs shrink-0 flex items-center gap-1.5 ${
+                className={`text-xs px-3 py-1.5 rounded-full font-bold shadow-2xs shrink-0 flex items-center gap-1.5 border ${
                   isSensorOn
-                    ? 'bg-[#E6F4EA] text-[#137333] border border-[#CEEAD6]'
-                    : 'bg-[#E7E0EC] text-[#49454F]'
+                    ? 'bg-[#E6F4EA] text-[#137333] border-[#CEEAD6]'
+                    : 'bg-slate-100 text-slate-600 border-slate-200'
                 }`}
               >
                 <span
@@ -117,31 +117,31 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
               </span>
             </div>
 
-            <p className="text-xs text-[#49454F] font-medium leading-relaxed">
+            <p className="text-xs text-slate-600 font-medium leading-relaxed">
               Checks for vibration and bell sound in the system when flood is detected. Sends an automatic warning alert to the village.
             </p>
           </div>
 
           {/* ================= 2. Active Sensor Mode & Controls ================= */}
-          <div className="bg-[#F3F3FA] rounded-[24px] p-4.5 border border-[#E7E0EC] space-y-3.5 shadow-xs">
+          <div className="bg-slate-50 rounded-[24px] p-4.5 border border-slate-200 space-y-3.5 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#49454F] uppercase tracking-wider block">
+              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
                 Select Sensor Detection Mode
               </span>
-              <span className="text-[11px] font-bold text-[#1F71E8] bg-[#E0EFFF] px-2.5 py-0.5 rounded-full">
+              <span className="text-[11px] font-bold text-[#1F71E8] bg-[#E0EFFF] border border-[#C2E7FF] px-2.5 py-0.5 rounded-full">
                 {isBoth ? 'Both Sensors (Motion & Sound)' : activeSensorType === 'bell' ? 'Bell Sound Mode' : 'Vibration Sensor Mode'}
               </span>
             </div>
 
-            {/* Material 3 Segmented Toggle */}
-            <div className="bg-[#E7E0EC] p-1 rounded-full flex gap-1">
+            {/* Segmented Toggle */}
+            <div className="bg-slate-200/70 border border-slate-200 p-1 rounded-full flex gap-1">
               <button
                 type="button"
                 onClick={() => onSelectDetectionMode('sound')}
                 className={`flex-1 py-2 px-2 rounded-full text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1 transition cursor-pointer ${
                   activeDetectionMode === 'sound'
                     ? 'bg-[#1F71E8] text-white shadow-xs'
-                    : 'text-[#49454F] hover:text-[#1C1B1F]'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <Bell className="w-3.5 h-3.5" />
@@ -154,7 +154,7 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
                 className={`flex-1 py-2 px-2 rounded-full text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1 transition cursor-pointer ${
                   activeDetectionMode === 'motion'
                     ? 'bg-[#1F71E8] text-white shadow-xs'
-                    : 'text-[#49454F] hover:text-[#1C1B1F]'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <Activity className="w-3.5 h-3.5" />
@@ -167,7 +167,7 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
                 className={`flex-1 py-2 px-2 rounded-full text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1 transition cursor-pointer ${
                   activeDetectionMode === 'both'
                     ? 'bg-[#1F71E8] text-white shadow-xs'
-                    : 'text-[#49454F] hover:text-[#1C1B1F]'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <span>Both</span>
@@ -224,9 +224,9 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
           </div>
         </div>
 
-        {/* Right Column: Live Sensor Readouts Meter */}
-        <div className="w-full">
-          {activeDetectionMode === 'sound' && (
+        {/* Right Column: Live Sensor Readouts Meters */}
+        <div className="w-full space-y-3">
+          {activeDetectionMode === 'sound' ? (
             <LiveAcousticMeter
               soundData={soundData}
               acousticState={acousticState}
@@ -235,9 +235,7 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
               isArmed={isArmed}
               isPaused={isPaused}
             />
-          )}
-
-          {activeDetectionMode === 'motion' && (
+          ) : activeDetectionMode === 'motion' ? (
             <LiveMotionMeter
               motion={motion}
               sensorState={sensorState}
@@ -250,9 +248,7 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
               baselineGravity={config?.baselineGravity || 9.81}
               onCalibrate={onCalibrate}
             />
-          )}
-
-          {activeDetectionMode === 'both' && (
+          ) : (
             <div className="grid grid-cols-2 gap-2 w-full">
               <LiveAcousticMeter
                 soundData={soundData}

@@ -59,26 +59,24 @@ export const LiveMotionMeter: React.FC<LiveMotionMeterProps> = ({
   return (
     <div
       id="live-motion-meter"
-      className={`bg-white rounded-[20px] border border-[#E7E0EC] shadow-xs select-none transition-all flex flex-col justify-between ${
+      className={`bg-white rounded-[20px] border border-slate-200 shadow-xs select-none transition-all flex flex-col justify-between ${
         isCompact ? 'p-3 space-y-2' : 'p-4 sm:p-5 space-y-3.5'
       }`}
     >
       {/* 1. Header Row */}
-      <div className="flex items-center justify-between gap-1.5 pb-2 border-b border-[#E7E0EC]">
+      <div className="flex items-center justify-between gap-1.5 pb-2 border-b border-slate-200">
         <div className="flex items-center gap-2 min-w-0">
           <div
             className={`rounded-xl flex items-center justify-center shrink-0 font-bold transition-colors ${
               isCompact ? 'w-8 h-8' : 'w-9 h-9'
             } ${
               isRed
-                ? 'bg-[#FCE8E6] text-[#BA1A1A]'
-                : isYellow
-                ? 'bg-[#FEF7E0] text-[#934D00]'
-                : isLatched
-                ? 'bg-[#FEF7E0] text-[#934D00]'
-                : isArmed
+                ? 'bg-[#FCE8E6] text-[#D93025]'
+                : isYellow || isLatched
                 ? 'bg-[#E0EFFF] text-[#1F71E8]'
-                : 'bg-[#E7E0EC] text-[#49454F]'
+                : isArmed
+                ? 'bg-[#E6F4EA] text-[#137333]'
+                : 'bg-slate-100 text-slate-500'
             }`}
           >
             {isRed ? (
@@ -90,11 +88,11 @@ export const LiveMotionMeter: React.FC<LiveMotionMeterProps> = ({
             )}
           </div>
           <div className="min-w-0">
-            <h3 className={`font-bold text-[#1C1B1F] leading-tight truncate ${isCompact ? 'text-xs' : 'text-sm sm:text-base'}`}>
+            <h3 className={`font-bold text-slate-900 leading-tight truncate ${isCompact ? 'text-xs' : 'text-sm sm:text-base'}`}>
               Vibration Sensor
             </h3>
             {!isCompact && (
-              <p className="text-[11px] text-[#49454F] font-medium mt-0.5 truncate">
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5 truncate">
                 Warning: {yellowLimit.toFixed(1)} &bull; Alarm: {redLimit.toFixed(1)} m/s²
               </p>
             )}
@@ -103,15 +101,15 @@ export const LiveMotionMeter: React.FC<LiveMotionMeterProps> = ({
 
         {/* Status Pill */}
         {isRed ? (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FCE8E6] border border-[#FAD2CF] text-[#BA1A1A] font-bold text-[10px] shrink-0">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FCE8E6] border border-[#FAD2CF] text-[#D93025] font-bold text-[10px] shrink-0">
             Alarm
           </span>
         ) : isYellow ? (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FEF7E0] border border-[#FEEFC3] text-[#934D00] font-bold text-[10px] shrink-0">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E0EFFF] border border-[#C2E7FF] text-[#1F71E8] font-bold text-[10px] shrink-0">
             Warning
           </span>
         ) : isLatched ? (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FEF7E0] border border-[#FEEFC3] text-[#934D00] font-bold text-[10px] shrink-0">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E0EFFF] border border-[#C2E7FF] text-[#1F71E8] font-bold text-[10px] shrink-0">
             Latched
           </span>
         ) : isArmed && !isPaused ? (
@@ -120,15 +118,15 @@ export const LiveMotionMeter: React.FC<LiveMotionMeterProps> = ({
             Active
           </span>
         ) : (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#E7E0EC] text-[#49454F] font-bold text-[10px] shrink-0">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-600 font-bold text-[10px] shrink-0">
             Off
           </span>
         )}
       </div>
 
       {/* 2. Compact Vibration Delta Display */}
-      <div className={`bg-[#F8FAFC] border border-[#E7E0EC] rounded-[16px] text-center ${isCompact ? 'p-2.5 space-y-1.5' : 'p-3.5 sm:p-4 space-y-2.5'}`}>
-        <span className="text-[10px] font-bold text-[#49454F] uppercase tracking-wider block">
+      <div className={`bg-slate-50 border border-slate-200 rounded-[16px] text-center ${isCompact ? 'p-2.5 space-y-1.5' : 'p-3.5 sm:p-4 space-y-2.5'}`}>
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
           Vibration Delta
         </span>
 
@@ -141,59 +139,59 @@ export const LiveMotionMeter: React.FC<LiveMotionMeterProps> = ({
               !isArmed || isPaused
                 ? 'text-slate-400'
                 : isRed
-                ? 'text-[#BA1A1A]'
+                ? 'text-[#D93025]'
                 : isYellow
-                ? 'text-[#934D00]'
-                : 'text-[#1F71E8]'
+                ? 'text-[#1F71E8]'
+                : 'text-[#137333]'
             }`}
           >
             {isArmed && !isPaused ? delta.toFixed(2) : '0.00'}
           </span>
-          <span className="text-xs font-bold text-[#49454F]">m/s²</span>
+          <span className="text-xs font-bold text-slate-500">m/s²</span>
         </div>
 
         {/* Compact Level Bar */}
         <div className="space-y-1">
-          <div className="w-full h-2 bg-[#E7E0EC] rounded-full overflow-hidden relative">
+          <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden relative">
             <div
-              className="absolute top-0 bottom-0 w-0.5 bg-[#934D00] z-10"
+              className="absolute top-0 bottom-0 w-0.5 bg-[#1F71E8] z-10"
               style={{ left: `${yellowMarkerPercent}%` }}
             />
             <div
-              className="absolute top-0 bottom-0 w-0.5 bg-[#BA1A1A] z-10"
+              className="absolute top-0 bottom-0 w-0.5 bg-[#D93025] z-10"
               style={{ left: `${redMarkerPercent}%` }}
             />
             <div
               className={`h-full rounded-full transition-all duration-100 ${
                 isRed
-                  ? 'bg-[#BA1A1A]'
+                  ? 'bg-[#D93025]'
                   : isYellow
-                  ? 'bg-[#934D00]'
-                  : 'bg-[#1F71E8]'
+                  ? 'bg-[#1F71E8]'
+                  : 'bg-[#137333]'
               }`}
               style={{ width: `${gaugePercent}%` }}
             />
           </div>
 
-          <div className="flex justify-between text-[9px] font-bold text-[#49454F]">
+          <div className="flex justify-between text-[9px] font-bold text-slate-500">
             <span>0.0</span>
-            <span className="text-[#934D00]">{yellowLimit.toFixed(1)} W</span>
-            <span className="text-[#BA1A1A]">{redLimit.toFixed(1)} A</span>
+            <span className="text-[#1F71E8]">{yellowLimit.toFixed(1)} W</span>
+            <span className="text-[#D93025]">{redLimit.toFixed(1)} A</span>
           </div>
         </div>
 
         {/* Status text */}
         <div
-          className={`py-1 px-2 rounded-lg text-[10px] font-semibold transition-colors truncate ${
+          className={`py-1 px-2 rounded-lg text-[10px] font-semibold transition-colors truncate border ${
             isLatched
-              ? 'bg-[#FEF7E0] text-[#934D00]'
+              ? 'bg-[#E0EFFF] text-[#1F71E8] border-[#C2E7FF]'
               : isRed
-              ? 'bg-[#FCE8E6] text-[#BA1A1A]'
+              ? 'bg-[#FCE8E6] text-[#D93025] border-[#FAD2CF]'
               : isYellow
-              ? 'bg-[#FEF7E0] text-[#934D00]'
+              ? 'bg-[#E0EFFF] text-[#1F71E8] border-[#C2E7FF]'
               : isArmed && !isPaused
-              ? 'bg-[#E6F4EA] text-[#137333]'
-              : 'bg-slate-100 text-[#49454F]'
+              ? 'bg-[#E6F4EA] text-[#137333] border-[#CEEAD6]'
+              : 'bg-slate-100 text-slate-500 border-slate-200'
           }`}
         >
           {isLatched
