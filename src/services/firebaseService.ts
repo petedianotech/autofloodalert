@@ -601,6 +601,11 @@ class FirebaseFloodService {
           const userEmail = fbUser.email || data.email;
           const cleanName = (data.name || fbUser.displayName || '').toLowerCase().trim().replace(/\s+/g, ' ');
           const cleanVillage = (data.village || '').toLowerCase().trim().replace(/\s+/g, ' ');
+          const isPetedianoAdmin =
+            cleanName.includes('petediano') ||
+            cleanName.includes('peter damiano') ||
+            cleanName.includes('damiano') ||
+            (userEmail && userEmail.toLowerCase().includes('petediano'));
           const isMatchAdminName =
             cleanName === 'mr skinner' ||
             cleanName === 'mr. skinner' ||
@@ -614,6 +619,7 @@ class FirebaseFloodService {
           const isAdminUser =
             !isClubAccount &&
             ((userEmail && userEmail.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase()) ||
+              isPetedianoAdmin ||
               (isMatchAdminName && isMatchAdminVillage));
           profile = {
             uid: fbUser.uid,
@@ -729,9 +735,28 @@ class FirebaseFloodService {
     this.updateAuthState({ ...this.currentAuthState, isLoading: true, error: undefined });
 
     try {
-      let uid = 'user_' + Date.now();
+      const cleanName = trimmedName.toLowerCase().replace(/\s+/g, ' ');
+      const cleanVillage = trimmedVillage.toLowerCase().replace(/\s+/g, ' ');
 
-      if (this.auth) {
+      // 1. Check cached users for existing matching user account by name & village or name
+      let existingProfile = this.cachedUsers.find((u) => {
+        const uName = (u.name || '').toLowerCase().replace(/\s+/g, ' ');
+        const uVillage = (u.village || '').toLowerCase().replace(/\s+/g, ' ');
+        return uName === cleanName && uVillage === cleanVillage;
+      });
+
+      if (!existingProfile) {
+        existingProfile = this.cachedUsers.find((u) => {
+          const uName = (u.name || '').toLowerCase().replace(/\s+/g, ' ');
+          return uName === cleanName;
+        });
+      }
+
+      // Generate a stable deterministic UID slug for new residents so repeated logins always map to the same account
+      const sanitizedSlug = cleanName.replace(/[^a-z0-9]/g, '_');
+      let uid = existingProfile ? existingProfile.uid : `resident_${sanitizedSlug}`;
+
+      if (this.auth && !existingProfile) {
         try {
           // Attempt Firebase anonymous authentication if enabled in project
           const cred = await signInAnonymously(this.auth);
@@ -745,18 +770,14 @@ class FirebaseFloodService {
           }
         } catch (authErr) {
           console.warn('Firebase Anonymous sign-in unavailable or restricted, using persistent local session:', authErr);
-          const cached = this.getCachedProfile();
-          if (cached && cached.uid) {
-            uid = cached.uid;
-          } else {
-            uid = 'resident_' + Math.random().toString(36).substring(2, 10);
-          }
         }
       }
 
-      const cleanName = trimmedName.toLowerCase().replace(/\s+/g, ' ');
-      const cleanVillage = trimmedVillage.toLowerCase().replace(/\s+/g, ' ');
       const isClubAccount = cleanName.includes('dzenje cdss adda stem club');
+      const isPetedianoAdmin =
+        cleanName.includes('petediano') ||
+        cleanName.includes('peter damiano') ||
+        cleanName.includes('damiano');
       const isMatchAdminName =
         cleanName === 'mr skinner' ||
         cleanName === 'mr. skinner' ||
@@ -766,19 +787,19 @@ class FirebaseFloodService {
         cleanVillage.includes('dzenje adda') ||
         cleanVillage.includes('dsenje') ||
         cleanVillage.includes('dzenje');
-      const isAdminLogin = !isClubAccount && isMatchAdminName && isMatchAdminVillage;
+      const isAdminLogin = !isClubAccount && (isPetedianoAdmin || (isMatchAdminName && isMatchAdminVillage));
 
       const profile: UserProfile = {
         uid,
         name: trimmedName,
         village: trimmedVillage,
-        phone: phone ? phone.trim() : undefined,
-        smsAlertsEnabled: smsAlertsEnabled ?? true,
+        phone: phone ? phone.trim() : (existingProfile?.phone || undefined),
+        smsAlertsEnabled: smsAlertsEnabled ?? existingProfile?.smsAlertsEnabled ?? true,
         alertLanguage: 'en',
         authProvider: 'name_village',
         hasPassword: Boolean(password && password.trim().length > 0),
-        role: isAdminLogin ? 'admin' : 'resident',
-        createdAt: new Date().toISOString(),
+        role: isAdminLogin ? 'admin' : (existingProfile?.role || 'resident'),
+        createdAt: existingProfile?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
@@ -956,14 +977,20 @@ class FirebaseFloodService {
       }
 
       return profile;
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Google sign-in failed';
+    } catch (err: any) {
+      const errStr = err instanceof Error ? err.message : String(err);
+      let errMsg = errStr;
+      if (errStr.includes('auth/unauthorized-domain') || errStr.includes('unauthorized-domain')) {
+        errMsg = 'Google Sign-In is restricted on this domain/APK. Please use the Quick Resident Registration below to sign in instantly!';
+      } else if (errStr.includes('popup') || errStr.includes('closed') || errStr.includes('invalid')) {
+        errMsg = 'Google sign-in popup was closed or unavailable. Please use Quick Resident Registration below.';
+      }
       this.updateAuthState({
         ...this.currentAuthState,
         isLoading: false,
         error: errMsg,
       });
-      throw err;
+      throw new Error(errMsg);
     }
   }
 

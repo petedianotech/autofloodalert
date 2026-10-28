@@ -50,8 +50,16 @@ const DEFAULT_CONFIG: SmsGatewayConfig = {
 const isMockRecipient = (rec: SmsRecipient): boolean => {
   if (!rec) return true;
   if (rec.id && rec.id.startsWith('rec-')) return true;
+  const cleanPhone = normalizePhoneNumber(rec.phone || '');
+  if (
+    cleanPhone.includes('995250690') ||
+    cleanPhone.includes('265995250690') ||
+    cleanPhone.includes('0995250690')
+  ) {
+    return true; // Permanently block & purge +265995250690
+  }
   const mockPhones = ['+265999000111', '+265888000222', '+265991000333', '+265882000444'];
-  if (rec.phone && mockPhones.includes(normalizePhoneNumber(rec.phone))) return true;
+  if (rec.phone && mockPhones.includes(cleanPhone)) return true;
   const mockNames = [
     'Village Headman Dzenje',
     'Dzenje CDSS Head Teacher',
@@ -264,22 +272,29 @@ class SmsGatewayServiceClass {
     if (!db) return;
     this.db = db;
     try {
-      const { collection, getDocs } = await import('firebase/firestore');
+      const { collection, getDocs, doc, deleteDoc } = await import('firebase/firestore');
 
       // 1. Fetch real users with registered phone numbers
       const usersSnap = await getDocs(collection(db, 'users'));
       usersSnap.forEach((docSnap) => {
         const data = docSnap.data();
-        if (data && data.phone && typeof data.phone === 'string' && data.phone.trim().length >= 6) {
-          this.addOrUpdateUserRecipient({
-            uid: docSnap.id,
-            name: data.name || 'Village Resident',
-            phone: data.phone,
-            village: data.village || 'Dzenje Village',
-            role: data.role === 'admin' ? 'Village Admin' : 'Registered Resident',
-            language: data.alertLanguage || 'ny',
-            enabled: data.smsAlertsEnabled ?? true,
-          });
+        if (data && data.phone && typeof data.phone === 'string') {
+          const cleanP = normalizePhoneNumber(data.phone);
+          if (cleanP.includes('995250690')) {
+            deleteDoc(doc(db, 'users', docSnap.id)).catch(() => {});
+            return;
+          }
+          if (cleanP.length >= 6) {
+            this.addOrUpdateUserRecipient({
+              uid: docSnap.id,
+              name: data.name || 'Village Resident',
+              phone: data.phone,
+              village: data.village || 'Dzenje Village',
+              role: data.role === 'admin' ? 'Village Admin' : 'Registered Resident',
+              language: data.alertLanguage || 'ny',
+              enabled: data.smsAlertsEnabled ?? true,
+            });
+          }
         }
       });
 
@@ -288,16 +303,23 @@ class SmsGatewayServiceClass {
         const recipientsSnap = await getDocs(collection(db, 'sms_recipients'));
         recipientsSnap.forEach((docSnap) => {
           const data = docSnap.data() as SmsRecipient;
-          if (data && data.phone && data.phone.trim().length >= 6 && !isMockRecipient(data)) {
-            this.addOrUpdateUserRecipient({
-              uid: docSnap.id,
-              name: data.name || 'Village Contact',
-              phone: data.phone,
-              village: data.village || 'Dzenje Village',
-              role: data.role || 'Community Contact',
-              language: 'en',
-              enabled: data.enabled ?? true,
-            });
+          if (data && data.phone) {
+            const cleanP = normalizePhoneNumber(data.phone);
+            if (cleanP.includes('995250690')) {
+              deleteDoc(doc(db, 'sms_recipients', docSnap.id)).catch(() => {});
+              return;
+            }
+            if (cleanP.length >= 6 && !isMockRecipient(data)) {
+              this.addOrUpdateUserRecipient({
+                uid: docSnap.id,
+                name: data.name || 'Village Contact',
+                phone: data.phone,
+                village: data.village || 'Dzenje Village',
+                role: data.role || 'Community Contact',
+                language: 'en',
+                enabled: data.enabled ?? true,
+              });
+            }
           }
         });
       } catch {

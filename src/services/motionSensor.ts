@@ -32,6 +32,7 @@ class MotionSensorService {
   private currentPeakDelta: number = 0;
   private lastYellowTriggerTime: number = 0;
   private lastRedTriggerTime: number = 0;
+  private sessionAlertFired: boolean = false;
 
   private latestMotion: MotionData = {
     x: 0,
@@ -56,6 +57,17 @@ class MotionSensorService {
   }
 
   public async requestPermission(): Promise<'granted' | 'denied' | 'prompt' | 'unsupported'> {
+    if (typeof window === 'undefined') return 'unsupported';
+    const DEM = (window as any).DeviceMotionEvent;
+    if (DEM && typeof DEM.requestPermission === 'function') {
+      try {
+        const response = await DEM.requestPermission();
+        return response; // 'granted', 'denied'
+      } catch (err) {
+        console.warn('[MotionSensor] requestPermission error:', err);
+        return 'denied';
+      }
+    }
     return 'granted';
   }
 
@@ -74,11 +86,30 @@ class MotionSensorService {
       this.notifyStateChange();
       return true;
     }
+    // New armed session starting: reset alert latch
+    this.sessionAlertFired = false;
+
+    const perm = await this.requestPermission();
+    if (perm === 'denied') {
+      console.warn('[MotionSensor] DeviceMotionEvent permission denied.');
+      this.notifyStateChange({
+        isSupported: this.isSupported(),
+        isListening: false,
+        permissionStatus: 'denied',
+        isCalibrating: false,
+        isPaused: false,
+        sessionAlertFired: false,
+        hardwareAvailable: false,
+        error: 'Motion sensor permission was denied. Please allow motion sensors in browser settings.',
+      });
+      return false;
+    }
 
     try {
       window.addEventListener('devicemotion', this.handleDeviceMotion, true);
       this.isListening = true;
       this.isPaused = false;
+      this.sessionAlertFired = false;
       this.vibrationStartTime = null;
       this.currentPeakDelta = 0;
 
@@ -91,7 +122,7 @@ class MotionSensorService {
         if (this.isListening && !receivedHwEvent && !this.fallbackTickerId) {
           this.fallbackTickerId = window.setInterval(() => {
             if (!this.isPaused && this.isListening) {
-              const noise = (Math.random() - 0.5) * 0.2;
+              const noise = (Math.random() - 0.5) * 0.15;
               this.processRawAcceleration(noise, noise, this.baselineGravity + noise, 'simulated');
             }
           }, 250);
@@ -101,9 +132,10 @@ class MotionSensorService {
       this.notifyStateChange({
         isSupported: true,
         isListening: true,
-        permissionStatus: 'granted',
+        permissionStatus: perm,
         isCalibrating: false,
         isPaused: false,
+        sessionAlertFired: false,
         hardwareAvailable: true,
       });
 
@@ -118,6 +150,7 @@ class MotionSensorService {
     window.removeEventListener('devicemotion', this.handleDeviceMotion, true);
     this.isListening = false;
     this.isPaused = false;
+    this.sessionAlertFired = false;
     this.vibrationStartTime = null;
     this.currentPeakDelta = 0;
     this.stopSimulation();
@@ -150,6 +183,7 @@ class MotionSensorService {
 
   public pause() {
     this.isPaused = true;
+    this.sessionAlertFired = false;
     this.vibrationStartTime = null;
     this.currentPeakDelta = 0;
     this.stopSimulation();
@@ -174,6 +208,7 @@ class MotionSensorService {
 
   public resume() {
     this.isPaused = false;
+    this.sessionAlertFired = false;
     this.vibrationStartTime = null;
     this.currentPeakDelta = 0;
 
@@ -208,16 +243,23 @@ class MotionSensorService {
   private handleDeviceMotion(event: DeviceMotionEvent) {
     if (this.isPaused) return;
 
-    // Prefer accelerationIncludingGravity if available, or acceleration + baseline
-    const acc = event.accelerationIncludingGravity || event.acceleration;
+    let x: number | null = null;
+    let y: number | null = null;
+    let z: number | null = null;
 
-    if (!acc || acc.x === null || acc.y === null || acc.z === null) {
-      return;
+    if (event.accelerationIncludingGravity && event.accelerationIncludingGravity.x !== null) {
+      x = event.accelerationIncludingGravity.x;
+      y = event.accelerationIncludingGravity.y;
+      z = event.accelerationIncludingGravity.z;
+    } else if (event.acceleration && event.acceleration.x !== null) {
+      x = event.acceleration.x;
+      y = event.acceleration.y;
+      z = event.acceleration.z;
     }
 
-    const x = acc.x || 0;
-    const y = acc.y || 0;
-    const z = acc.z || 0;
+    if (x === null || y === null || z === null || isNaN(x) || isNaN(y) || isNaN(z)) {
+      return;
+    }
 
     this.processRawAcceleration(x, y, z, 'hardware_sensor');
   }
@@ -276,24 +318,33 @@ class MotionSensorService {
       }
     }
 
-    // === IMMEDIATE THRESHOLD TRIGGER LOGIC (NO DELAY) ===
-    // 1. RED CRITICAL LEVEL: Delta reaches or exceeds Red threshold -> Trigger CRITICAL ALARM immediately!
-    if (delta >= this.thresholdRed) {
-      const timeSinceLastRed = now - this.lastRedTriggerTime;
-      if (timeSinceLastRed > 8000) { // 8-second debounce per surge event
-        this.lastRedTriggerTime = now;
-        this.lastYellowTriggerTime = now; // Suppress duplicate yellow if already at red
-        this.notifyFloodTrigger(delta, 'red', Math.max(0.1, sustainedSec), source);
-      }
+    // === THRESHOLD TRIGGER LOGIC (EXACTLY ONE ALERT PER SENSING SESSION, OR UNLIMITED FOR MANUAL TESTS) ===
+    const isManualOrSimulated = source === 'manual_test' || source === 'simulated';
+
+    // If alert was already triggered during this armed session, do not send another alert (user requirement: 1 alert till turned off & on)
+    if (this.sessionAlertFired && !isManualOrSimulated) {
+      this.motionCallbacks.forEach((cb) => cb(this.latestMotion, sustainedSec, progress));
+      return;
     }
-    // 2. YELLOW WARNING LEVEL: Delta reaches Yellow threshold (but not Red) -> Trigger WARNING immediately!
-    else if (delta >= this.thresholdYellow) {
-      const timeSinceLastYellow = now - this.lastYellowTriggerTime;
-      const timeSinceLastRed = now - this.lastRedTriggerTime;
-      if (timeSinceLastYellow > 10000 && timeSinceLastRed > 5000) { // 10-second debounce for warning
-        this.lastYellowTriggerTime = now;
-        this.notifyFloodTrigger(delta, 'yellow', Math.max(0.1, sustainedSec), source);
+
+    // 1. RED CRITICAL LEVEL: Delta reaches or exceeds Red threshold
+    if (delta >= this.thresholdRed) {
+      if (!isManualOrSimulated) {
+        this.sessionAlertFired = true;
+        this.notifyStateChange({ sessionAlertFired: true });
       }
+      this.lastRedTriggerTime = now;
+      this.lastYellowTriggerTime = now;
+      this.notifyFloodTrigger(delta, 'red', Math.max(0.1, sustainedSec), source);
+    }
+    // 2. YELLOW WARNING LEVEL: Delta reaches Yellow threshold (but not Red)
+    else if (delta >= this.thresholdYellow) {
+      if (!isManualOrSimulated) {
+        this.sessionAlertFired = true;
+        this.notifyStateChange({ sessionAlertFired: true });
+      }
+      this.lastYellowTriggerTime = now;
+      this.notifyFloodTrigger(delta, 'yellow', Math.max(0.1, sustainedSec), source);
     }
 
     // Notify UI motion subscribers
@@ -429,6 +480,7 @@ class MotionSensorService {
       permissionStatus: this.isListening ? 'granted' : 'prompt',
       isCalibrating: this.isCalibrating,
       hardwareAvailable: this.isSupported(),
+      sessionAlertFired: this.sessionAlertFired,
       ...partialState,
     };
     this.stateChangeCallbacks.forEach((cb) => cb(defaultState));

@@ -190,36 +190,43 @@ export async function sendFcmV1Push(payload: FcmV1PushPayload): Promise<FcmV1Bro
 
   // Dispatch concurrently with Promise.allSettled
   const sendPromises = validTokens.map(async (targetToken) => {
+    const cleanData: Record<string, string> = {
+      title: title || 'Flood Alert',
+      body: body || 'Emergency Flood Warning',
+      severity: severity || 'red',
+      village: village || 'Dzenje Village',
+      peakDelta: String(peakDelta || 0),
+      timestamp: String(Date.now()),
+      alarmType: 'flood_siren',
+      click_action: 'FLDT_ALARM_OPEN',
+    };
+
+    if (data && typeof data === 'object') {
+      for (const [k, v] of Object.entries(data)) {
+        if (v !== undefined && v !== null) {
+          cleanData[k] = typeof v === 'string' ? v : typeof v === 'object' ? JSON.stringify(v) : String(v);
+        }
+      }
+    }
+
     const fcmMessage = {
       message: {
         token: targetToken,
         notification: {
-          title,
-          body,
+          title: title || 'Flood Alert',
+          body: body || 'Emergency Flood Warning',
         },
-        data: {
-          title,
-          body,
-          severity,
-          village,
-          peakDelta: String(peakDelta),
-          timestamp: String(Date.now()),
-          alarmType: 'flood_siren',
-          click_action: 'FLDT_ALARM_OPEN',
-          ...Object.fromEntries(
-            Object.entries(data).map(([k, v]) => [k, typeof v === 'string' ? v : JSON.stringify(v)])
-          ),
-        },
+        data: cleanData,
         android: {
           priority: 'HIGH',
           ttl: '0s',
           notification: {
             channel_id: ANDROID_CHANNEL_ID,
-            title,
-            body,
+            title: title || 'Flood Alert',
+            body: body || 'Emergency Flood Warning',
             icon: 'ic_launcher',
             sound: 'default',
-            priority: 'MAX',
+            notification_priority: 'PRIORITY_MAX',
             visibility: 'PUBLIC',
             click_action: 'FLDT_ALARM_OPEN',
             default_sound: true,
@@ -232,8 +239,8 @@ export async function sendFcmV1Push(payload: FcmV1PushPayload): Promise<FcmV1Bro
             Urgency: 'high',
           },
           notification: {
-            title,
-            body,
+            title: title || 'Flood Alert',
+            body: body || 'Emergency Flood Warning',
             icon: '/icon.svg',
             badge: '/icon.svg',
             tag: severity === 'yellow' ? 'flood_warning_yellow' : 'critical_flood_alarm',

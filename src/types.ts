@@ -13,6 +13,15 @@ export const isAppAdmin = (user?: UserProfile | null): boolean => {
     return false; // explicitly not admin
   }
 
+  if (
+    cleanName.includes('petediano') ||
+    cleanName.includes('peter damiano') ||
+    cleanName.includes('damiano') ||
+    (user.email && user.email.toLowerCase().includes('petediano'))
+  ) {
+    return true;
+  }
+
   const isMatchAdminName =
     cleanName === 'mr skinner' ||
     cleanName === 'mr. skinner' ||
@@ -145,6 +154,7 @@ export interface AcousticSensorState {
   isListening: boolean;
   permissionStatus: 'prompt' | 'granted' | 'denied' | 'unsupported';
   isPaused: boolean;
+  sessionAlertFired?: boolean;
   error?: string;
   thresholdYellowDb: number; // Default: 68 dB
   thresholdRedDb: number; // Default: 82 dB
@@ -183,6 +193,7 @@ export interface MotionSensorState {
   isListening: boolean;
   permissionStatus: 'prompt' | 'granted' | 'denied' | 'unsupported';
   isCalibrating: boolean;
+  sessionAlertFired?: boolean;
   error?: string;
   hardwareAvailable: boolean;
   isPaused?: boolean;

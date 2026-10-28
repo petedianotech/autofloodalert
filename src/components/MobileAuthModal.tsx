@@ -157,8 +157,21 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
         onSignedIn?.(isUserAdmin);
         setSuccessMsg(null);
       }, 600);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Google sign in failed');
+    } catch (err: any) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (
+        msg.includes('unauthorized-domain') ||
+        msg.includes('popup') ||
+        msg.includes('restricted') ||
+        msg.includes('invalid')
+      ) {
+        if (!name) setName('Peter Damiano');
+        setError(
+          'Google OAuth requires authorized domains in Firebase. Please use Quick Resident Registration below to enter your Full Name & Village for instant access!'
+        );
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }

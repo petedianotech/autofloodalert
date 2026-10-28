@@ -38,6 +38,7 @@ class AcousticSensorService {
   private currentPeakDb: number = 0;
   private lastYellowTriggerTime: number = 0;
   private lastRedTriggerTime: number = 0;
+  private sessionAlertFired: boolean = false;
 
   private latestData: AcousticData = {
     decibels: 30,
@@ -148,6 +149,7 @@ class AcousticSensorService {
 
       this.isListening = true;
       this.isPaused = false;
+      this.sessionAlertFired = false;
       this.soundStartTime = null;
       this.currentPeakDb = 0;
       this.bellEnergyHistory = new Array(this.historyMaxLength).fill(0);
@@ -165,7 +167,7 @@ class AcousticSensorService {
       this.startProcessingLoop();
       return true;
     } catch (err) {
-      console.error('[AcousticSensor] Failed to start microphone listener:', err);
+      console.warn('[AcousticSensor] Microphone access denied or unavailable:', err);
       this.stopListening();
       this.notifyStateChange({
         isSupported: true,
@@ -209,6 +211,7 @@ class AcousticSensorService {
 
     this.isListening = false;
     this.isPaused = false;
+    this.sessionAlertFired = false;
     this.soundStartTime = null;
     this.stopSimulation();
 
@@ -225,6 +228,7 @@ class AcousticSensorService {
 
   public pause() {
     this.isPaused = true;
+    this.sessionAlertFired = false;
     this.soundStartTime = null;
     this.currentPeakDb = 0;
     this.stopSimulation();
@@ -241,6 +245,7 @@ class AcousticSensorService {
 
   public resume() {
     this.isPaused = false;
+    this.sessionAlertFired = false;
     this.soundStartTime = null;
     if (!this.isListening) {
       this.startListening();
@@ -462,20 +467,21 @@ class AcousticSensorService {
         }
       }
 
-      // Trigger Alerts
+      // Trigger Alerts (EXACTLY ONE ALERT PER ARMED SESSION TILL USER TURNS OFF AND ON)
       if (isAboveRed && !voiceRejectionActive) {
-        const timeSinceLastRed = now - this.lastRedTriggerTime;
-        if (timeSinceLastRed > 6000) {
+        if (!this.sessionAlertFired) {
+          this.sessionAlertFired = true;
           this.lastRedTriggerTime = now;
           this.lastYellowTriggerTime = now;
           this.notifyFloodTrigger(decibels, 'red', Math.max(0.2, sustainedSec), 'acoustic_sound_sensor');
+          this.notifyStateChange({ sessionAlertFired: true });
         }
       } else if (isAboveYellow && !voiceRejectionActive) {
-        const timeSinceLastYellow = now - this.lastYellowTriggerTime;
-        const timeSinceLastRed = now - this.lastRedTriggerTime;
-        if (timeSinceLastYellow > 8000 && timeSinceLastRed > 4000) {
+        if (!this.sessionAlertFired) {
+          this.sessionAlertFired = true;
           this.lastYellowTriggerTime = now;
           this.notifyFloodTrigger(decibels, 'yellow', Math.max(0.2, sustainedSec), 'acoustic_sound_sensor');
+          this.notifyStateChange({ sessionAlertFired: true });
         }
       }
 
@@ -613,6 +619,7 @@ class AcousticSensorService {
       isListening: this.isListening,
       permissionStatus: 'granted',
       isPaused: this.isPaused,
+      sessionAlertFired: this.sessionAlertFired,
       thresholdYellowDb: this.thresholdYellowDb,
       thresholdRedDb: this.thresholdRedDb,
       resonanceThreshold: this.resonanceThreshold,
