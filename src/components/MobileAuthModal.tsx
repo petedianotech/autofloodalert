@@ -463,7 +463,7 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
                     Alert &amp; SMS Language / Chilankhulo
                   </span>
                   <span className="text-[10px] text-slate-500 font-medium">
-                    {alertLanguage === 'ny' ? '🇲🇼 Chichewa' : '🇬🇧 English (Default)'}
+                    {alertLanguage === 'ny' ? '🇲🇼 Chichewa' : '🇬🇧 English'}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -476,7 +476,7 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
                         : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
                     }`}
                   >
-                    <span>🇬🇧 English (Default)</span>
+                    <span>🇬🇧 English</span>
                     {alertLanguage === 'en' && <Check className="w-3.5 h-3.5" />}
                   </button>
 
@@ -720,7 +720,7 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
                   <label className="block text-xs font-bold text-slate-800">
                     Receive Alerts In (SMS &amp; In-App)
                   </label>
-                  <span className="text-[10px] text-slate-400 font-medium">English by default</span>
+                  <span className="text-[10px] text-slate-400 font-medium">English</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -732,7 +732,7 @@ export const MobileAuthModal: React.FC<MobileAuthModalProps> = ({
                         : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
                     }`}
                   >
-                    <span>🇬🇧 English (Default)</span>
+                    <span>🇬🇧 English</span>
                     {alertLanguage === 'en' && <Check className="w-3.5 h-3.5" />}
                   </button>
 
