@@ -59,6 +59,21 @@ export interface Translations {
   capacity: string;
   aboutPeople: string;
 
+  // Exact User Requested Chichewa Translations
+  safePlaces: string;
+  villageEvacCentersTitle: string;
+  villageEvacCentersDesc: string;
+  safeEvacuationCenter: string;
+  capacityLabel: string;
+  clearMyView: string;
+  clearNotice: string;
+  criticalFloodWarningTitle: string;
+  criticalFloodWarningDesc: string;
+  ruoRiver: string;
+  dismissBtn: string;
+  monitoringRiverClearTitle: string;
+  monitoringBellRingDesc: string;
+
   // On Village Screen Specific Texts
   riverChannelsClearNoAlerts: string;
   riverSensorsActiveDesc: string;
@@ -265,6 +280,24 @@ export const translations: Record<SupportedLanguage, Translations> = {
     highGroundEvacuationShelter: 'High Ground Evacuation Shelter',
     capacity: 'Capacity:',
     aboutPeople: 'About people',
+
+    // Exact User Requested Chichewa Translations (English Base)
+    safePlaces: 'Safe Places',
+    villageEvacCentersTitle: 'Village Evacuation Centers & Safe Places',
+    villageEvacCentersDesc: 'Designated high ground and safe shelters for families during river floods.',
+    safeEvacuationCenter: 'Safe Evacuation Center',
+    capacityLabel: 'Capacity',
+    clearMyView: 'Clear My View',
+    clearNotice:
+      'Notice: Clearing alerts removes them from your phone screen only. Official sensor records remain safely stored in the community database.',
+    criticalFloodWarningTitle: 'CRITICAL FLOOD WARNING — Move to Higher Ground Now',
+    criticalFloodWarningDesc:
+      'Rapid flood water detected near Dzenje Village. Move your family, children, and animals to designated safe high ground immediately.',
+    ruoRiver: 'Ruo River',
+    dismissBtn: 'Dismiss',
+    monitoringRiverClearTitle: 'MONITORING — River Clear',
+    monitoringBellRingDesc:
+      'Emergency flood warning bell ringing near Dzenje Village. Prepare to move to high ground.',
 
     // On Village Screen Specific Texts
     riverChannelsClearNoAlerts: 'River Channels Clear • No Active Warnings',
@@ -478,6 +511,24 @@ export const translations: Record<SupportedLanguage, Translations> = {
     highGroundEvacuationShelter: 'Malo Okwera Othawirako',
     capacity: 'Malire:',
     aboutPeople: 'Anthu pafupifupi',
+
+    // Exact User Requested Chichewa Translations
+    safePlaces: 'Malo Otetezeka',
+    villageEvacCentersTitle: "Malo Othawirako ndi Otetezeka m'Mudzi",
+    villageEvacCentersDesc: "Malo otetezeka othawirako a mabanja madzi akasefukira m'mtsinje",
+    safeEvacuationCenter: 'Malo Otetezeka Othawirako',
+    capacityLabel: 'Malo Okwanira',
+    clearMyView: 'Chotsani zomwe ndaona',
+    clearNotice:
+      'Chenjezo: Kuchotsa machenjezowa kumachotsa pa foni yanu yokha. Zolemba za sensor zimakhala zosungidwa bwino mu malo osungiramo',
+    criticalFloodWarningTitle: 'CHENJEZO LA CHIGUMULA — Thawirani malo okwera tsopano',
+    criticalFloodWarningDesc:
+      'Madzi osefukira kuyandikira mudzi wa Dzenje. Thawisani banja lanu, ana anu, ndi ziweto zanu kumalo otetezeka okwera msanga',
+    ruoRiver: 'Mtsinje wa Ruo',
+    dismissBtn: 'Chotsani',
+    monitoringRiverClearTitle: "KUYANG'ANIRA — Mtsinje Uli Bwino",
+    monitoringBellRingDesc:
+      'Belu la chenjezo la chigumula likulira pafupi ndi Mudzi wa Dzenje. Konzekerani kusamukira kumalo okwera',
 
     // On Village Screen Specific Texts
     riverChannelsClearNoAlerts: 'Mitsinje Ili Bwino • Palibe Chenjezo',

@@ -14,8 +14,7 @@ interface LiveMotionMeterProps {
   isArmed: boolean;
   isPaused: boolean;
   baselineGravity: number;
-  isDarkMode?: boolean;
-  onSimulateTest?: (severity?: 'yellow' | 'red') => void;
+  isCompact?: boolean;
   onCalibrate?: () => Promise<number>;
 }
 
@@ -28,7 +27,7 @@ export const LiveMotionMeter: React.FC<LiveMotionMeterProps> = ({
   isArmed,
   isPaused,
   baselineGravity,
-  onSimulateTest,
+  isCompact = false,
   onCalibrate,
 }) => {
   const redLimit = thresholdRed || threshold || 1.6;
@@ -41,7 +40,7 @@ export const LiveMotionMeter: React.FC<LiveMotionMeterProps> = ({
   const isYellow = delta >= yellowLimit && !isRed && isArmed && !isPaused;
   const isLatched = sensorState?.sessionAlertFired && isArmed;
 
-  // Gauge bar calculations (0.0 to 3.2 m/s²)
+  // Gauge bar calculations (0.0 to 3.0 m/s²)
   const maxDisplayDelta = Math.max(3.0, redLimit * 1.8);
   const gaugePercent = isArmed && !isPaused ? Math.min(100, Math.max(0, (delta / maxDisplayDelta) * 100)) : 0;
   const yellowMarkerPercent = (yellowLimit / maxDisplayDelta) * 100;
@@ -60,13 +59,17 @@ export const LiveMotionMeter: React.FC<LiveMotionMeterProps> = ({
   return (
     <div
       id="live-motion-meter"
-      className="bg-white rounded-[24px] border border-[#E7E0EC] p-5 shadow-xs space-y-4 select-none"
+      className={`bg-white rounded-[20px] border border-[#E7E0EC] shadow-xs select-none transition-all flex flex-col justify-between ${
+        isCompact ? 'p-3 space-y-2' : 'p-4 sm:p-5 space-y-3.5'
+      }`}
     >
-      {/* 1. Card Header */}
-      <div className="flex items-center justify-between gap-3 pb-3 border-b border-[#E7E0EC]">
-        <div className="flex items-center gap-3">
+      {/* 1. Header Row */}
+      <div className="flex items-center justify-between gap-1.5 pb-2 border-b border-[#E7E0EC]">
+        <div className="flex items-center gap-2 min-w-0">
           <div
-            className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 font-bold transition-colors ${
+            className={`rounded-xl flex items-center justify-center shrink-0 font-bold transition-colors ${
+              isCompact ? 'w-8 h-8' : 'w-9 h-9'
+            } ${
               isRed
                 ? 'bg-[#FCE8E6] text-[#BA1A1A]'
                 : isYellow
@@ -79,61 +82,62 @@ export const LiveMotionMeter: React.FC<LiveMotionMeterProps> = ({
             }`}
           >
             {isRed ? (
-              <AlertOctagon className="w-6 h-6" />
+              <AlertOctagon className={isCompact ? 'w-4 h-4' : 'w-5 h-5'} />
             ) : isYellow ? (
-              <AlertTriangle className="w-6 h-6" />
+              <AlertTriangle className={isCompact ? 'w-4 h-4' : 'w-5 h-5'} />
             ) : (
-              <Activity className="w-6 h-6" />
+              <Activity className={isCompact ? 'w-4 h-4' : 'w-5 h-5'} />
             )}
           </div>
-          <div>
-            <h3 className="font-bold text-base text-[#1C1B1F] leading-tight">
+          <div className="min-w-0">
+            <h3 className={`font-bold text-[#1C1B1F] leading-tight truncate ${isCompact ? 'text-xs' : 'text-sm sm:text-base'}`}>
               Vibration Sensor
             </h3>
-            <p className="text-xs text-[#49454F] font-medium mt-0.5">
-              Warning: {yellowLimit.toFixed(1)} m/s² &bull; Alarm: {redLimit.toFixed(1)} m/s²
-            </p>
+            {!isCompact && (
+              <p className="text-[11px] text-[#49454F] font-medium mt-0.5 truncate">
+                Warning: {yellowLimit.toFixed(1)} &bull; Alarm: {redLimit.toFixed(1)} m/s²
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Status Badge */}
+        {/* Status Pill */}
         {isRed ? (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FCE8E6] border border-[#FAD2CF] text-[#BA1A1A] font-bold text-xs">
-            <AlertOctagon className="w-3.5 h-3.5" />
-            Alarm Active
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FCE8E6] border border-[#FAD2CF] text-[#BA1A1A] font-bold text-[10px] shrink-0">
+            Alarm
           </span>
         ) : isYellow ? (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FEF7E0] border border-[#FEEFC3] text-[#934D00] font-bold text-xs">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            Warning Active
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FEF7E0] border border-[#FEEFC3] text-[#934D00] font-bold text-[10px] shrink-0">
+            Warning
           </span>
         ) : isLatched ? (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FEF7E0] border border-[#FEEFC3] text-[#934D00] font-bold text-xs">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            Alert Sent (Latched)
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FEF7E0] border border-[#FEEFC3] text-[#934D00] font-bold text-[10px] shrink-0">
+            Latched
           </span>
         ) : isArmed && !isPaused ? (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E6F4EA] border border-[#CEEAD6] text-[#137333] font-bold text-xs">
-            <span className="w-2 h-2 rounded-full bg-[#137333] animate-ping" />
-            Monitoring Vibration
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E6F4EA] border border-[#CEEAD6] text-[#137333] font-bold text-[10px] shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#137333] animate-ping" />
+            Active
           </span>
         ) : (
-          <span className="inline-flex items-center px-3 py-1 rounded-full bg-[#E7E0EC] text-[#49454F] font-bold text-xs">
-            Sensor Off
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#E7E0EC] text-[#49454F] font-bold text-[10px] shrink-0">
+            Off
           </span>
         )}
       </div>
 
-      {/* 2. Simplified Vibration Delta Metric Display */}
-      <div className="bg-[#F8FAFC] border border-[#E7E0EC] rounded-[20px] p-5 text-center space-y-3.5">
-        <span className="text-xs font-bold text-[#49454F] uppercase tracking-wider block">
-          Vibration Movement (Delta)
+      {/* 2. Compact Vibration Delta Display */}
+      <div className={`bg-[#F8FAFC] border border-[#E7E0EC] rounded-[16px] text-center ${isCompact ? 'p-2.5 space-y-1.5' : 'p-3.5 sm:p-4 space-y-2.5'}`}>
+        <span className="text-[10px] font-bold text-[#49454F] uppercase tracking-wider block">
+          Vibration Delta
         </span>
 
-        <div className="flex items-baseline justify-center gap-1.5">
+        <div className="flex items-baseline justify-center gap-1">
           <span
             id="motion-delta-value"
-            className={`text-5xl sm:text-6xl font-mono font-bold tracking-tight transition-colors ${
+            className={`font-mono font-bold tracking-tight transition-colors ${
+              isCompact ? 'text-2xl sm:text-3xl' : 'text-3xl sm:text-4xl'
+            } ${
               !isArmed || isPaused
                 ? 'text-slate-400'
                 : isRed
@@ -145,25 +149,20 @@ export const LiveMotionMeter: React.FC<LiveMotionMeterProps> = ({
           >
             {isArmed && !isPaused ? delta.toFixed(2) : '0.00'}
           </span>
-          <span className="text-sm font-bold text-[#49454F]">m/s²</span>
+          <span className="text-xs font-bold text-[#49454F]">m/s²</span>
         </div>
 
-        {/* Level Indicator Bar */}
-        <div className="space-y-1.5 pt-1">
-          <div className="w-full h-3 bg-[#E7E0EC] rounded-full overflow-hidden relative">
-            {/* Yellow Warning Line */}
+        {/* Compact Level Bar */}
+        <div className="space-y-1">
+          <div className="w-full h-2 bg-[#E7E0EC] rounded-full overflow-hidden relative">
             <div
               className="absolute top-0 bottom-0 w-0.5 bg-[#934D00] z-10"
               style={{ left: `${yellowMarkerPercent}%` }}
-              title={`Warning: ${yellowLimit} m/s²`}
             />
-            {/* Red Alarm Line */}
             <div
               className="absolute top-0 bottom-0 w-0.5 bg-[#BA1A1A] z-10"
               style={{ left: `${redMarkerPercent}%` }}
-              title={`Alarm: ${redLimit} m/s²`}
             />
-            {/* Level Fill */}
             <div
               className={`h-full rounded-full transition-all duration-100 ${
                 isRed
@@ -176,80 +175,53 @@ export const LiveMotionMeter: React.FC<LiveMotionMeterProps> = ({
             />
           </div>
 
-          <div className="flex justify-between text-[11px] font-bold text-[#49454F]">
-            <span className="text-[#1C1B1F]">0.0 (Still)</span>
-            <span className="text-[#934D00]">{yellowLimit.toFixed(1)} m/s² Warning</span>
-            <span className="text-[#BA1A1A]">{redLimit.toFixed(1)} m/s² Alarm</span>
+          <div className="flex justify-between text-[9px] font-bold text-[#49454F]">
+            <span>0.0</span>
+            <span className="text-[#934D00]">{yellowLimit.toFixed(1)} W</span>
+            <span className="text-[#BA1A1A]">{redLimit.toFixed(1)} A</span>
           </div>
         </div>
 
-        {/* Live Status Summary Banner */}
+        {/* Status text */}
         <div
-          className={`p-3 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-2 ${
+          className={`py-1 px-2 rounded-lg text-[10px] font-semibold transition-colors truncate ${
             isLatched
-              ? 'bg-[#FEF7E0] border border-[#FEEFC3] text-[#934D00]'
+              ? 'bg-[#FEF7E0] text-[#934D00]'
               : isRed
-              ? 'bg-[#FCE8E6] border border-[#FAD2CF] text-[#BA1A1A]'
+              ? 'bg-[#FCE8E6] text-[#BA1A1A]'
               : isYellow
-              ? 'bg-[#FEF7E0] border border-[#FEEFC3] text-[#934D00]'
+              ? 'bg-[#FEF7E0] text-[#934D00]'
               : isArmed && !isPaused
-              ? 'bg-[#E6F4EA] border border-[#CEEAD6] text-[#137333]'
+              ? 'bg-[#E6F4EA] text-[#137333]'
               : 'bg-slate-100 text-[#49454F]'
           }`}
         >
-          {isLatched ? (
-            <span>Flood alert sent and latched (1 alert per session). Turn sensor off and on to reset.</span>
-          ) : isRed ? (
-            <span>Flood vibration detected! Evacuate to designated safe high ground immediately.</span>
-          ) : isYellow ? (
-            <span>Elevated river vibration detected. Please stay alert.</span>
-          ) : isArmed && !isPaused ? (
-            <span>Still &mdash; Monitoring for flood vibration. No movement detected.</span>
-          ) : (
-            <span>Sensor is turned off. Tap &quot;Turn On Sensor Station&quot; to begin.</span>
-          )}
+          {isLatched
+            ? 'Alert sent & latched'
+            : isRed
+            ? 'Alarm: Flood Vibration!'
+            : isYellow
+            ? 'Warning: High Vibration'
+            : isArmed && !isPaused
+            ? 'Monitoring River Tremor'
+            : 'Sensor Off'}
         </div>
       </div>
 
-      {/* 3. Calibration & Test Controls */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-2 border-t border-[#E7E0EC]">
-        {/* Baseline Calibration */}
-        {onCalibrate && isArmed && (
-          <button
-            type="button"
-            id="btn-calibrate-motion"
-            onClick={handleCalibrateClick}
-            disabled={isCalibrating}
-            className="w-full sm:w-auto px-3.5 py-2 rounded-full bg-[#E0EFFF] hover:bg-[#D2E7FC] border border-[#C2E7FF] text-xs font-bold text-[#1F71E8] flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow-2xs"
-            title="Calibrate still rest position"
-          >
-            <RotateCcw className={`w-3.5 h-3.5 ${isCalibrating ? 'animate-spin' : ''}`} />
-            <span>{isCalibrating ? 'Calibrating...' : `Calibrate Zero (${baselineGravity.toFixed(1)} m/s²)`}</span>
-          </button>
-        )}
-
-        {/* Manual Test Buttons */}
-        {onSimulateTest && (
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            <button
-              type="button"
-              onClick={() => onSimulateTest('yellow')}
-              className="flex-1 sm:flex-none px-3.5 py-2 rounded-full bg-[#FEF7E0] hover:bg-[#FEEFC3] border border-[#FEEFC3] text-xs font-bold text-[#934D00] flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow-2xs"
-            >
-              <AlertTriangle className="w-3.5 h-3.5" />
-              <span>Test Warning</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onSimulateTest('red')}
-              className="flex-1 sm:flex-none px-3.5 py-2 rounded-full bg-[#FCE8E6] hover:bg-[#FAD2CF] border border-[#FAD2CF] text-xs font-bold text-[#BA1A1A] flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer shadow-2xs"
-            >
-              <AlertOctagon className="w-3.5 h-3.5" />
-              <span>Test Alarm</span>
-            </button>
-          </div>
-        )}
-      </div>
+      {/* 3. Calibrate Zero action (Compact) */}
+      {onCalibrate && isArmed && (
+        <button
+          type="button"
+          id="btn-calibrate-motion"
+          onClick={handleCalibrateClick}
+          disabled={isCalibrating}
+          className="w-full py-1.5 px-2 rounded-full bg-[#E0EFFF] hover:bg-[#D2E7FC] border border-[#C2E7FF] text-[11px] font-bold text-[#1F71E8] flex items-center justify-center gap-1 transition active:scale-95 cursor-pointer shadow-2xs"
+          title="Calibrate still rest position"
+        >
+          <RotateCcw className={`w-3 h-3 ${isCalibrating ? 'animate-spin' : ''}`} />
+          <span>{isCalibrating ? 'Calibrating...' : `Calibrate Zero (${baselineGravity.toFixed(1)})`}</span>
+        </button>
+      )}
     </div>
   );
 };

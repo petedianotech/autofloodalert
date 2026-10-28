@@ -225,7 +225,7 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
         </div>
 
         {/* Right Column: Live Sensor Readouts Meter */}
-        <div className="space-y-4">
+        <div className="w-full">
           {activeDetectionMode === 'sound' && (
             <LiveAcousticMeter
               soundData={soundData}
@@ -234,7 +234,6 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
               thresholdRedDb={config?.thresholdRedDb || 60}
               isArmed={isArmed}
               isPaused={isPaused}
-              onSimulateSoundTest={onSimulateSoundTest}
             />
           )}
 
@@ -249,13 +248,12 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
               isArmed={isArmed}
               isPaused={isPaused}
               baselineGravity={config?.baselineGravity || 9.81}
-              onSimulateTest={onSimulateTest}
               onCalibrate={onCalibrate}
             />
           )}
 
           {activeDetectionMode === 'both' && (
-            <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2 w-full">
               <LiveAcousticMeter
                 soundData={soundData}
                 acousticState={acousticState}
@@ -263,7 +261,7 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
                 thresholdRedDb={config?.thresholdRedDb || 60}
                 isArmed={isArmed}
                 isPaused={isPaused}
-                onSimulateSoundTest={onSimulateSoundTest}
+                isCompact={true}
               />
               <LiveMotionMeter
                 motion={motion}
@@ -275,7 +273,7 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
                 isArmed={isArmed}
                 isPaused={isPaused}
                 baselineGravity={config?.baselineGravity || 9.81}
-                onSimulateTest={onSimulateTest}
+                isCompact={true}
                 onCalibrate={onCalibrate}
               />
             </div>

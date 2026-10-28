@@ -60,7 +60,7 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
   onOpenSmsModal,
 }) => {
   const isAdmin = isAdminProp ?? isAppAdmin(currentUser);
-  const { t } = useTranslation(isAdmin);
+  const { t, isChichewa } = useTranslation(isAdmin);
   const [isSirenActive, setIsSirenActive] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'resolved'>('all');
   const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(new Set());
@@ -96,7 +96,7 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
   };
 
   /**
-   * Helper: Convert technical sensor titles or messages to simple plain English for residents.
+   * Helper: Convert technical sensor titles or messages to simple plain English or Chichewa.
    * Removes all raw sensor measurements (m/s², dB, vibration deltas, robotic text).
    * Communicates established severity status and practical instructions.
    */
@@ -105,24 +105,25 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
     const isYellow = alert.severity === 'yellow';
     const isResolved = alert.status === 'dismissed' || alert.status === 'resolved';
     const isUpdated = Boolean(alert.notes?.toLowerCase().includes('update') || alert.notes?.toLowerCase().includes('acknowledged'));
+    const isAcoustic = alert.source === 'acoustic_sound_sensor' || Boolean(alert.message?.toLowerCase().includes('bell') || alert.notes?.toLowerCase().includes('bell'));
 
     let displayTitle = alert.title || '';
     let displayMessage = alert.message || '';
 
-    // If title has raw technical phrasing, vibration, decibels or default hardware text, replace with plain English
+    // If title has raw technical phrasing, vibration, decibels or default hardware text, replace with plain English / Chichewa
     const hasTechTitle =
       !displayTitle ||
       /m\/s|m\/s²|m\/s\^2|dB|decibel|vibration|motor|bell|node|sensor|movement|axis/i.test(displayTitle);
 
-    if (hasTechTitle) {
+    if (hasTechTitle || isChichewa) {
       if (isResolved) {
-        displayTitle = 'MONITORING — River Clear';
+        displayTitle = isChichewa ? t.monitoringRiverClearTitle : 'MONITORING — River Clear';
       } else if (isRed) {
-        displayTitle = 'CRITICAL FLOOD WARNING — Move to Higher Ground Now';
+        displayTitle = isChichewa ? t.criticalFloodWarningTitle : 'CRITICAL FLOOD WARNING — Move to Higher Ground Now';
       } else if (isYellow) {
-        displayTitle = 'HIGH FLOOD RISK — Stay Alert';
+        displayTitle = isChichewa ? 'CHIOPSEZO CHA CHIGUMULA — Khalani Maso' : 'HIGH FLOOD RISK — Stay Alert';
       } else {
-        displayTitle = 'MONITORING — Stay Informed';
+        displayTitle = isChichewa ? "KUYANG'ANIRA — Khalani Maso" : 'MONITORING — Stay Informed';
       }
     }
 
@@ -131,36 +132,42 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
       !displayMessage ||
       /m\/s|m\/s²|m\/s\^2|dB|decibel|motor movement|vibration delta|baseline|gravity/i.test(displayMessage);
 
-    if (hasTechMessage) {
+    if (hasTechMessage || isChichewa) {
       if (isResolved) {
-        displayMessage = 'Water levels have receded. Normal monitoring in effect.';
+        displayMessage = isAcoustic
+          ? (isChichewa ? t.monitoringBellRingDesc : 'Emergency flood warning bell ringing near Dzenje Village. Prepare to move to high ground.')
+          : (isChichewa ? "Madzi osefukira atsika. Kuyang'anira kuli bwino." : 'Water levels have receded. Normal monitoring in effect.');
       } else if (isRed) {
-        displayMessage = 'Rapid river rise detected. Move your family and animals to designated safe high ground immediately.';
+        displayMessage = isChichewa
+          ? t.criticalFloodWarningDesc
+          : 'Rapid flood water detected near Dzenje Village. Move your family, children, and animals to designated safe high ground immediately.';
       } else if (isYellow) {
-        displayMessage = 'River water is rising fast. Stay alert, keep phones charged, and prepare to move to high ground.';
+        displayMessage = isAcoustic
+          ? (isChichewa ? t.monitoringBellRingDesc : 'Emergency flood warning bell ringing near Dzenje Village. Prepare to move to high ground.')
+          : (isChichewa ? 'Madzi a m’mtsinje wayamba kukwera mofulumira. Khalani maso ndi okonzeka kusamukira ku malo okwera.' : 'River water is rising fast. Stay alert, keep phones charged, and prepare to move to high ground.');
       } else {
-        displayMessage = 'River sensor is currently monitoring water levels. No action required.';
+        displayMessage = isChichewa ? "Makina akuyang'anira madzi m'mtsinje. Palibe chiopsezo." : 'River sensor is currently monitoring water levels. No action required.';
       }
     }
 
     // Determine clear, standardized severity & status labels
-    let stateLabel = 'Active Warning';
+    let stateLabel = isChichewa ? 'Chenjezo la Chigumula' : 'Active Warning';
     let stateBadgeClass = 'bg-red-50 text-red-800 border-red-200';
 
     if (isResolved) {
-      stateLabel = 'Resolved';
+      stateLabel = isChichewa ? t.resolved : 'Resolved';
       stateBadgeClass = 'bg-emerald-50 text-emerald-800 border-emerald-200';
     } else if (isUpdated) {
-      stateLabel = 'Updated';
+      stateLabel = isChichewa ? 'Zasinthidwa' : 'Updated';
       stateBadgeClass = 'bg-blue-50 text-blue-800 border-blue-200';
     } else if (isRed) {
-      stateLabel = 'Critical Warning';
+      stateLabel = isChichewa ? 'Chenjezo Lalikulu' : 'Critical Warning';
       stateBadgeClass = 'bg-red-100 text-red-900 border-red-300 font-bold';
     } else if (isYellow) {
-      stateLabel = 'High Flood Risk';
+      stateLabel = isChichewa ? 'Chiopsezo Chachikulu' : 'High Flood Risk';
       stateBadgeClass = 'bg-amber-50 text-amber-900 border-amber-200';
     } else {
-      stateLabel = 'Monitoring';
+      stateLabel = isChichewa ? "Kuyang'anira" : 'Monitoring';
       stateBadgeClass = 'bg-slate-100 text-slate-800 border-slate-200';
     }
 
@@ -256,7 +263,7 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
                     }
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>{isAdmin ? 'Clear Database (Admin)' : 'Clear My View'}</span>
+                    <span>{isAdmin ? (isChichewa ? 'Fafazani Zonse (Admin)' : 'Clear Database (Admin)') : t.clearMyView}</span>
                   </button>
                 )}
               </div>
@@ -307,11 +314,9 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
             {/* Local Clear Disclaimer: Explains that clearing view does not delete database records */}
             {!isAdmin && alerts.length > 0 && (
               <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600 leading-snug">
-                <strong>Notice:</strong> Clearing alerts removes them from your phone screen only. Official sensor records remain safely stored in the community database.
+                {t.clearNotice}
               </div>
             )}
-
-
 
             {/* Individual Alert Buttons Feed (Each alert displayed individually on its own button, never stacked) */}
             <div className="space-y-3 pt-1">
@@ -402,7 +407,9 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
                         <div className="flex items-center gap-1 font-semibold text-slate-800 truncate">
                           <MapPin className="w-3.5 h-3.5 text-red-500 shrink-0" />
                           <span className="truncate">
-                            {alert.riverName || alert.village || 'Ruo River Station'}
+                            {isChichewa && (alert.riverName?.toLowerCase().includes('ruo') || alert.notes?.toLowerCase().includes('ruo') || (!alert.riverName && !alert.village))
+                              ? t.ruoRiver
+                              : (alert.riverName || alert.village || (isChichewa ? t.ruoRiver : 'Ruo River'))}
                           </span>
                         </div>
 
@@ -437,7 +444,7 @@ export const ReceiverNodeView: React.FC<ReceiverNodeViewProps> = ({
                           className="py-1.5 px-3 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold transition flex items-center gap-1.5 ml-auto cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
-                          <span>{isAdmin ? 'Delete' : 'Dismiss'}</span>
+                          <span>{isAdmin ? (isChichewa ? 'Fafazani' : 'Delete') : t.dismissBtn}</span>
                         </button>
                       </div>
                     </div>

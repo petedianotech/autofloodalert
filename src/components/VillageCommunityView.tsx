@@ -728,7 +728,7 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
               }`}
             >
               <Home className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Safe Places ({activeVillageData.safeAreas.length})</span>
+              <span>{t.safePlaces} ({activeVillageData.safeAreas.length})</span>
             </button>
 
             <button
@@ -760,16 +760,16 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
             </button>
           </div>
 
-          {/* TAB 1: SAFE HIGH GROUND SHELTERS - IMPROVED CARD IN SIMPLE ENGLISH */}
+          {/* TAB 1: SAFE HIGH GROUND SHELTERS - IMPROVED CARD IN SIMPLE ENGLISH / CHICHEWA */}
           {activeTabSection === 'shelters' && (
             <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-3.5 shadow-xs">
               <div className="flex items-start justify-between pb-2 border-b border-slate-100 gap-2">
                 <div>
                   <h4 className="text-sm font-bold text-slate-900">
-                    Village Evacuation Centers & Safe Places
+                    {t.villageEvacCentersTitle}
                   </h4>
                   <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    Designated high ground and safe shelters for families during river floods.
+                    {t.villageEvacCentersDesc}
                   </p>
                 </div>
                 <span className="text-xs bg-emerald-50 text-emerald-700 font-bold px-2.5 py-0.5 rounded-full border border-emerald-200 shrink-0">
@@ -792,13 +792,13 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
                           {area.name === 'Dzenje CDSS Hall' && isChichewa ? t.dzenjeCdssHallName : area.name}
                         </h5>
                         <span className="text-xs text-emerald-700 font-medium block mt-0.5">
-                          Safe Evacuation Center
+                          {t.safeEvacuationCenter}
                         </span>
                       </div>
                     </div>
 
                     <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-600">
-                      <span className="font-medium">Capacity</span>
+                      <span className="font-medium">{t.capacityLabel}</span>
                       <span className="font-bold text-slate-900 bg-white px-2 py-0.5 rounded-md border border-slate-200">
                         {isChichewa
                           ? area.capacity.replace('About', t.aboutPeople).replace('people', '')
