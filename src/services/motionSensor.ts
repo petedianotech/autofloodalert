@@ -241,7 +241,7 @@ class MotionSensorService {
   }
 
   private handleDeviceMotion(event: DeviceMotionEvent) {
-    if (this.isPaused) return;
+    if (!this.isListening || this.isPaused) return;
 
     let x: number | null = null;
     let y: number | null = null;
@@ -270,7 +270,7 @@ class MotionSensorService {
     z: number,
     source: 'hardware_sensor' | 'manual_test' | 'simulated' = 'hardware_sensor'
   ) {
-    if (this.isPaused && source !== 'manual_test') {
+    if ((!this.isListening || this.isPaused) && source !== 'manual_test') {
       return;
     }
 

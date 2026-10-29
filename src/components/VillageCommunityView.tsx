@@ -351,22 +351,43 @@ export const VillageCommunityView: React.FC<VillageCommunityViewProps> = ({
               </div>
 
               {/* Village selector pill tabs in modal */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                {editableVillages.map((v) => (
-                  <button
-                    key={v.id}
-                    type="button"
-                    onClick={() => setEditingVillageId(v.id)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer shrink-0 ${
-                      editingVillageId === v.id
-                        ? 'bg-[#1F71E8] text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                    }`}
-                  >
-                    {v.name}
-                  </button>
-                ))}
-              </div>
+               {/* Village selector pill tabs and Add Village button in modal */}
+               <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 scrollbar-none">
+                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                   {editableVillages.map((v) => (
+                     <button
+                       key={v.id}
+                       type="button"
+                       onClick={() => setEditingVillageId(v.id)}
+                       className={`px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer shrink-0 ${
+                         editingVillageId === v.id
+                           ? 'bg-[#1F71E8] text-white shadow-xs'
+                           : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                       }`}
+                     >
+                       {v.name}
+                     </button>
+                   ))}
+                 </div>
+                 <button
+                   type="button"
+                   onClick={() => {
+                     const newId = `village_${Date.now()}`;
+                     const newVillage = {
+                       id: newId,
+                       name: 'New Village',
+                       safeAreas: [{ name: 'Community Safe Ground', capacity: 'About 200 people' }],
+                     };
+                     setEditableVillages((prev) => [...prev, newVillage]);
+                     setEditingVillageId(newId);
+                   }}
+                   className="px-3 py-1.5 rounded-full text-xs font-bold bg-blue-50 text-[#1F71E8] hover:bg-blue-100 border border-blue-200 flex items-center gap-1 shrink-0 cursor-pointer"
+                   title="Add another village"
+                 >
+                   <Plus className="w-3.5 h-3.5" />
+                   <span>Add Village</span>
+                 </button>
+               </div>
 
               {/* Editing Selected Village */}
               {editableVillages

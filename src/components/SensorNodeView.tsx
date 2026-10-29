@@ -51,7 +51,7 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
   sensorState,
   soundData,
   acousticState,
-  activeDetectionMode = 'bell',
+  activeDetectionMode = 'sound',
   onSelectDetectionMode,
   onTurnOnBothSensors,
   isArmed,
@@ -113,7 +113,15 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
                     isSensorOn ? 'bg-[#137333] animate-pulse' : 'bg-slate-400'
                   }`}
                 />
-                <span>{isSensorOn ? (isBoth ? 'Both Sensors Active' : 'Live (On)') : 'Sensor Off'}</span>
+                <span>
+                  {isSensorOn
+                    ? isBoth
+                      ? 'Both Sensors Active (Listening)'
+                      : activeDetectionMode === 'sound'
+                      ? 'Bell Sensor Active (Listening)'
+                      : 'Vibration Sensor Active (Listening)'
+                    : 'All Sensors Off'}
+                </span>
               </span>
             </div>
 
@@ -129,7 +137,11 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
                 Select Sensor Detection Mode
               </span>
               <span className="text-[11px] font-bold text-[#1F71E8] bg-[#E0EFFF] border border-[#C2E7FF] px-2.5 py-0.5 rounded-full">
-                {isBoth ? 'Both Sensors (Motion & Sound)' : activeSensorType === 'bell' ? 'Bell Sound Mode' : 'Vibration Sensor Mode'}
+                {isBoth
+                  ? 'Both Sensors Mode'
+                  : activeDetectionMode === 'sound'
+                  ? 'Bell Sensor Only'
+                  : 'Vibration Sensor Only'}
               </span>
             </div>
 
@@ -163,7 +175,7 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
 
               <button
                 type="button"
-                onClick={() => onSelectDetectionMode('both' as any)}
+                onClick={() => onSelectDetectionMode('both')}
                 className={`flex-1 py-2 px-2 rounded-full text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1 transition cursor-pointer ${
                   activeDetectionMode === 'both'
                     ? 'bg-[#1F71E8] text-white shadow-xs'
@@ -174,31 +186,7 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
               </button>
             </div>
 
-            {/* Dedicated "Turn On Both Sensors" Action Button */}
-            <button
-              type="button"
-              id="btn-turn-on-both-sensors"
-              onClick={() => {
-                if (isBoth && isSensorOn) {
-                  onToggleArm();
-                } else if (onTurnOnBothSensors) {
-                  onTurnOnBothSensors();
-                } else {
-                  onSelectDetectionMode('both');
-                  if (!isSensorOn) onToggleArm();
-                }
-              }}
-              className={`w-full py-2.5 px-4 rounded-full text-xs font-bold flex items-center justify-center gap-2 transition active:scale-98 cursor-pointer border ${
-                isBoth && isSensorOn
-                  ? 'bg-[#137333] hover:bg-[#0d5926] text-white border-[#137333] shadow-xs'
-                  : 'bg-[#E6F4EA] hover:bg-[#CEEAD6] text-[#137333] border-[#CEEAD6]'
-              }`}
-            >
-              <CheckCircle2 className="w-4 h-4 text-inherit" />
-              <span>{isBoth && isSensorOn ? 'Both Sensors Active (Tap to Turn Off)' : 'Turn On Both Sensors (Dual System)'}</span>
-            </button>
-
-            {/* Power Toggle Button */}
+            {/* Power Toggle Button with Clear, Dynamic Mode-Aware Label */}
             <button
               type="button"
               id="btn-power-toggle-sensor"
@@ -206,18 +194,38 @@ export const SensorNodeView: React.FC<SensorNodeViewProps> = ({
               className={`w-full py-3.5 px-4 rounded-full text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-xs transition active:scale-98 cursor-pointer ${
                 isSensorOn
                   ? 'bg-red-600 hover:bg-red-700 text-white'
+                  : isBoth
+                  ? 'bg-[#137333] hover:bg-emerald-700 text-white'
                   : 'bg-[#1F71E8] hover:bg-blue-700 text-white'
               }`}
             >
               {isSensorOn ? (
                 <>
                   <Square className="w-4 h-4 fill-current" />
-                  <span>Turn Off Sensor Station</span>
+                  <span>
+                    {isBoth
+                      ? 'Turn Off Both Sensors'
+                      : activeDetectionMode === 'sound'
+                      ? 'Turn Off Bell Sensor'
+                      : 'Turn Off Vibration Sensor'}
+                  </span>
                 </>
               ) : (
                 <>
-                  <Play className="w-4 h-4 fill-current" />
-                  <span>Turn On Sensor Station (Arm System)</span>
+                  {isBoth ? (
+                    <CheckCircle2 className="w-4 h-4" />
+                  ) : activeDetectionMode === 'sound' ? (
+                    <Bell className="w-4 h-4" />
+                  ) : (
+                    <Activity className="w-4 h-4" />
+                  )}
+                  <span>
+                    {isBoth
+                      ? 'Turn On Both Sensors (Dual System)'
+                      : activeDetectionMode === 'sound'
+                      ? 'Turn On Bell Sensor'
+                      : 'Turn On Vibration Sensor'}
+                  </span>
                 </>
               )}
             </button>

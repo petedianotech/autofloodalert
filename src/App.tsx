@@ -453,6 +453,11 @@ export default function App() {
       const isYellow = severity === 'yellow';
       const isAcoustic = source === 'acoustic_sound_sensor';
 
+      // Strict mode exclusivity guards:
+      if (!isArmed && source !== 'manual_test') return;
+      if (activeDetectionMode === 'sound' && source === 'hardware_sensor') return;
+      if (activeDetectionMode === 'motion' && source === 'acoustic_sound_sensor') return;
+
       let title = isYellow
         ? 'HIGH FLOOD RISK — Stay Alert'
         : 'CRITICAL FLOOD WARNING — Move to Higher Ground Now';
@@ -591,9 +596,30 @@ export default function App() {
       setConfig((prev) => ({ ...prev, activeDetectionMode: targetMode }));
     }
 
+    const modeToUse = targetMode || activeDetectionMode;
+
     setIsArmed((prev) => {
       const next = !prev;
       setIsPaused(false);
+      if (next) {
+        if (modeToUse === 'motion') {
+          acousticSensorService.stopListening();
+          motionSensorService.startListening();
+        } else if (modeToUse === 'sound') {
+          motionSensorService.stopListening();
+          acousticSensorService.startListening();
+        } else {
+          // both
+          motionSensorService.startListening();
+          acousticSensorService.startListening();
+        }
+        if (config.autoWakeLock) {
+          wakeLockService.request();
+        }
+      } else {
+        motionSensorService.stopListening();
+        acousticSensorService.stopListening();
+      }
       return next;
     });
   };
@@ -643,6 +669,9 @@ export default function App() {
         motionSensorService.startListening();
         acousticSensorService.startListening();
       }
+    } else {
+      motionSensorService.stopListening();
+      acousticSensorService.stopListening();
     }
   };
 
