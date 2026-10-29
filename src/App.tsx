@@ -38,6 +38,7 @@ import {
   AcousticData,
   AcousticSensorState,
   SensorDetectionMode,
+  normalizeDetectionMode,
   FloodAlert,
   FloodSeverity,
   SensorConfig,
@@ -64,7 +65,7 @@ const DEFAULT_CONFIG: SensorConfig = {
   thresholdYellowDb: 68,
   thresholdRedDb: 82,
   soundResonanceSensitivity: 1.2,
-  activeDetectionMode: 'motion',
+  activeDetectionMode: 'sound',
   continuousDurationSec: 0.1,
   sensorName: 'Basement Water Vibrator Node',
   nodeId: 'node-vibrator-' + Math.random().toString(36).substring(2, 6),
@@ -212,7 +213,11 @@ export default function App() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_SETTINGS);
       if (saved) {
-        return { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        if (parsed.activeDetectionMode) {
+          parsed.activeDetectionMode = normalizeDetectionMode(parsed.activeDetectionMode);
+        }
+        return { ...DEFAULT_CONFIG, ...parsed };
       }
     } catch {
       // ignore
@@ -220,9 +225,9 @@ export default function App() {
     return DEFAULT_CONFIG;
   });
 
-  // Detection Mode (Motion Vibration vs Sound & Resonance Sensor)
-  const [activeDetectionMode, setActiveDetectionMode] = useState<SensorDetectionMode>(
-    config.activeDetectionMode || 'motion'
+  // Detection Mode (Motion Vibration vs Sound & Resonance Sensor) - Defaults to Bell Sound
+  const [activeDetectionMode, setActiveDetectionMode] = useState<SensorDetectionMode>(() =>
+    normalizeDetectionMode(config.activeDetectionMode || 'sound')
   );
 
   // Hardware states: OFF by default as requested by user
@@ -452,11 +457,12 @@ export default function App() {
       const userVillage = authState.user?.village || 'Dzenje Village';
       const isYellow = severity === 'yellow';
       const isAcoustic = source === 'acoustic_sound_sensor';
+      const currentMode = normalizeDetectionMode(activeDetectionMode);
 
       // Strict mode exclusivity guards:
       if (!isArmed && source !== 'manual_test') return;
-      if (activeDetectionMode === 'sound' && source === 'hardware_sensor') return;
-      if (activeDetectionMode === 'motion' && source === 'acoustic_sound_sensor') return;
+      if (currentMode === 'sound' && source === 'hardware_sensor') return;
+      if (currentMode === 'motion' && source === 'acoustic_sound_sensor') return;
 
       let title = isYellow
         ? 'HIGH FLOOD RISK — Stay Alert'
@@ -591,12 +597,11 @@ export default function App() {
 
   // Toggle Arm Handler (Directly starts/stops listeners on user click)
   const handleToggleArm = (targetMode?: SensorDetectionMode) => {
+    const modeToUse = normalizeDetectionMode(targetMode || activeDetectionMode);
     if (targetMode) {
-      setActiveDetectionMode(targetMode);
-      setConfig((prev) => ({ ...prev, activeDetectionMode: targetMode }));
+      setActiveDetectionMode(modeToUse);
+      setConfig((prev) => ({ ...prev, activeDetectionMode: modeToUse }));
     }
-
-    const modeToUse = targetMode || activeDetectionMode;
 
     setIsArmed((prev) => {
       const next = !prev;
@@ -626,8 +631,9 @@ export default function App() {
 
   // Turn On Both Sensors directly
   const handleTurnOnBothSensors = () => {
-    setActiveDetectionMode('both');
-    setConfig((prev) => ({ ...prev, activeDetectionMode: 'both' }));
+    const target = 'both' as const;
+    setActiveDetectionMode(target);
+    setConfig((prev) => ({ ...prev, activeDetectionMode: target }));
     setIsPaused(false);
     setIsArmed(true);
     motionSensorService.startListening();
@@ -639,10 +645,11 @@ export default function App() {
 
   // Toggle Pause Handler (Routes to active sensor)
   const handleTogglePause = () => {
-    if (activeDetectionMode === 'motion') {
+    const currentMode = normalizeDetectionMode(activeDetectionMode);
+    if (currentMode === 'motion') {
       const nextPaused = motionSensorService.togglePause();
       setIsPaused(nextPaused);
-    } else if (activeDetectionMode === 'sound') {
+    } else if (currentMode === 'sound') {
       const nextPaused = acousticSensorService.togglePause();
       setIsPaused(nextPaused);
     } else {
@@ -654,14 +661,15 @@ export default function App() {
 
   // Switch Detection Mode (Motion Vibration vs Sound & Resonance vs Both)
   const handleSelectDetectionMode = (mode: SensorDetectionMode) => {
-    setActiveDetectionMode(mode);
-    setConfig((prev) => ({ ...prev, activeDetectionMode: mode }));
+    const cleanMode = normalizeDetectionMode(mode);
+    setActiveDetectionMode(cleanMode);
+    setConfig((prev) => ({ ...prev, activeDetectionMode: cleanMode }));
     setIsPaused(false);
     if (isArmed) {
-      if (mode === 'motion') {
+      if (cleanMode === 'motion') {
         acousticSensorService.stopListening();
         motionSensorService.startListening();
-      } else if (mode === 'sound') {
+      } else if (cleanMode === 'sound') {
         motionSensorService.stopListening();
         acousticSensorService.startListening();
       } else {

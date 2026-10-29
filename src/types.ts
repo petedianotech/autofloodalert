@@ -127,6 +127,16 @@ export interface FloodAlert {
 
 export type SensorDetectionMode = 'motion' | 'sound' | 'both';
 
+export const normalizeDetectionMode = (mode: unknown): SensorDetectionMode => {
+  if (typeof mode === 'string') {
+    const clean = mode.toLowerCase().trim();
+    if (clean === 'bell' || clean === 'sound' || clean === 'acoustic') return 'sound';
+    if (clean === 'vibration' || clean === 'motion') return 'motion';
+    if (clean === 'both' || clean === 'all') return 'both';
+  }
+  return 'sound'; // Bell sensor is default
+};
+
 export interface AcousticData {
   decibels: number; // Approximate SPL decibel level (30 - 110 dB)
   rms: number; // Root-mean-square amplitude (0.0 - 1.0)
