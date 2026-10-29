@@ -181,6 +181,13 @@ class MotionSensorService {
     });
   }
 
+  public resetAlertLatch() {
+    this.sessionAlertFired = false;
+    this.vibrationStartTime = null;
+    this.currentPeakDelta = 0;
+    this.notifyStateChange({ sessionAlertFired: false });
+  }
+
   public pause() {
     this.isPaused = true;
     this.sessionAlertFired = false;

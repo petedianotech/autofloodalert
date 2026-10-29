@@ -15,7 +15,7 @@
  * - Critical Flood Alert Modal Overlay with "HOLD TO DISMISS" safety control
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { TopBar } from './components/TopBar';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { MobileAuthModal } from './components/MobileAuthModal';
@@ -59,12 +59,12 @@ import { sirenService } from './services/audioSiren';
 import { NotificationService } from './services/notificationService';
 
 const DEFAULT_CONFIG: SensorConfig = {
-  thresholdDelta: 1.5,
-  thresholdYellow: 1.5,
-  thresholdRed: 2.5,
-  thresholdYellowDb: 68,
-  thresholdRedDb: 82,
-  soundResonanceSensitivity: 1.2,
+  thresholdDelta: 1.6,
+  thresholdYellow: 0.8,
+  thresholdRed: 1.6,
+  thresholdYellowDb: 50,
+  thresholdRedDb: 62,
+  soundResonanceSensitivity: 1.3,
   activeDetectionMode: 'sound',
   continuousDurationSec: 0.1,
   sensorName: 'Basement Water Vibrator Node',
@@ -234,6 +234,16 @@ export default function App() {
   const [isArmed, setIsArmed] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
 
+  // Synchronized refs to guarantee real-time access inside sensor trigger listeners
+  const isArmedRef = useRef(isArmed);
+  const activeDetectionModeRef = useRef(activeDetectionMode);
+  useEffect(() => {
+    isArmedRef.current = isArmed;
+  }, [isArmed]);
+  useEffect(() => {
+    activeDetectionModeRef.current = activeDetectionMode;
+  }, [activeDetectionMode]);
+
   // Motion Sensor State
   const [motion, setMotion] = useState<MotionData>(() => motionSensorService.getLatestMotion());
   const [sustainedDuration, setSustainedDuration] = useState<number>(0);
@@ -347,9 +357,14 @@ export default function App() {
       // ignore
     }
     motionSensorService.setConfig(
-      config.thresholdYellow ?? config.thresholdDelta,
-      config.thresholdRed ?? 2.5,
+      config.thresholdYellow ?? 0.8,
+      config.thresholdRed ?? 1.6,
       config.baselineGravity
+    );
+    acousticSensorService.setConfig(
+      config.thresholdYellowDb ?? 50,
+      config.thresholdRedDb ?? 62,
+      config.soundResonanceSensitivity ?? 1.3
     );
     sirenService.setVolume(config.sirenVolume);
   }, [config]);
@@ -454,15 +469,27 @@ export default function App() {
       durationSec: number = 0.1,
       source: 'hardware_sensor' | 'acoustic_sound_sensor' | 'manual_test' | 'simulated' = 'hardware_sensor'
     ) => {
-      const userVillage = authState.user?.village || 'Dzenje Village';
-      const isYellow = severity === 'yellow';
+      const currentArmed = isArmedRef.current;
+      const currentMode = normalizeDetectionMode(activeDetectionModeRef.current);
+      const isManual = source === 'manual_test' || source === 'simulated';
       const isAcoustic = source === 'acoustic_sound_sensor';
-      const currentMode = normalizeDetectionMode(activeDetectionMode);
 
       // Strict mode exclusivity guards:
-      if (!isArmed && source !== 'manual_test') return;
-      if (currentMode === 'sound' && source === 'hardware_sensor') return;
-      if (currentMode === 'motion' && source === 'acoustic_sound_sensor') return;
+      if (!currentArmed && !isManual) {
+        console.log('[FloodTrigger] Ignored: Sensor station not armed and not manual test.');
+        return;
+      }
+      if (currentMode === 'sound' && (source === 'hardware_sensor' || (source === 'simulated' && !isAcoustic))) {
+        console.log('[FloodTrigger] Ignored vibration event while in Bell sound mode.');
+        return;
+      }
+      if (currentMode === 'motion' && isAcoustic) {
+        console.log('[FloodTrigger] Ignored sound event while in Vibration motion mode.');
+        return;
+      }
+
+      const userVillage = authState.user?.village || 'Dzenje Village';
+      const isYellow = severity === 'yellow';
 
       let title = isYellow
         ? 'HIGH FLOOD RISK — Stay Alert'
@@ -480,7 +507,13 @@ export default function App() {
           : `Continuous emergency warning bell ringing near ${userVillage}! Evacuate to designated safe high ground immediately!`;
       }
 
-      await firebaseFloodService.recordFloodAlert({
+      console.log(`[FloodTrigger] 🚨 Flood Detected! Saving to Firestore and dispatching alerts...`, {
+        severity,
+        source,
+        peakValue,
+      });
+
+      const newAlert = await firebaseFloodService.recordFloodAlert({
         timestamp: Date.now(),
         formattedTime: new Date().toLocaleTimeString(),
         peakDelta: peakValue,
@@ -497,6 +530,25 @@ export default function App() {
           ? `Sound sensor: ${peakValue.toFixed(0)} dB bell warning (${severity.toUpperCase()})`
           : `Vibration sensor: ${peakValue.toFixed(1)} m/s² motor movement (${severity.toUpperCase()})`,
       });
+
+      // Immediately display Critical Alarm Modal on this device
+      setActiveAlert(newAlert);
+
+      // Trigger siren sound and haptics
+      sirenService.unlockAudio();
+      if (severity === 'yellow') {
+        sirenService.startWarningChime();
+      } else {
+        sirenService.startEmergencySiren();
+      }
+
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate([1000, 300, 1000, 300, 1000]);
+        } catch {
+          // ignore
+        }
+      }
     },
     [config.nodeId, config.sensorName, authState.user?.village]
   );
@@ -607,6 +659,8 @@ export default function App() {
       const next = !prev;
       setIsPaused(false);
       if (next) {
+        motionSensorService.resetAlertLatch();
+        acousticSensorService.resetAlertLatch();
         if (modeToUse === 'motion') {
           acousticSensorService.stopListening();
           motionSensorService.startListening();
@@ -636,6 +690,8 @@ export default function App() {
     setConfig((prev) => ({ ...prev, activeDetectionMode: target }));
     setIsPaused(false);
     setIsArmed(true);
+    motionSensorService.resetAlertLatch();
+    acousticSensorService.resetAlertLatch();
     motionSensorService.startListening();
     acousticSensorService.startListening();
     if (config.autoWakeLock) {
@@ -665,6 +721,8 @@ export default function App() {
     setActiveDetectionMode(cleanMode);
     setConfig((prev) => ({ ...prev, activeDetectionMode: cleanMode }));
     setIsPaused(false);
+    motionSensorService.resetAlertLatch();
+    acousticSensorService.resetAlertLatch();
     if (isArmed) {
       if (cleanMode === 'motion') {
         acousticSensorService.stopListening();
@@ -741,6 +799,8 @@ export default function App() {
 
   // Dismiss Active Alert from modal or log
   const handleDismissAlert = async (alertId: string) => {
+    motionSensorService.resetAlertLatch();
+    acousticSensorService.resetAlertLatch();
     const author = authState.user?.name ? `${authState.user.name} (${authState.user.village})` : `Node Operator (${config.nodeId})`;
     await firebaseFloodService.dismissAlert(alertId, author, isAdmin);
     if (activeAlert && activeAlert.id === alertId) {

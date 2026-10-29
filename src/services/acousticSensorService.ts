@@ -226,6 +226,13 @@ class AcousticSensorService {
     });
   }
 
+  public resetAlertLatch() {
+    this.sessionAlertFired = false;
+    this.soundStartTime = null;
+    this.currentPeakDb = 0;
+    this.notifyStateChange({ sessionAlertFired: false });
+  }
+
   public pause() {
     this.isPaused = true;
     this.sessionAlertFired = false;
@@ -563,7 +570,7 @@ class AcousticSensorService {
       this.callbacks.forEach((cb) => cb(this.latestData));
 
       if (tick === 3) {
-        this.notifyFloodTrigger(targetDb, severity, 0.6, 'simulated');
+        this.notifyFloodTrigger(targetDb, severity, 0.6, 'acoustic_sound_sensor');
       }
 
       if (tick >= durationTicks) {
